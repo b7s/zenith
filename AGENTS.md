@@ -1,0 +1,560 @@
+# AGENTS.md — Zenith
+
+> Operating contract for every contributor and AI agent working on **Zenith**.
+> Follow these rules exactly. When in doubt, match the existing pattern, not your own preference.
+
+---
+
+## 1. What is Zenith?
+
+Zenith is a **top bar for Windows 11** — a custom, always-available status bar that docks to
+the top edge of the screen. It is inspired visually by **Cooldock** (macOS) and structurally by
+**yasb** (Windows status bar).
+
+Core ideas:
+
+- **Stays on top and reserves space.** Zenith registers as a Windows **desktop AppBar**
+  (`SHAppBarMessage`), so the shell shrinks the work area. Maximized windows stop *below* the bar
+  and can never cover it — exactly like the native Taskbar.
+- **Native transparency.** The bar, Settings, and Widget Manager windows use Windows **Acrylic**
+  or **Mica** blur applied through the Win32 `SetWindowCompositionAttribute` accent API. The
+  windows are fully transparent; the OS paints the blur. **CSS must never paint a background on
+  these windows** — that would hide the native effect.
+- **Widget system.** Widgets are small, standalone apps (plain JS/CSS/HTML) living in `widgets/`.
+  Each has a `manifest.json`. Users toggle them on/off in the Widget Manager; their order and
+  position (left/center/right) are saved to config.
+- **Fully customizable visuals.** The Settings window (800×600) exposes the bar's material
+  (Acrylic/Mica/None), tint transparency, background (transparent/solid/gradient), per-color
+  transparency, corner rounding, edge margins, bar height, theme, and monitor selection. Changes
+  apply live. Power users may additionally drop a `%APPDATA%\zenith\custom.css` that is hot-reloaded.
+- **Right-click anywhere empty on the bar** → native context menu: **Settings · Widgets · Restart
+  Bar · Close Bar**.
+- **Custom chrome.** No window uses the Windows title bar. Every window has a custom header: bold
+  title on the left, `×` close on the right. The Widget Manager header also has a search input.
+- **Minimal footprint.** Goal is the lowest possible RAM and CPU. No heavy framework, no
+  per-window CSS backgrounds, compositor-friendly animations only.
+
+---
+
+## 2. Tech stack (use exactly these — latest stable)
+
+| Layer | Technology |
+|---|---|
+| Shell / backend | **Rust** (edition 2021) |
+| App framework | **Tauri 2** |
+| Windows interop | `windows` crate **0.61** (`Win32_UI_Shell` for AppBar, `Win32_Graphics_Dwm` for corners, `Win32_Graphics_Gdi` for monitors, `SetWindowCompositionAttribute` for Mica/Acrylic) |
+| Frontend | **plain TypeScript** (no React, no Vue) + **plain CSS** |
+| Icons | **Lucide** |
+| Design system | **shadcn design tokens** implemented in CSS (oklch on `:root`, `.dark`, `.light`) — *not* the React library |
+| Build / bundler | **Vite 5** |
+| Config format | JSON at `%APPDATA%\zenith\config.json` |
+
+> **No React.** shadcn's *look* is reproduced with design tokens + reusable `.zen-*` CSS classes
+> (see §6). This keeps bundle size and RAM minimal and matches the reference project (Plume).
+
+---
+
+## 3. Project structure (pragmatic hexagonal DDD)
+
+Code is organized by **bounded context (domain)**, not by technical layer. Each domain owns its
+model, pure service, and thin command adapter. Duplication is forbidden: a concern exists in
+exactly one place.
+
+```
+zenith/
+├── AGENTS.md                          # this file — the contract
+├── README.md
+├── package.json  tsconfig.json  vite.config.ts
+├── index.html                         # bar window
+├── settings.html                      # settings window (800×600)
+├── widgets.html                       # widget manager window
+├── src/
+│   ├── shared/                        # SHARED KERNEL (frontend)
+│   │   ├── ipc.ts                     # typed invoke() wrappers — single source of command names
+│   │   ├── events.ts                  # event-name constants + typed listeners
+│   │   ├── types.ts                   # DTO types mirroring Rust models
+│   │   └── config.ts                  # config client (typed load + safe getter)
+│   ├── domains/                       # frontend domain clients (config, appearance, widgets, …)
+│   ├── windows/                       # thin window shells: bar/  settings/  manager/
+│   └── styles/
+│       ├── tokens.css                 # shadcn tokens (oklch): --bg --card --border --primary …
+│       ├── base.css                   # reset, theme switch, scrollbars
+│       ├── components.css             # .zen-* reusable component classes (see §6)
+│       └── globals.css                # @import the three above; per-window CSS imports this
+├── widgets/                           # standalone JS/CSS/HTML widgets
+│   └── <name>/{manifest.json, widget.html, widget.js, widget.css}
+└── src-tauri/
+    ├── Cargo.toml  tauri.conf.json  build.rs
+    ├── capabilities/{default,settings,widgets}.json   # per-window permissions
+    └── src/
+        ├── main.rs
+        ├── lib.rs                     # composition root: plugins, commands, windows
+        ├── shared/mod.rs              # SHARED KERNEL (backend): AppError, event consts, traits
+        ├── config/                    # domain: configuration aggregate
+        │   ├── model.rs               #   Config + sub-structs, #[serde(default)] everywhere
+        │   ├── repository.rs          #   file load/save + safe-fallback getter
+        │   └── commands.rs            #   thin #[tauri::command] adapters
+        ├── window/                    # domain: window lifecycle
+        │   ├── appbar.rs              #   SHAppBarMessage work-area reservation
+        │   ├── transparency.rs        #   Mica/Acrylic — ONE implementation
+        │   ├── monitor.rs             #   EnumDisplayMonitors
+        │   └── commands.rs
+        ├── appearance/                # domain: material/background/theme
+        ├── widgets/                   # domain: widget registry (scan manifests) + positions
+        ├── workspace/                 # domain: virtual-desktop COM (IVirtualDesktopManagerInternal)
+        ├── motion/                    # domain: animation backend selection
+        ├── gpu/                       # domain: GPU capability detect (cpu/vulkan/cuda/hip)
+        ├── menu/                      # domain: native Win32 context menu
+        └── dialog/                    # domain: OS dialogs (ChooseColor native color picker)
+```
+
+### DDD rules (read this before writing code)
+
+1. **One concern, one place.** Transparency logic lives only in `window/transparency.rs`. AppBar
+   only in `window/appbar.rs`. Never copy logic into a command or another domain.
+2. **Pure services.** Domain services are plain Rust functions/structs with **no `tauri::` types**
+   in their signatures. They take data in, return data out, and are unit-testable.
+3. **Thin command adapters.** `#[tauri::command]` functions in `commands.rs` only: (a) receive
+   `AppHandle`/args, (b) call a pure service, (c) emit an event if needed, (d) return the result.
+   No business logic in commands.
+4. **Cross-domain via shared kernel / events.** Domains do not reach into each other's internals.
+   They emit/listen on event names defined once in `shared/` (`zenith:config-updated`,
+   `zenith:appearance-changed`, etc.).
+5. **Single source of truth.** Command names live only in `shared/ipc.ts`. Event names only in
+   `shared/events.ts` (TS) and `shared/mod.rs` (Rust). DTO types defined once and mirrored.
+6. **Config is the only mutable global state**, and it is always accessed through the `config`
+   domain's `load()`/`save()` (see §5).
+
+---
+
+## 4. Configuration contract
+
+- **Location:** `%APPDATA%\zenith\config.json` (i.e. `C:\Users\<user>\AppData\Roaming\zenith\`).
+- **Format:** JSON. Unknown keys are tolerated (forward-compatible). Missing keys fall back to
+  defaults. A corrupt file never crashes the app — it falls back to defaults.
+- **No direct file reads outside the `config` domain.** All other domains call `config::load()`.
+
+### Schema (top level)
+
+```jsonc
+{
+  "appearance": {
+    "material": "acrylic",              // "acrylic" | "mica" | "none"  (global toggle)
+    "tint_alpha": 60,                   // 0..255 → accent gradient_color alpha (AABBGGRR)
+    "background": {
+      "mode": "transparent",            // "transparent" | "solid" | "gradient"
+      "color_top": "#1a1a1a",
+      "color_bottom": "#1a1a1a",
+      "gradient_direction": "to_bottom",// "to_bottom" | "to_top"
+      "alpha_top": 100,                 // 0..100
+      "alpha_bottom": 100               // 0..100
+    },
+    "corner_radius": 8,                 // px
+    "margin_top": 0, "margin_left": 0, "margin_right": 0,
+    "bar_height": 40,                   // px
+    "theme": "auto"                     // "auto" | "dark" | "light"
+  },
+  "monitors": "all",                    // "all" | ["<display_id>", ...]
+  "layout": { "position": "top" },      // "top" (designed to extend to other edges later)
+  "widgets": {
+    "enabled": ["clock", "workspace", "volume", "battery"],   // order == left-to-right per zone
+    "positions": { "clock": "left", "workspace": "left",
+                   "volume": "right", "battery": "right" }    // "left" | "center" | "right"
+  },
+  "motion": { "backend": "auto", "reduced_motion": false },   // "auto" | "gpu" | "cpu"
+  "css": { "custom_enabled": true }     // inject %APPDATA%\zenith\custom.css into the bar
+}
+```
+
+---
+
+## 5. How to read config — the safe getter (most important pattern)
+
+**Goal:** any code can ask for config and *always* get a usable value — if the file is missing,
+empty, or malformed, you get `Config::default()` (or a field default), never a panic or `unwrap`
+failure.
+
+This is achieved with three layers:
+
+### Layer A — `#[serde(default)]` on EVERY field
+
+Every struct field carries `#[serde(default)]` (or `#[serde(default = "fn")]` for non-empty
+defaults). serde then fills any missing key with its default, so a partial/old config file always
+deserializes.
+
+### Layer B — a `Default` impl for every config struct
+
+The aggregate (`Config`) and every sub-struct implement `Default`. This is the full fallback when
+the file is absent or unparseable.
+
+### Layer C — `load()` never errors
+
+`config::load() -> Config` swallows all failures (missing file, IO error, invalid JSON) and returns
+`Config::default()`, logging the reason. **Callers never handle `Result`.**
+
+### Reference implementation (Rust) — `src-tauri/src/config/`
+
+`model.rs` (excerpt):
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Config {
+    #[serde(default)]
+    pub appearance: AppearanceConfig,
+    #[serde(default = "default_monitors")]
+    pub monitors: MonitorsSelection,
+    #[serde(default)]
+    pub layout: LayoutConfig,
+    #[serde(default)]
+    pub widgets: WidgetsConfig,
+    #[serde(default)]
+    pub motion: MotionConfig,
+    #[serde(default)]
+    pub css: CssConfig,
+}
+
+fn default_monitors() -> MonitorsSelection { MonitorsSelection::All }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MonitorsSelection { All, Only(Vec<String>) }
+impl Default for MonitorsSelection { fn default() -> Self { MonitorsSelection::All } }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppearanceConfig {
+    #[serde(default = "default_material")]   pub material: String,        // "acrylic"
+    #[serde(default = "default_tint_alpha")] pub tint_alpha: u8,          // 60
+    #[serde(default)]                        pub background: BackgroundConfig,
+    #[serde(default = "default_corner_radius")] pub corner_radius: u32,   // 8
+    #[serde(default)]                        pub margin_top: i32,
+    #[serde(default)]                        pub margin_left: i32,
+    #[serde(default)]                        pub margin_right: i32,
+    #[serde(default = "default_bar_height")] pub bar_height: u32,         // 40
+    #[serde(default = "default_theme")]      pub theme: String,           // "auto"
+}
+impl Default for AppearanceConfig {
+    fn default() -> Self {
+        Self {
+            material: "acrylic".into(), tint_alpha: 60, background: Default::default(),
+            corner_radius: 8, margin_top: 0, margin_left: 0, margin_right: 0,
+            bar_height: 40, theme: "auto".into(),
+        }
+    }
+}
+fn default_material() -> String { "acrylic".into() }
+fn default_tint_alpha() -> u8 { 60 }
+fn default_corner_radius() -> u32 { 8 }
+fn default_bar_height() -> u32 { 40 }
+fn default_theme() -> String { "auto".into() }
+
+// … BackgroundConfig, LayoutConfig, WidgetsConfig, MotionConfig, CssConfig follow the same pattern.
+```
+
+`repository.rs` (the getter — this is the function you call):
+
+```rust
+use std::path::PathBuf;
+use std::fs;
+use crate::config::model::Config;
+
+/// Resolve `%APPDATA%\zenith\config.json`. Falls back to a temp dir if APPDATA is unset.
+pub fn config_path() -> PathBuf {
+    let base = std::env::var("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| std::env::temp_dir());
+    base.join("zenith").join("config.json")
+}
+
+/// **THE getter.** Always returns a usable Config.
+///
+/// - File missing        → Config::default()
+/// - File unreadable     → Config::default()  (logs the IO error)
+/// - File invalid JSON   → Config::default()  (logs the parse error)
+/// - File valid          → parsed Config (missing keys filled by serde defaults)
+///
+/// Never panics. Never returns Result. Call this everywhere.
+pub fn load() -> Config {
+    match try_load() {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("[zenith] config load failed ({e}); using defaults");
+            Config::default()
+        }
+    }
+}
+
+fn try_load() -> Result<Config, String> {
+    let path = config_path();
+    if !path.exists() {
+        return Ok(Config::default());                 // missing → defaults, not an error
+    }
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| format!("read {}: {e}", path.display()))?;
+    let cfg: Config = serde_json::from_str(&raw)
+        .map_err(|e| format!("parse {}: {e}", path.display()))?;
+    Ok(cfg)
+}
+
+/// Read ONE field by JSON pointer path with a caller-supplied fallback.
+/// Example: `config::get_or("/appearance/bar_height", 40)`
+pub fn get_or<T>(pointer: &str, fallback: T) -> T
+where
+    T: for<'de> serde::Deserialize<'de>,
+{
+    let cfg = load();                                 // full safe load
+    let raw = serde_json::to_value(&cfg).unwrap_or(serde_json::Value::Null);
+    match raw.pointer(pointer) {
+        Some(v) => serde_json::from_value(v.clone()).unwrap_or(fallback),
+        None => fallback,
+    }
+}
+
+/// Persist config atomically (write to .tmp then rename).
+pub fn save(cfg: &Config) -> Result<(), String> {
+    let path = config_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
+    }
+    let json = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, json).map_err(|e| format!("write {}: {e}", tmp.display()))?;
+    fs::rename(&tmp, &path).map_err(|e| format!("rename → {}: {e}", path.display()))?;
+    Ok(())
+}
+```
+
+`commands.rs` (thin Tauri adapters — call the pure service, never hold logic):
+
+```rust
+use tauri::{AppHandle, Emitter};
+use crate::config::{model::Config, repository};
+
+#[tauri::command]
+pub fn get_config() -> Config { repository::load() }   // never fails for the frontend
+
+#[tauri::command]
+pub fn save_config(app: AppHandle, config: Config) -> Result<bool, String> {
+    repository::save(&config)?;
+    app.emit(crate::shared::EVENT_CONFIG_UPDATED, &config).ok();
+    Ok(true)
+}
+```
+
+### How to USE it — from anywhere in Rust
+
+```rust
+// Whole config (preferred — cheap, safe, single source):
+let cfg = zenith::config::load();
+let material = cfg.appearance.material;        // always a real String, never None
+let height = cfg.appearance.bar_height;        // always a real u32
+
+// Or one value with explicit fallback:
+let h = zenith::config::get_or("/appearance/bar_height", 40);
+```
+
+### How to USE it — from TypeScript
+
+`src/shared/config.ts`:
+
+```ts
+import { invoke } from "@tauri-apps/api/core";
+import type { Config } from "./types";
+
+/** Load the full config. Always resolves (backend never errors). */
+export async function loadConfig(): Promise<Config> {
+  return invoke<Config>("get_config");
+}
+
+/** Read a single nested value with a fallback (use sparingly — prefer loadConfig). */
+export async function getConfigValue<T>(pointer: string, fallback: T): Promise<T> {
+  // backend exposes get_or; see commands. For simple cases, loadConfig() + walk the object.
+  const cfg = await loadConfig();
+  const parts = pointer.split("/").filter(Boolean);
+  let cur: unknown = cfg;
+  for (const p of parts) {
+    if (cur && typeof cur === "object" && p in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[p];
+    } else {
+      return fallback;
+    }
+  }
+  return (cur as T) ?? fallback;
+}
+
+export async function saveConfig(config: Config): Promise<void> {
+  await invoke("save_config", { config });
+}
+```
+
+> **Rule:** frontend code must go through `shared/config.ts`, never call `invoke("get_config")`
+> directly. Command names are centralized in `shared/ipc.ts`.
+
+---
+
+## 6. CSS contract — the `.zen-*` component library (follow exactly)
+
+All controls are built once in `src/styles/components.css` from the tokens in `tokens.css`.
+**Never inline-style a control. Never invent a new field style.** Compose from these classes; if a
+genuinely new primitive is needed, add it to `components.css` once.
+
+Tokens (`tokens.css`, shadcn oklch on `:root`, overridden under `.dark`/`.light`):
+`--bg --card --card-foreground --border --input --ring --primary --primary-foreground
+--muted --muted-foreground --accent --radius --shadow`.
+
+Reusable classes:
+
+| Class | Purpose |
+|---|---|
+| `.zen-field` | wrapper: label + control + hint |
+| `.zen-label` / `.zen-hint` | field text / muted helper |
+| `.zen-input` / `.zen-textarea` | text fields |
+| `.zen-select` + `.zen-select-wrapper` | styled native select |
+| `.zen-slider` (+ `__track __range __thumb`) | range slider |
+| `.zen-switch` | toggle switch |
+| `.zen-checkbox` | checkbox |
+| `.zen-radio-group` + `.zen-radio-card` | card-style radio group (shadcn radio-cards) |
+| `.zen-tabs` + `.zen-tab` (`.is-active`) | tabs |
+| `.zen-color-field` | swatch + hex (launches native Windows color picker) |
+| `.zen-button` (`.is-primary .is-outline .is-ghost .is-destructive`, sizes `.is-sm .is-lg`) | buttons |
+| `.zen-card` (+ `__header __title __content __footer`) | cards |
+| `.zen-section` / `.zen-divider` | layout grouping |
+
+Example (Settings field — correct):
+```html
+<div class="zen-field">
+  <label class="zen-label" for="bar-height">Bar height</label>
+  <input id="bar-height" class="zen-slider" type="range" min="28" max="72" />
+  <p class="zen-hint">Pixels. Default 40.</p>
+</div>
+```
+**Wrong** (do not do this): `<input style="appearance:none;background:#fff;border-radius:6px;...">`
+
+---
+
+## 6.1 Icon system (Lucide + Windows font fallback)
+
+All icons flow through **one** module: `src/shared/icon.ts`.
+
+- **Render:** either declarative `<i data-icon="battery" data-size="16"></i>` then `applyIcons(root)`,
+  or programmatic `setIcon(el, "battery", { size: 16 })`.
+- **Only icons in use are bundled.** `icon.ts` imports a small named set from `lucide` (app chrome +
+  shipped widgets). This is tree-shaken — **never** `import { icons } from 'lucide'` (pulls all
+  3000+ into memory). A new widget that needs an extra icon adds a named import to the registry, or
+  calls `registerIcons({ name: node })` at runtime. (Per Lucide's own guidance:
+  <https://lucide.dev/guide/installation> — "Recommended way, to include only the icons you need.")
+- **Resolution order:** static registry → alias map → **Windows font fallback** using the glyph map
+  in `src/shared/win-icons.ts`, rendered with the Segoe Fluent Icons → Segoe MDL2 Assets → Segoe UI
+  Symbol font stack (in `src/styles/icons.css`). An unknown name always renders *something* (a
+  placeholder square), never a blank.
+- **Size** is honored for both SVG (`width`/`height`) and font glyphs (`font-size`). Default 16 px;
+  pass `{ size }` or `data-size`.
+- **Do not** deep-import `lucide/dist/esm/icons/<name>.js` at runtime. Those files are not shipped to
+  `dist/`, so such imports 404 and silently fall back to the Windows glyph. Resolution must go
+  through the registry / `registerIcons` so it stays tree-shaken and reliable.
+
+---
+
+## 7. Transparency contract (Windows Acrylic/Mica)
+
+- Bar, Settings, and Widget Manager windows are `transparent: true, decorations: false`.
+- Material is applied via `SetWindowCompositionAttribute` (`ACCENT_ENABLE_ACRYLICBLURBEHIND`,
+  state 4) with a tint `gradient_color` of the form `AABBGGRR`. This is the **single**
+  implementation, in `window/transparency.rs` (mirrors Plume's `apply_window_effects`).
+- **No CSS `background` on these three windows' root elements.** The OS paints the blur; CSS only
+  colors *content*. Optional solid/gradient background chosen in Settings is applied by toggling
+  the Win32 accent to a solid tint or a thin content layer — never by CSS on the transparent root.
+- The material toggle is **global** (Acrylic / Mica / None applies to all three windows). `"none"`
+  → `ACCENT_DISABLED` (state 0).
+
+---
+
+## 8. Animation / motion contract (GPU + CPU fallback)
+
+- "GPU" here means the **WebView2 compositor**. Animate **only** `transform`, `opacity`, and
+  `filter` (these are composited on GPU for free). Add `will-change` only while animating, then
+  remove it.
+- **Avoid** animating `width/height/top/left/margin/box-shadow` (force layout / CPU).
+- A `motion` domain reads `config.motion.backend` (`auto | gpu | cpu`) and `reduced_motion`. On
+  `cpu` or `prefers-reduced-motion`, the app swaps to software easing / shorter transitions.
+- `gpu/` detects capability (`cpu`, `vulkan` via `vulkan-1.dll`, `cuda` via `nvcuda.dll`, `hip`)
+  only to *describe* the system and inform `auto` — **Zenith does not bundle CUDA/Vulkan binaries**
+  (they would bloat RAM/CPU, contradicting the minimal-footprint goal).
+
+---
+
+## 9. Widget contract
+
+- Location: `widgets/<name>/{manifest.json, widget.html, widget.js, widget.css}` — plain
+  JS/CSS/HTML, no framework.
+- `manifest.json` fields: `name`, `id`, `version`, `description`, `default_zone` (`left|center|right`),
+  `icon` (Lucide name), `min_width`, `preview` (thumbnail asset).
+- Discovery: the `widgets` domain scans `widgets/` at startup and on demand; the manager lists them
+  with thumbnails. **Green ✓ icon = add**, **red − icon = remove** (per spec).
+- Order in `config.widgets.enabled` == left-to-right order within each zone.
+- **`workspace` widget special rule:** shows one circle per virtual desktop; active desktop is a
+  filled/colored circle, others outlined. Click to switch. **If there is only one virtual desktop,
+  the bar layout layer hides the widget automatically — even if the user enabled it.** Enumeration
+  uses the undocumented `IVirtualDesktopManagerInternal` COM (only way on Windows).
+
+---
+
+## 10. Window, base HTML & permissions contract
+
+- **Shared base HTML.** All three windows (`index.html`, `settings.html`, `widgets.html`) use the
+  identical skeleton — `<html data-theme="…">` → `<body data-window="bar|settings|widgets">` →
+  `<div id="root">` → a single entry `main.ts`. **No window chrome is duplicated in HTML.** Each
+  `main.ts` imports `src/styles/globals.css` once (the `@import` chain: tokens → base → components
+  → icons → window).
+- **`src/shared/window.ts` is the single source of the custom header.** `mountWindow({ title,
+  searchable })` builds the bold title (left) + optional search input + `×` close (right), makes the
+  header a `data-tauri-drag-region` (inputs/buttons are drag-exempt automatically), wires close to
+  `getCurrentWindow().close()`, and bootstraps theme + icons. It returns `{ root, content, search }`
+  so the window fills `content` and (for the manager) wires `search`.
+- **Theme.** `applyTheme()` resolves `appearance.theme` (`auto|dark|light`) and sets `data-theme`;
+  `watchSystemTheme()` keeps `auto` in sync with the OS. The bar window has no header (it *is* the
+  bar), so it calls only `applyTheme()` + `applyIcons()` and builds its own strip.
+- All windows: `decorations: false`, custom header via `mountWindow` (bold title left, `×` right;
+  manager adds a search input).
+- One `capabilities/*.json` per window label (`default`=bar, `settings`, `widgets`). Never grant a
+  permission globally that only one window needs. Close requires `core:window:allow-close`.
+- Bar window: `alwaysOnTop: false` (the AppBar owns its band), `skipTaskbar: true`, `resizable: false`.
+- Settings: 800×600, resizable. Widgets manager: resizable.
+- Windows are created from `lib.rs` (composition root) or via
+  `core:webview:allow-create-webview-window`.
+
+---
+
+## 11. Conventions
+
+- **Rust:** edition 2021, `unwrap()`/`expect()` only in tests or after a proven invariant; prefer
+  `?` with `String` error messages or `shared::AppError`. No `unsafe` outside `window/`,
+  `workspace/`, and `gpu/`, and always with a safety comment.
+- **TypeScript:** strict mode; no `any` in new code (use `unknown` + narrow). Import types with
+  `import type`.
+- **CSS:** tokens → components → window CSS. No inline styles. No `!important` unless overriding a
+  third-party (rare).
+- **Comments:** do **not** add comments unless asked. Code must be self-explanatory; the contract
+  lives in this file.
+- **Commits:** match the repo's existing style; never commit secrets or the `target/` and `dist/`
+  build artifacts.
+- **Testing:** pure domain services are unit-tested with `#[cfg(test)]` modules. The `config`
+  domain must have tests proving: missing file → defaults, malformed JSON → defaults, partial file
+  → defaults-with-overrides.
+
+---
+
+## 12. Reference: Plume patterns Zenith reuses
+
+Zenith deliberately mirrors the **Plume** codebase (sibling project). When implementing a Windows
+interop feature, check Plume first:
+
+- Mica/Acrylic accent → Plume `lib.rs::apply_window_effects` (`SetWindowCompositionAttribute`).
+- Rounded corners → Plume `lib.rs::force_window_corners_round` (`DwmSetWindowAttribute`).
+- Dark/light detection → Plume `lib.rs::is_dark_mode` (registry `AppsUseLightTheme`) + poll loop.
+- GPU detect + CPU fallback → Plume `gpu/mod.rs` (`LoadLibraryW`/`GetProcAddress`).
+- Config with `#[serde(default)]` → Plume `config/mod.rs` (merge-on-save preserves unknown keys).
+
+Re-implement in Zenith's domain structure — do not copy verbatim if the shape differs, but keep
+the proven Win32 calls and fallback discipline.

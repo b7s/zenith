@@ -1,0 +1,25 @@
+.zen-icon {
+  --zen-icon-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--zen-icon-size);
+  height: var(--zen-icon-size);
+  line-height: 1;
+  color: currentColor;
+  contain: strict;
+}
+
+.zen-icon > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+}
+
+.zen-icon--font {
+  font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol", sans-serif;
+  font-size: var(--zen-icon-size);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}

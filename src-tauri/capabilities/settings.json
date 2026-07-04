@@ -1,0 +1,13 @@
+{
+  "identifier": "settings",
+  "description": "Capability for the Zenith settings window",
+  "windows": ["settings"],
+  "webviews": ["settings"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:event:default",
+    "core:event:allow-listen"
+  ]
+}

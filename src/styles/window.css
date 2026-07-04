@@ -1,0 +1,46 @@
+.zen-window {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.zen-window__header {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  height: 2.75rem;
+  padding: 0 0.5rem 0 0.875rem;
+  flex: 0 0 auto;
+  user-select: none;
+  /* Draggable region: the header moves the frameless window. Interactive
+     children opt out via [data-no-drag]. */
+}
+
+.zen-window__title {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zen-window__search {
+  width: min(16rem, 40vw);
+  height: 2rem;
+}
+
+.zen-window__spacer {
+  flex: 1 1 auto;
+}
+
+.zen-window__close {
+  flex: 0 0 auto;
+}
+
+.zen-window__content {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 1rem 1.125rem;
+}

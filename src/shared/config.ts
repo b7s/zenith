@@ -1,0 +1,74 @@
+import { invoke } from "@tauri-apps/api/core";
+
+import { CMD } from "./ipc";
+import type { Config } from "./types";
+
+export const DEFAULT_CONFIG: Config = {
+  appearance: {
+    material: "acrylic",
+    tint_alpha: 60,
+    background: {
+      mode: "transparent",
+      color_top: "#1a1a1a",
+      color_bottom: "#1a1a1a",
+      gradient_direction: "to_bottom",
+      alpha_top: 100,
+      alpha_bottom: 100,
+    },
+    corner_radius: 8,
+    margin_top: 0,
+    margin_left: 0,
+    margin_right: 0,
+    bar_height: 40,
+    theme: "auto",
+  },
+  monitors: "all",
+  layout: { position: "top" },
+  widgets: { enabled: [], positions: {} },
+  motion: { backend: "auto", reduced_motion: false },
+  css: { custom_enabled: true },
+};
+
+let cache: Config | null = null;
+
+/**
+ * Load the full config. Always resolves to a usable Config:
+ * - backend never errors (get_config returns Config::default on any failure)
+ * - if the Tauri bridge itself rejects, the TS DEFAULT_CONFIG is returned
+ * Results are cached; pass { force: true } to bypass the cache.
+ */
+export async function loadConfig(opts?: { force?: boolean }): Promise<Config> {
+  if (cache && !opts?.force) return cache;
+  try {
+    const cfg = await invoke<Config>(CMD.getConfig);
+    cache = cfg ?? DEFAULT_CONFIG;
+  } catch (e) {
+    console.error("[zenith] loadConfig failed; using defaults", e);
+    cache = DEFAULT_CONFIG;
+  }
+  return cache;
+}
+
+/**
+ * Read a single nested value by slash pointer with a fallback.
+ * Example: getConfigValue("/appearance/bar_height", 40)
+ */
+export async function getConfigValue<T>(pointer: string, fallback: T): Promise<T> {
+  const cfg = await loadConfig();
+  const parts = pointer.split("/").filter(Boolean);
+  let cur: unknown = cfg;
+  for (const p of parts) {
+    if (cur && typeof cur === "object" && p in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[p];
+    } else {
+      return fallback;
+    }
+  }
+  return (cur as T) ?? fallback;
+}
+
+/** Persist config and clear the cache so the next loadConfig() reflects the change. */
+export async function saveConfig(config: Config): Promise<void> {
+  await invoke(CMD.saveConfig, { config });
+  cache = config;
+}

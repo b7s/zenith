@@ -1,0 +1,13 @@
+{
+  "identifier": "widgets",
+  "description": "Capability for the Zenith widget manager window",
+  "windows": ["widgets"],
+  "webviews": ["widgets"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:event:default",
+    "core:event:allow-listen"
+  ]
+}

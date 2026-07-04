@@ -1,0 +1,22 @@
+{
+  "identifier": "default",
+  "description": "Capability for the Zenith bar window",
+  "windows": ["bar"],
+  "webviews": ["bar"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-effects",
+    "core:window:allow-is-visible",
+    "core:webview:allow-create-webview-window",
+    "core:event:default",
+    "core:event:allow-listen"
+  ]
+}

@@ -5,7 +5,7 @@
   "identifier": "com.zenith.bar",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:1422",
     "frontendDist": "../dist",
     "beforeBuildCommand": "npm run build"
   },
@@ -31,7 +31,7 @@
         "focus": false,
         "focusable": false,
         "hiddenTitle": true,
-        "visible": true,
+        "visible": false,
         "center": false
       }
     ],

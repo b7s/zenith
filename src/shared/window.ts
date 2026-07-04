@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { applyIcons } from "./icon";
 import { loadConfig } from "./config";
+import { logInfo } from "./log";
 
 export function isSystemDark(): boolean {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
@@ -39,15 +40,30 @@ export interface MountedWindow {
   search: HTMLInputElement | null;
 }
 
+/**
+ * Wire the header so `pointerdown` anywhere outside an interactive child
+ * starts a window drag. Does NOT use `data-tauri-drag-region` because
+ * the declarative approach can swallow click events on transparent windows,
+ * making the close button and search field intermittently unresponsive.
+ */
+function enableDrag(header: HTMLElement): void {
+  header.addEventListener("pointerdown", (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, select, textarea, [data-no-drag]")) return;
+    void getCurrentWindow().startDragging();
+  });
+}
+
 export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
+  const t0 = performance.now();
   await applyTheme();
+  logInfo(`mountWindow: applyTheme ${Math.round(performance.now() - t0)}ms`);
 
   const root = ensureRoot();
   root.className = "zen-window";
 
   const header = document.createElement("header");
   header.className = "zen-window__header";
-  header.dataset.tauriDragRegion = "";
 
   const title = document.createElement("div");
   title.className = "zen-window__title";
@@ -81,8 +97,11 @@ export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
   const content = document.createElement("main");
   content.className = "zen-window__content";
 
+  const t1 = performance.now();
   root.replaceChildren(header, content);
+  enableDrag(header);
   applyIcons(root);
+  logInfo(`mountWindow: DOM build + icons ${Math.round(performance.now() - t1)}ms`);
 
   return { root, content, search };
 }

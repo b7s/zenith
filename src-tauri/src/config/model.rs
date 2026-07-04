@@ -46,9 +46,11 @@ pub struct AppearanceConfig {
     #[serde(default)]
     pub margin_top: i32,
     #[serde(default)]
-    pub margin_left: i32,
-    #[serde(default)]
     pub margin_right: i32,
+    #[serde(default)]
+    pub margin_bottom: i32,
+    #[serde(default)]
+    pub margin_left: i32,
     #[serde(default = "default_bar_height")]
     pub bar_height: u32,
     #[serde(default = "default_theme")]
@@ -79,8 +81,9 @@ impl Default for AppearanceConfig {
             background: Default::default(),
             corner_radius: default_corner_radius(),
             margin_top: 0,
-            margin_left: 0,
             margin_right: 0,
+            margin_bottom: 0,
+            margin_left: 0,
             bar_height: default_bar_height(),
             theme: default_theme(),
         }
@@ -147,12 +150,21 @@ impl Default for LayoutConfig {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WidgetsConfig {
     #[serde(default)]
     pub enabled: Vec<String>,
     #[serde(default)]
     pub positions: std::collections::HashMap<String, String>,
+}
+
+impl Default for WidgetsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: vec!["clock".into()],
+            positions: std::collections::HashMap::from([("clock".into(), "left".into())]),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -32,6 +32,9 @@ impl From<String> for AppError {
 pub type AppResult<T> = Result<T, AppError>;
 
 pub const EVENT_CONFIG_UPDATED: &str = "zenith:config-updated";
+#[allow(dead_code)]
 pub const EVENT_APPEARANCE_CHANGED: &str = "zenith:appearance-changed";
+#[allow(dead_code)]
 pub const EVENT_WIDGETS_CHANGED: &str = "zenith:widgets-changed";
+#[allow(dead_code)]
 pub const EVENT_WORKSPACE_CHANGED: &str = "zenith:workspace-changed";

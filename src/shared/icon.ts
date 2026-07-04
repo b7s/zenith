@@ -86,25 +86,82 @@ export interface IconOptions {
 
 export const DEFAULT_ICON_SIZE = 16;
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+const SPRITE_ID = "zen-icon-sprite";
+
+function ensureSprite(): SVGElement {
+  let sprite = document.getElementById(SPRITE_ID) as SVGElement | null;
+  if (!sprite) {
+    sprite = document.createElementNS(SVG_NS, "svg");
+    sprite.id = SPRITE_ID;
+    sprite.setAttribute("aria-hidden", "true");
+    sprite.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
+    document.documentElement.prepend(sprite);
+  }
+  return sprite;
+}
+
+function ensureSymbol(canonical: string, node: IconNode): string {
+  const id = `zen-i-${canonical}`;
+  const sprite = ensureSprite();
+  if (sprite.querySelector(`#${id}`)) return id;
+
+  const full = createElement(node);
+  const symbol = document.createElementNS(SVG_NS, "symbol");
+  symbol.id = id;
+
+  for (const attr of full.getAttributeNames()) {
+    if (attr === "id" || attr === "width" || attr === "height" || attr === "xmlns") continue;
+    const val = full.getAttribute(attr);
+    if (val !== null) symbol.setAttribute(attr, val);
+  }
+
+  symbol.innerHTML = full.innerHTML;
+  sprite.appendChild(symbol);
+  return id;
+}
+
 export function setIcon(el: HTMLElement, name: string, opts: IconOptions = {}): void {
   const size = opts.size ?? DEFAULT_ICON_SIZE;
-  el.classList.add("zen-icon");
-  el.style.setProperty("--zen-icon-size", `${size}px`);
-  el.innerHTML = "";
+
+  let container: HTMLElement;
+  if (el.classList.contains("zen-icon-button")) {
+    container = el.querySelector<HTMLElement>(".zen-icon") ?? (() => {
+      const c = document.createElement("span");
+      c.className = "zen-icon";
+      c.style.setProperty("--zen-icon-size", `${size}px`);
+      el.append(c);
+      return c;
+    })();
+  } else {
+    el.classList.add("zen-icon");
+    el.style.setProperty("--zen-icon-size", `${size}px`);
+    container = el;
+  }
 
   const resolved = resolveIcon(name);
   if (resolved.kind === "svg") {
-    const svg = createElement(resolved.node);
-    svg.setAttribute("width", String(size));
-    svg.setAttribute("height", String(size));
+    const kebab = toKebab(name);
+    const aliased = resolveAlias(kebab);
+    const canonical = ICON_REGISTRY[aliased] ? aliased : kebab;
+    const symbolId = ensureSymbol(canonical, resolved.node);
+
+    const svgEl = document.createElementNS(SVG_NS, "svg");
+    svgEl.setAttribute("width", String(size));
+    svgEl.setAttribute("height", String(size));
     if (opts.strokeWidth !== undefined) {
-      svg.setAttribute("stroke-width", String(opts.strokeWidth));
+      svgEl.setAttribute("stroke-width", String(opts.strokeWidth));
     }
-    el.classList.remove("zen-icon--font");
-    el.appendChild(svg);
+
+    const useEl = document.createElementNS(SVG_NS, "use");
+    useEl.setAttribute("href", `#${symbolId}`);
+    svgEl.appendChild(useEl);
+
+    container.classList.remove("zen-icon--font");
+    container.replaceChildren(svgEl);
   } else {
-    el.classList.add("zen-icon--font");
-    el.textContent = resolved.glyph;
+    container.classList.add("zen-icon--font");
+    container.textContent = resolved.glyph;
   }
 }
 

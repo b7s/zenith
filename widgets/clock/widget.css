@@ -1,0 +1,9 @@
+.clock-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  color: var(--foreground);
+  padding: 0 0.375rem;
+  white-space: nowrap;
+}

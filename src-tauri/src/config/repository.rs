@@ -52,6 +52,7 @@ fn try_load_at(path: &Path) -> AppResult<Config> {
 
 /// Read one value by JSON pointer path with a caller-supplied fallback.
 /// Example: `get_or("/appearance/bar_height", 40)`.
+#[allow(dead_code)]
 pub fn get_or<T>(pointer: &str, fallback: T) -> T
 where
     T: for<'de> serde::Deserialize<'de>,

@@ -11,8 +11,9 @@ export interface AppearanceConfig {
   background: BackgroundConfig;
   corner_radius: number;
   margin_top: number;
-  margin_left: number;
   margin_right: number;
+  margin_bottom: number;
+  margin_left: number;
   bar_height: number;
   theme: ThemeMode;
 }
@@ -51,4 +52,21 @@ export interface Config {
   widgets: WidgetsConfig;
   motion: MotionConfig;
   css: CssConfig;
+}
+
+export interface WidgetManifest {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  default_zone: WidgetZone;
+  icon: string;
+  min_width: number;
+  widget_dir: string;
+}
+
+export interface WidgetSource {
+  html: string;
+  css: string;
+  js: string;
 }

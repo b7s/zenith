@@ -1,0 +1,9 @@
+{
+  "id": "clock",
+  "name": "Clock",
+  "version": "1.0.0",
+  "description": "Current time display",
+  "default_zone": "left",
+  "icon": "clock",
+  "min_width": 80
+}

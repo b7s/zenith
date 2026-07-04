@@ -508,10 +508,15 @@ All icons flow through **one** module: `src/shared/icon.ts`.
   `main.ts` imports `src/styles/globals.css` once (the `@import` chain: tokens → base → components
   → icons → window).
 - **`src/shared/window.ts` is the single source of the custom header.** `mountWindow({ title,
-  searchable })` builds the bold title (left) + optional search input + `×` close (right), makes the
-  header a `data-tauri-drag-region` (inputs/buttons are drag-exempt automatically), wires close to
-  `getCurrentWindow().close()`, and bootstraps theme + icons. It returns `{ root, content, search }`
-  so the window fills `content` and (for the manager) wires `search`.
+  searchable })` builds the bold title (left) + optional search input + `×` close (right), wires
+  close to `getCurrentWindow().close()`, and bootstraps theme + icons. It returns
+  `{ root, content, search }` so the window fills `content` and (for the manager) wires `search`.
+- **Drag region uses manual `pointerdown`, NOT `data-tauri-drag-region`.** The declarative
+  attribute can swallow click events on interactive children (`button`, `input`) when the window
+  is `transparent: true`. Instead, `mountWindow` calls `enableDrag(header)` which listens for
+  `pointerdown` on the header, checks if the target is `button, input, select, textarea,
+  [data-no-drag]`, and only starts dragging if it's not. This guarantees the close button and
+  search field always receive click events. See `window.ts:enableDrag`.
 - **Theme.** `applyTheme()` resolves `appearance.theme` (`auto|dark|light`) and sets `data-theme`;
   `watchSystemTheme()` keeps `auto` in sync with the OS. The bar window has no header (it *is* the
   bar), so it calls only `applyTheme()` + `applyIcons()` and builds its own strip.
@@ -519,6 +524,7 @@ All icons flow through **one** module: `src/shared/icon.ts`.
   manager adds a search input).
 - One `capabilities/*.json` per window label (`default`=bar, `settings`, `widgets`). Never grant a
   permission globally that only one window needs. Close requires `core:window:allow-close`.
+  Drag requires `core:window:allow-start-dragging`.
 - Bar window: `alwaysOnTop: false` (the AppBar owns its band), `skipTaskbar: true`, `resizable: false`.
 - Settings: 800×600, resizable. Widgets manager: resizable.
 - Windows are created from `lib.rs` (composition root) or via
@@ -558,3 +564,161 @@ interop feature, check Plume first:
 
 Re-implement in Zenith's domain structure — do not copy verbatim if the shape differs, but keep
 the proven Win32 calls and fallback discipline.
+
+---
+
+## 13. Performance & memory safety rules
+
+These rules are hard-won from bugs that caused system freezes, blank windows, and unclosable
+dialogs. Follow them without exception.
+
+### 13.1 Never block the Tauri main thread with a Win32 modal pump
+
+`#[tauri::command]` handlers run on Tauri's main thread. Any call that enters a Win32 modal
+message pump (e.g. `TrackPopupMenu`, `DialogBox`, `MessageBox`) will **block the IPC channel**.
+Other windows' `invoke()` calls (including `get_config`, `save_config`) hang until the pump
+returns, and the frontend appears blank and unresponsive.
+
+- **Correct:** Use `window.popup_menu(&menu)` to show a context menu (returns immediately;
+  Tauri dispatches the selected item via `on_menu_event`).
+- **Wrong:** Hand-rolling `CreatePopupMenu` + `TrackPopupMenu` + `DestroyMenu` in a
+  `#[tauri::command]`.
+
+### 13.2 Manual drag region, not `data-tauri-drag-region`
+
+The declarative `data-tauri-drag-region` can swallow `click` events on `button`/`input` children
+when the window has `transparent: true`. This makes the close button and search field
+intermittently unresponsive.
+
+- **Correct:** A `pointerdown` listener on the header that calls
+  `getCurrentWindow().startDragging()` only when the target is not an interactive child. See
+  `src/shared/window.ts:enableDrag`.
+- **Wrong:** `<header data-tauri-drag-region>` with no manual exclusion logic.
+
+### 13.3 Timers and intervals: bound and cancel
+
+Every `setInterval` / `setTimeout` in a widget or the bar creates a forever-running task.
+Accumulating timers (e.g., re-layout loops) will exhaust the WebView's event loop.
+
+- Widgets use exactly **one** `setInterval` if they need periodic updates (e.g. clock at 1 s).
+- The bar's config watcher (Rust side) polls at most every **5 seconds**.
+- Widgets that are removed from the DOM must also clear their intervals (store the timer id and
+  call `clearInterval` on unmount). Later.
+
+### 13.4 Icon loading: tree-shaken, never wildcard
+
+- Import icons by name only: `import { X, Settings } from "lucide"`.
+- **Never** `import { icons } from "lucide"` — this pulls all 3000+ icons into the bundle,
+  bloating RAM and startup time.
+- Register new icons via `registerIcons` or add a named import to the registry in
+  `src/shared/icon.ts`. See §6.1.
+
+### 13.5 Config is always safe, never unwrapped
+
+- Every config access goes through `config::load()` or `config::get_or()`. These always return
+  defaults — never panic, never block. See §5.
+- Frontend config goes through `shared/config.ts`, never a raw `invoke("get_config")`.
+
+### 13.6 CSS backgrounds on transparent windows
+
+- Bar, Settings, and Widget Manager windows use Win32 Acrylic/Mica blur. **Never** paint a CSS
+  `background` on the `<html>` or `<body>` of these windows — that would hide the native
+  transparency effect and waste GPU compositing resources. See §7.
+
+### 13.7 SVG icons: sprite, never duplicate path data
+
+Each Lucide icon's SVG path data is stored **once** in a hidden `<svg>` sprite as a `<symbol>`,
+then rendered via `<use href="#zen-i-<name>">`. This means N instances of the same icon share one
+copy of the path data instead of cloning N SVG subtrees.
+
+- The sprite lives at `document.documentElement` level, created lazily by `ensureSprite()` in
+  `src/shared/icon.ts`.
+- `setIcon` resolves the icon name, ensures a `<symbol>` exists, then inserts a lightweight
+  `<svg><use href="#id"/></svg>`.
+- **Never** call `createElement(node)` per icon instance outside of sprite setup.
+
+### 13.8 Per-window CSS: load only what the window needs
+
+The bar window imports `src/styles/bar-globals.css` (tokens + base + icons + bar) — **not**
+`globals.css`, which also pulls in `components.css` (form controls) and `window.css` (window chrome).
+Loading unused CSS wastes memory on parsed rule tables and style recalc.
+
+- Bar: `bar-globals.css` (no `.zen-button`, `.zen-input`, `.zen-window`).
+- Settings / Widgets: `globals.css` (full component library).
+
+### 13.9 Restart must unregister the AppBar before spawning
+
+Spawning a new process and exiting the old one leaves a brief overlap where both windows exist.
+If the old AppBar is still registered, the new process can't claim the band and the user sees
+two bars.
+
+- **Correct:** `unregister_appbar` → `spawn` new exe → `app.exit(0)`.
+  See `src-tauri/src/commands.rs:handle_menu_event`, `MI_RESTART`.
+
+---
+
+## 14. Logging & performance diagnostics
+
+Zenith writes per-window logs to `%TEMP%/zenith/{YYYY-MM-DD}/{window}.log`, organized by date
+so logs from different sessions don't overwrite each other. Use them to diagnose memory, startup
+time, and IPC issues.
+
+### 14.1 Log files
+
+| File | Source |
+|---|---|
+| `%TEMP%/zenith/{date}/bar.log` | bar window (`index.html`) |
+| `%TEMP%/zenith/{date}/settings.log` | settings window (`settings.html`) |
+| `%TEMP%/zenith/{date}/widgets.log` | widget manager (`widgets.html`) |
+
+Each entry: `[elapsed_seconds.mmm] [LEVEL] message`. Elapsed is relative to process start (not
+wall clock). Open the files in any text editor, or tail them during dev.
+
+### 14.2 Frontend API — `src/shared/log.ts`
+
+```ts
+import { initLog, logInfo, logWarn, logError, logMemory, time } from "../../shared/log";
+
+await initLog();                    // truncate the window's log, write startup banner
+logInfo("bar ready");               // append [INFO]
+logWarn("config key missing");      // append [WARN]
+logError("element not found");      // append [ERROR]
+logMemory("startup");               // dump performance.memory (JS heap sizes)
+await time("loadConfig", fn);       // measure async duration, log as "[INFO] loadConfig: 3.2ms"
+```
+
+Every window entry point calls `initLog()` + `logMemory("startup")` + `time()` around key
+operations. This is **always on** (the overhead is negligible: one file append per call).
+
+### 14.3 Rust API — `src-tauri/src/log.rs`
+
+```rust
+#[tauri::command]
+pub fn log_write(window: String, level: String, message: String)  // append
+#[tauri::command]
+pub fn log_clear(window: String)                                   // truncate
+```
+
+Both are registered in `lib.rs::run()` via `invoke_handler`. They are zero-dependency (no
+`chrono` — dates use a `SystemTime` algorithm, timestamps use `Instant::elapsed()`).
+
+### 14.4 Performance budgets
+
+| Operation | Budget | How to verify |
+|---|---|---|
+| Bar startup (init → ready) | < 200 ms | Check `bar.log` elapsed between `initLog` and `bar ready` |
+| Window mount (mountWindow) | < 50 ms | `mountWindow: DOM build` line in log |
+| Config load (IPC) | < 5 ms | `loadConfig: Xms` line in log |
+| JS heap (bar, idle) | < 5 MB | `logMemory("startup")` / `logMemory("after layout")` |
+| JS heap (settings, idle) | < 4 MB | `logMemory("after mount")` |
+
+If any budget is exceeded, investigate before merging. The log files are the primary tool.
+
+### 14.5 Reading logs after a freeze
+
+1. Reproduce the freeze.
+2. Force-kill the process if needed.
+3. Open `%TEMP%/zenith/bar.log` (or the date-stamped copy for today's session).
+4. Look for: last `logMemory` value (did heap grow?), large gaps between timestamps (did an
+   operation block?), or repeated entries (a loop?).
+5. Cross-reference with `settings.log` / `widgets.log` to see if IPC was stuck.

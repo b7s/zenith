@@ -10,11 +10,14 @@
 
 html,
 body {
-  height: 100%;
-  margin: 0;
-  /* Transparency contract: bar/settings/widgets bodies stay transparent so the
-     OS Mica/Acrylic blur shows through. Never set a background here. */
-  background: transparent;
+    height: 100%;
+    margin: 0;
+    color-scheme: light;
+    background: transparent;
+}
+
+[data-theme="dark"] {
+    color-scheme: dark;
 }
 
 body {

@@ -123,7 +123,14 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
         }
         WS_RENAME => {
             let id = WS_CONTEXT_ID.load(Ordering::Relaxed);
-            let _ = app.emit("zenith:workspace-rename", id);
+            let ws = workspace::commands::get_workspaces();
+            let current_name = ws.get(id as usize)
+                .map(|w| w.label.clone())
+                .unwrap_or_else(|| format!("Desktop {}", id + 1));
+            let app2 = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = show_rename_dialog(app2, id, current_name).await;
+            });
         }
         WS_DELETE => {
             let id = WS_CONTEXT_ID.load(Ordering::Relaxed);

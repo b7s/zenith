@@ -1,19 +1,16 @@
 import "../../styles/globals.css";
-import { applyTheme } from "../../shared/window";
-import { applyIcons } from "../../shared/icon";
+import { mountWindow } from "../../shared/window";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 void (async () => {
-  try {
-    await applyTheme();
-    applyIcons();
-  } catch (e) {
-    console.error("[rename] init error:", e);
-  }
+  const { content } = await mountWindow({ title: "Rename Desktop" });
 
-  const root = document.getElementById("root");
-  if (!root) return;
+  // Disable text selection and right-click (enable right-click in dev only)
+  document.addEventListener("contextmenu", (e) => {
+    if (!import.meta.env.DEV) e.preventDefault();
+  });
+  document.addEventListener("selectstart", (e) => e.preventDefault());
 
   let desktopId = 0;
   let currentName = "Desktop";
@@ -25,27 +22,49 @@ void (async () => {
     console.error("[rename] failed to get rename data:", e);
   }
 
-  root.innerHTML =
-    '<div class="zen-window" style="padding:16px;display:flex;flex-direction:column;gap:12px">' +
-    '<label class="zen-label" for="rename-input">Desktop name</label>' +
-    '<input id="rename-input" class="zen-input" type="text" value="' + escHtml(currentName) + '" autofocus />' +
-    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
-    '<button id="btn-cancel" class="zen-button is-outline is-sm">Cancel</button>' +
-    '<button id="btn-ok" class="zen-button is-primary is-sm">Rename</button>' +
-    "</div></div>";
+  const field = document.createElement("div");
+  field.className = "zen-field";
 
-  const input = document.getElementById("rename-input") as HTMLInputElement;
-  const btnOk = document.getElementById("btn-ok") as HTMLButtonElement;
-  const btnCancel = document.getElementById("btn-cancel") as HTMLButtonElement;
+  const label = document.createElement("label");
+  label.className = "zen-label";
+  label.textContent = "Desktop name";
+  label.htmlFor = "rename-input";
+  field.append(label);
 
-  if (!input || !btnOk || !btnCancel) return;
+  const input = document.createElement("input");
+  input.id = "rename-input";
+  input.className = "zen-input";
+  input.type = "text";
+  input.value = currentName;
+  input.autofocus = true;
+  field.append(input);
+
+  const hint = document.createElement("p");
+  hint.className = "zen-hint";
+  hint.textContent = "Press Enter to confirm, Esc to cancel.";
+  field.append(hint);
+
+  const actions = document.createElement("div");
+  actions.style.cssText = "display:flex;gap:0.5rem;justify-content:flex-end;padding:0 1rem 1rem";
+
+  const btnCancel = document.createElement("button");
+  btnCancel.className = "zen-button is-outline is-sm";
+  btnCancel.textContent = "Cancel";
+  actions.append(btnCancel);
+
+  const btnOk = document.createElement("button");
+  btnOk.className = "zen-button is-primary is-sm";
+  btnOk.textContent = "Rename";
+  actions.append(btnOk);
+
+  content.append(field, actions);
 
   input.select();
 
   function submit() {
     const name = input.value.trim();
     if (!name) return;
-    invoke("rename_desktop", { id: desktopId, name }).catch((err: any) => {
+    void invoke("rename_desktop", { id: desktopId, name }).catch((err: unknown) => {
       console.error("[rename] rename error:", err);
     });
     void getCurrentWindow().close();
@@ -54,11 +73,7 @@ void (async () => {
   btnOk.addEventListener("click", submit);
   btnCancel.addEventListener("click", () => void getCurrentWindow().close());
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") submit();
-    if (e.key === "Escape") void getCurrentWindow().close();
+    if (e.key === "Enter") { e.preventDefault(); submit(); }
+    if (e.key === "Escape") { e.preventDefault(); void getCurrentWindow().close(); }
   });
 })();
-
-function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}

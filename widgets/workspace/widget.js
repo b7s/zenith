@@ -88,15 +88,7 @@
       load();
     });
 
-    window.__zenith_listen("zenith:workspace-rename", function (ev) {
-      var id = Number(ev.payload);
-      var currentName = workspaces[id] ? workspaces[id].label : "Desktop " + (id + 1);
-      invoke("show_rename_dialog", { id: id, currentName: currentName }).catch(function (err) {
-        console.error("[workspace] show rename dialog error:", err);
-      });
-    });
-
-    // Delete is handled entirely from Rust (MessageBoxW + COM delete).
+    // Rename and Delete are handled entirely from Rust (no event round-trip).
     // The zenith:workspace-changed listener above will refresh the bar on success.
 
     window.__zenith_listen("zenith:workspace-create", function () {

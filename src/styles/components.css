@@ -339,7 +339,7 @@
   display: flex;
   gap: 0.25rem;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 0;
+  padding: 0 .75rem;
 }
 .zen-tab {
   display: inline-flex;
@@ -369,6 +369,24 @@
   background: color-mix(in oklch, var(--background) 50%, transparent);
   border-color: var(--border);
   border-bottom-color: transparent;
+}
+
+.zen-tab-pane {
+  padding: 1rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.zen-tab-pane[hidden] {
+  display: none;
+}
+
+.zen-tab--action {
+  margin-left: auto;
+  color: var(--primary);
+}
+.zen-tab--action:hover {
+  background: color-mix(in oklch, var(--primary) 10%, transparent) !important;
 }
 
 .zen-color-field {

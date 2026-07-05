@@ -29,9 +29,7 @@ pub fn run() {
                     commands::handle_menu_event(&h, event.id().as_ref());
                 });
                 window::apply_material(&handle, "bar").ok();
-                window::set_rounded_corners(&bar).ok();
-                bar.show().ok();
-                window::register_appbar(&bar).ok();
+                window::register_appbar(&bar).ok(); // also shows the window via SWP_SHOWWINDOW
 
                 // Unregister the AppBar when the window is destroyed so the work area is restored.
                 let bar_clone = bar.clone();

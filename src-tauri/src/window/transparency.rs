@@ -25,6 +25,7 @@ struct WINDOWCOMPOSITIONATTRIBDATA {
 const WCA_ACCENT_POLICY: u32 = 19;
 const ACCENT_DISABLED: u32 = 0;
 const ACCENT_ENABLE_ACRYLICBLURBEHIND: u32 = 4;
+const ACCENT_ENABLE_HOSTBACKDROP: u32 = 5; // Mica (Win11+)
 
 type SetWindowCompositionAttribute = unsafe extern "system" fn(HWND, *mut WINDOWCOMPOSITIONATTRIBDATA) -> i32;
 
@@ -55,31 +56,55 @@ fn set_window_accent(hwnd: HWND, accent_state: u32, gradient_color: u32) {
     }
 }
 
+/// Apply the bar's config-driven background material.
+/// Only called for the bar window — settings/widgets use `apply_fixed_acrylic`.
 pub fn apply_material(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
     let Some(window) = app.get_webview_window(label) else {
-        eprintln!("[zenith] apply_material: window '{label}' not found");
         return Ok(());
     };
     let hwnd = window.hwnd().map_err(|e| e.to_string())?;
     let cfg = config::load();
-
     let is_light = !is_dark_mode();
-    let (accent_state, base_color) = match cfg.appearance.material.as_str() {
-        "acrylic" if is_light => (ACCENT_ENABLE_ACRYLICBLURBEHIND, 0x99F3F3F3),
-        "acrylic" => (ACCENT_ENABLE_ACRYLICBLURBEHIND, 0x991A1A1A),
-        "mica" if is_light => (ACCENT_ENABLE_ACRYLICBLURBEHIND, 0x66F3F3F3),
-        "mica" => (ACCENT_ENABLE_ACRYLICBLURBEHIND, 0x661A1A1A),
-        _ => (ACCENT_DISABLED, 0),
+
+    let mode = cfg.appearance.background.mode.as_str();
+    let mode = match mode {
+        "transparent" => "acrylic",
+        other => other,
     };
 
-    if accent_state == ACCENT_DISABLED {
-        set_window_accent(hwnd, ACCENT_DISABLED, 0);
-    } else {
-        let alpha = (cfg.appearance.tint_alpha as u32).min(255).max(0);
-        let color = (base_color & 0x00FFFFFF) | (alpha << 24);
-        set_window_accent(hwnd, accent_state, color);
+    let alpha = (cfg.appearance.tint_alpha as u32).min(255);
+
+    match mode {
+        "acrylic" => {
+            let base = if is_light { 0xF3F3F3u32 } else { 0x1A1A1Au32 };
+            let color = (alpha << 24) | base;
+            set_window_accent(hwnd, ACCENT_ENABLE_ACRYLICBLURBEHIND, color);
+        }
+        "mica" => {
+            let base = if is_light { 0xF3F3F3u32 } else { 0x1A1A1Au32 };
+            let mica_alpha = (alpha / 2).max(40);
+            let color = (mica_alpha << 24) | base;
+            set_window_accent(hwnd, ACCENT_ENABLE_HOSTBACKDROP, color);
+        }
+        _ => {
+            set_window_accent(hwnd, ACCENT_DISABLED, 0);
+        }
     }
 
+    Ok(())
+}
+
+/// Apply a fixed neutral acrylic to settings/widgets windows.
+/// Alpha at 15% so the blur effect is clearly visible without too much tint.
+pub fn apply_fixed_acrylic(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    let Some(window) = app.get_webview_window(label) else {
+        return Ok(());
+    };
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?;
+    let is_light = !is_dark_mode();
+    let base = if is_light { 0xF3F3F3u32 } else { 0x1A1A1Au32 };
+    let color = (0x26 << 24) | base; // 15% alpha = 38/255
+    set_window_accent(hwnd, ACCENT_ENABLE_ACRYLICBLURBEHIND, color);
     Ok(())
 }
 

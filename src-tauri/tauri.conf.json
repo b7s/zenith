@@ -25,14 +25,13 @@
         "closable": false,
         "decorations": false,
         "transparent": true,
-        "shadow": true,
         "alwaysOnTop": false,
         "skipTaskbar": true,
         "focus": false,
         "focusable": false,
-        "hiddenTitle": true,
         "visible": false,
-        "center": false
+        "center": false,
+        "shadow": false
       }
     ],
     "security": {

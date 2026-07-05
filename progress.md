@@ -52,10 +52,10 @@ Goal: `npm run tauri dev` shows a real top bar with a working clock widget.
 - [x] `widget.css` — font, color from tokens, padding
 
 ### 1.5 Verify
-- [ ] `npm run tauri dev` shows bar at top with clock in left zone
-- [ ] Bar height matches config
-- [ ] Transparency/Mica visible
-- [ ] AppBar reserves space (maximize a window — it stops below the bar)
+- [x] `npm run tauri dev` shows bar at top with clock in left zone
+- [x] Bar height matches config
+- [x] Transparency/Mica visible
+- [x] AppBar reserves space (maximize a window — it stops below the bar)
 
 ### 1.6 Modern glass controls (components.css)
 - [x] `.zen-card` — translucent `color-mix` background (75% opacity) for glassmorphism
@@ -76,17 +76,20 @@ Goal: `npm run tauri dev` shows a real top bar with a working clock widget.
 
 ---
 
-## Phase 2 — Settings Window
+## Phase 2 — Settings Window (IN PROGRESS)
 
 Goal: full settings form, changes apply live.
 
-- [ ] Tabbed layout: Appearance · Bar · Widgets · About
-- [ ] **Appearance tab**: material (acrylic/mica/none), tint alpha slider, corner radius, theme (auto/dark/light)
-- [ ] **Bar tab**: bar height slider, margins (top/left/right), background mode (transparent/solid/gradient), color pickers (native `ChooseColor`)
-- [ ] **Widgets tab**: enabled list (reorderable), position per widget (left/center/right)
-- [ ] **About tab**: version, links
-- [ ] All fields bound to config, `saveConfig()` on change, live reload bar
-- [ ] Use `.zen-*` component classes exclusively
+- [x] Tabbed layout: Appearance · Bar · Widgets · About (reusable `mountTabs()` in `src/shared/tabs.ts`)
+- [x] **Appearance tab**: material (acrylic/mica/none), tint alpha slider, corner radius, theme (auto/dark/light)
+- [x] **Bar tab**: bar height slider, margins (top/left/right), background mode (transparent/solid/gradient), color swatch
+- [x] **Widgets tab**: enabled list (checkbox per widget from manifest)
+- [x] **About tab**: version, name, description
+- [x] All fields bound to config, `saveConfig()` on change, live reload bar
+- [x] Use `.zen-*` component classes exclusively
+- [ ] Color pickers: native `ChooseColor` Win32 dialog integration
+- [ ] Widget position per widget (left/center/right selector)
+- [ ] Widget reordering (drag or up/down buttons)
 
 ---
 

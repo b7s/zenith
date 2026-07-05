@@ -105,7 +105,7 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::model::AppearanceConfig;
+    use crate::config::model::{AppearanceConfig, BackgroundConfig};
 
     fn unique_path(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -120,7 +120,7 @@ mod tests {
     fn missing_file_yields_defaults() {
         let path = unique_path("missing");
         let cfg = load_at(&path);
-        assert_eq!(cfg.appearance.material, "acrylic");
+        assert_eq!(cfg.appearance.background.mode, "acrylic");
         assert_eq!(cfg.appearance.bar_height, 40);
     }
 
@@ -129,7 +129,7 @@ mod tests {
         let path = unique_path("malformed");
         fs::write(&path, b"{ not json").unwrap();
         let cfg = load_at(&path);
-        assert_eq!(cfg.appearance.material, "acrylic");
+        assert_eq!(cfg.appearance.background.mode, "acrylic");
     }
 
     #[test]
@@ -137,7 +137,7 @@ mod tests {
         let path = unique_path("roundtrip");
         let original = Config {
             appearance: AppearanceConfig {
-                material: "mica".into(),
+                background: BackgroundConfig { mode: "mica".into(), ..Default::default() },
                 bar_height: 52,
                 ..Default::default()
             },
@@ -145,7 +145,7 @@ mod tests {
         };
         save_at(&path, &original).unwrap();
         let loaded = load_at(&path);
-        assert_eq!(loaded.appearance.material, "mica");
+        assert_eq!(loaded.appearance.background.mode, "mica");
         assert_eq!(loaded.appearance.bar_height, 52);
         assert_eq!(loaded.appearance.theme, "auto");
     }

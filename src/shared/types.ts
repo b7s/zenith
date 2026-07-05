@@ -1,19 +1,20 @@
-export type Material = "acrylic" | "mica" | "none";
+export type BackgroundMode = "acrylic" | "mica" | "solid" | "gradient" | "none";
 export type ThemeMode = "auto" | "dark" | "light";
-export type BackgroundMode = "transparent" | "solid" | "gradient";
-export type GradientDirection = "to_bottom" | "to_top";
 export type WidgetZone = "left" | "center" | "right";
 export type MotionBackend = "auto" | "gpu" | "cpu";
 
 export interface AppearanceConfig {
-  material: Material;
-  tint_alpha: number;
   background: BackgroundConfig;
+  tint_alpha: number;
   corner_radius: number;
   margin_top: number;
   margin_right: number;
   margin_bottom: number;
   margin_left: number;
+  padding_top: number;
+  padding_right: number;
+  padding_bottom: number;
+  padding_left: number;
   bar_height: number;
   theme: ThemeMode;
 }
@@ -22,7 +23,6 @@ export interface BackgroundConfig {
   mode: BackgroundMode;
   color_top: string;
   color_bottom: string;
-  gradient_direction: GradientDirection;
   alpha_top: number;
   alpha_bottom: number;
 }

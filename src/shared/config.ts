@@ -5,21 +5,23 @@ import type { Config } from "./types";
 
 export const DEFAULT_CONFIG: Config = {
   appearance: {
-    material: "acrylic",
     tint_alpha: 60,
     background: {
-      mode: "transparent",
+      mode: "acrylic",
       color_top: "#1a1a1a",
       color_bottom: "#1a1a1a",
-      gradient_direction: "to_bottom",
-      alpha_top: 100,
-      alpha_bottom: 100,
+      alpha_top: 90,
+      alpha_bottom: 90,
     },
     corner_radius: 8,
     margin_top: 0,
     margin_right: 0,
     margin_bottom: 0,
     margin_left: 0,
+    padding_top: 0,
+    padding_right: 8,
+    padding_bottom: 0,
+    padding_left: 8,
     bar_height: 40,
     theme: "auto",
   },

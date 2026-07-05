@@ -35,35 +35,41 @@ impl Default for MonitorsSelection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppearanceConfig {
-    #[serde(default = "default_material")]
-    pub material: String,
-    #[serde(default = "default_tint_alpha")]
-    pub tint_alpha: u8,
     #[serde(default)]
     pub background: BackgroundConfig,
+    #[serde(default = "default_tint_alpha")]
+    pub tint_alpha: u8,
     #[serde(default = "default_corner_radius")]
     pub corner_radius: u32,
     #[serde(default)]
-    pub margin_top: i32,
+    pub margin_top: u32,
     #[serde(default)]
-    pub margin_right: i32,
+    pub margin_right: u32,
     #[serde(default)]
-    pub margin_bottom: i32,
+    pub margin_bottom: u32,
     #[serde(default)]
-    pub margin_left: i32,
+    pub margin_left: u32,
+    #[serde(default)]
+    pub padding_top: u32,
+    #[serde(default = "default_padding_side")]
+    pub padding_right: u32,
+    #[serde(default)]
+    pub padding_bottom: u32,
+    #[serde(default = "default_padding_side")]
+    pub padding_left: u32,
     #[serde(default = "default_bar_height")]
     pub bar_height: u32,
     #[serde(default = "default_theme")]
     pub theme: String,
 }
 
-fn default_material() -> String {
-    "acrylic".into()
-}
 fn default_tint_alpha() -> u8 {
     60
 }
 fn default_corner_radius() -> u32 {
+    8
+}
+fn default_padding_side() -> u32 {
     8
 }
 fn default_bar_height() -> u32 {
@@ -76,14 +82,17 @@ fn default_theme() -> String {
 impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
-            material: default_material(),
-            tint_alpha: default_tint_alpha(),
             background: Default::default(),
+            tint_alpha: default_tint_alpha(),
             corner_radius: default_corner_radius(),
             margin_top: 0,
             margin_right: 0,
             margin_bottom: 0,
             margin_left: 0,
+            padding_top: 0,
+            padding_right: 8,
+            padding_bottom: 0,
+            padding_left: 8,
             bar_height: default_bar_height(),
             theme: default_theme(),
         }
@@ -98,8 +107,6 @@ pub struct BackgroundConfig {
     pub color_top: String,
     #[serde(default = "default_bg_color")]
     pub color_bottom: String,
-    #[serde(default = "default_gradient_direction")]
-    pub gradient_direction: String,
     #[serde(default = "default_alpha")]
     pub alpha_top: u8,
     #[serde(default = "default_alpha")]
@@ -107,13 +114,10 @@ pub struct BackgroundConfig {
 }
 
 fn default_bg_mode() -> String {
-    "transparent".into()
+    "acrylic".into()
 }
 fn default_bg_color() -> String {
     "#1a1a1a".into()
-}
-fn default_gradient_direction() -> String {
-    "to_bottom".into()
 }
 fn default_alpha() -> u8 {
     100
@@ -125,7 +129,6 @@ impl Default for BackgroundConfig {
             mode: default_bg_mode(),
             color_top: default_bg_color(),
             color_bottom: default_bg_color(),
-            gradient_direction: default_gradient_direction(),
             alpha_top: default_alpha(),
             alpha_bottom: default_alpha(),
         }
@@ -213,9 +216,9 @@ mod tests {
     #[test]
     fn missing_file_yields_defaults() {
         let cfg = Config::default();
-        assert_eq!(cfg.appearance.material, "acrylic");
+        assert_eq!(cfg.appearance.background.mode, "acrylic");
         assert_eq!(cfg.appearance.bar_height, 40);
-        assert_eq!(cfg.appearance.background.mode, "transparent");
+        assert_eq!(cfg.appearance.margin_bottom, 0);
         assert_eq!(cfg.layout.position, "top");
         assert_eq!(cfg.motion.backend, "auto");
         assert!(cfg.css.custom_enabled);
@@ -225,11 +228,11 @@ mod tests {
     #[test]
     fn partial_json_fills_missing_with_defaults() {
         let raw = r#"{
-            "appearance": { "material": "mica" },
+            "appearance": { "background": { "mode": "mica" } },
             "widgets": { "enabled": ["clock"] }
         }"#;
         let cfg: Config = serde_json::from_str(raw).unwrap();
-        assert_eq!(cfg.appearance.material, "mica");
+        assert_eq!(cfg.appearance.background.mode, "mica");
         assert_eq!(cfg.appearance.bar_height, 40);
         assert_eq!(cfg.widgets.enabled, vec!["clock".to_string()]);
         assert_eq!(cfg.layout.position, "top");

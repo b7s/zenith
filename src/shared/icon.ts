@@ -4,6 +4,7 @@ import {
   Battery,
   Clock,
   CloudSun,
+  ExternalLink,
   LayoutGrid,
   MonitorSmartphone,
   Music,
@@ -31,6 +32,7 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   activity: Activity,
   "cloud-sun": CloudSun,
   "monitor-smartphone": MonitorSmartphone,
+  "external-link": ExternalLink,
 };
 
 const ALIASES: Record<string, string> = {

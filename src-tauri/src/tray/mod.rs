@@ -13,7 +13,11 @@ pub fn create(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .item(&MenuItemBuilder::with_id("ctx-close", "Close Bar").build(app)?)
         .build()?;
 
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../../icons/tray-dark.png"))?;
+
     TrayIconBuilder::new()
+        .icon(icon)
+        .tooltip("Zenith")
         .menu(&menu)
         .on_menu_event(|app, event| {
             crate::commands::handle_menu_event(app, event.id().as_ref());

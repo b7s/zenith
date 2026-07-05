@@ -1,16 +1,35 @@
+html,
 body[data-window="bar"] {
-  display: flex;
   margin: 0;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  line-height: 0;
+}
+
+#bar-wrapper {
+  position: fixed;
+  inset: 0;
+  padding: var(--zen-margin-top, 0) var(--zen-margin-right, 0) var(--zen-margin-bottom, 0) var(--zen-margin-left, 0);
+  pointer-events: none;
 }
 
 #bar {
-  display: flex;
-  align-items: center;
   width: 100%;
   height: 100%;
-  padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--zen-corner-radius, 0);
+  overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+  pointer-events: auto;
 }
 
 .bar-zone {

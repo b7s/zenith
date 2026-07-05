@@ -7,29 +7,37 @@ const MI_SETTINGS: &str = "ctx-settings";
 const MI_WIDGETS: &str = "ctx-widgets";
 const MI_RESTART: &str = "ctx-restart";
 const MI_CLOSE: &str = "ctx-close";
+const MI_INSPECT: &str = "ctx-inspect";
 
 pub fn build_context_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
-    MenuBuilder::new(app)
+    let builder = MenuBuilder::new(app)
         .item(&MenuItemBuilder::with_id(MI_SETTINGS, "Settings").build(app)?)
         .item(&MenuItemBuilder::with_id(MI_WIDGETS, "Widgets").build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id(MI_RESTART, "Restart Bar").build(app)?)
         .separator()
-        .item(&MenuItemBuilder::with_id(MI_CLOSE, "Close Bar").build(app)?)
-        .build()
+        .item(&MenuItemBuilder::with_id(MI_CLOSE, "Close Bar").build(app)?);
+
+    #[cfg(debug_assertions)]
+    let builder = builder
+        .separator()
+        .item(&MenuItemBuilder::with_id(MI_INSPECT, "Inspect").build(app)?);
+
+    builder.build()
 }
 
 pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
     match id {
         MI_SETTINGS => {
-            let _ = open_settings(app.clone());
+            let _ = create_settings_window(app);
         }
         MI_WIDGETS => {
-            let _ = open_widgets(app.clone());
+            let _ = create_widgets_window(app);
         }
         MI_RESTART => {
             if let Some(bar) = app.get_webview_window("bar") {
                 window::unregister_appbar(&bar);
+                let _ = bar.hide();
             }
             if let Ok(exe) = std::env::current_exe() {
                 let _ = std::process::Command::new(exe).spawn();
@@ -39,23 +47,32 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
         MI_CLOSE => {
             app.exit(0);
         }
+        #[cfg(debug_assertions)]
+        MI_INSPECT => {
+            if let Some(bar) = app.get_webview_window("bar") {
+                let _ = bar.open_devtools();
+            }
+        }
         _ => {}
     }
 }
 
-#[tauri::command]
-pub fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
+fn create_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("settings") {
+        eprintln!("[zenith] create_settings: showing existing");
         win.show().map_err(|e| e.to_string())?;
         win.set_focus().map_err(|e| e.to_string())?;
     } else {
+        eprintln!("[zenith] create_settings: building new window");
         let win = tauri::WebviewWindowBuilder::new(
-            &app,
+            app,
             "settings",
             tauri::WebviewUrl::App("settings.html".into()),
         )
         .title("Zenith — Settings")
-        .inner_size(800.0, 600.0)
+        .inner_size(435.0, 600.0)
+        .min_inner_size(435.0, 300.0)
+        .max_inner_size(800.0, 600.0)
         .resizable(true)
         .decorations(false)
         .transparent(true)
@@ -64,21 +81,24 @@ pub fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
         .focused(true)
         .build()
         .map_err(|e| e.to_string())?;
+        eprintln!("[zenith] create_settings: built, applying material");
 
-        let _ = window::apply_material(&app, "settings");
+        let _ = window::apply_fixed_acrylic(app, "settings");
         let _ = window::set_rounded_corners(&win);
+        eprintln!("[zenith] create_settings: done");
     }
     Ok(())
 }
 
-#[tauri::command]
-pub fn open_widgets(app: tauri::AppHandle) -> Result<(), String> {
+fn create_widgets_window(app: &tauri::AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("widgets") {
+        eprintln!("[zenith] create_widgets: showing existing");
         win.show().map_err(|e| e.to_string())?;
         win.set_focus().map_err(|e| e.to_string())?;
     } else {
+        eprintln!("[zenith] create_widgets: building new window");
         let win = tauri::WebviewWindowBuilder::new(
-            &app,
+            app,
             "widgets",
             tauri::WebviewUrl::App("widgets.html".into()),
         )
@@ -92,20 +112,30 @@ pub fn open_widgets(app: tauri::AppHandle) -> Result<(), String> {
         .focused(true)
         .build()
         .map_err(|e| e.to_string())?;
+        eprintln!("[zenith] create_widgets: built, applying material");
 
-        let _ = window::apply_material(&app, "widgets");
+        let _ = window::apply_fixed_acrylic(app, "widgets");
+        eprintln!("[zenith] create_widgets: material applied");
         let _ = window::set_rounded_corners(&win);
+        eprintln!("[zenith] create_widgets: done");
     }
     Ok(())
 }
 
-/// Show the bar's right-click context menu at the cursor.
-///
-/// This uses Tauri's native `popup_menu` rather than a Win32 `TrackPopupMenu`
-/// modal loop. The previous implementation ran a blocking Win32 modal pump on
-/// the Tauri main thread, which stalled the IPC channel and froze other
-/// windows (notably Settings/Widgets, whose `mountWindow` awaited `get_config`
-/// and never completed — leaving them blank and unclosable).
+#[tauri::command]
+pub async fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || create_settings_window(&app))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn open_widgets(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || create_widgets_window(&app))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub fn show_context_menu(app: tauri::AppHandle) -> Result<(), String> {
     let bar = app.get_webview_window("bar").ok_or("bar window not found")?;

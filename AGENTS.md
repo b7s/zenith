@@ -29,7 +29,7 @@ Core ideas:
   apply live. Power users may additionally drop a `%APPDATA%\zenith\custom.css` that is hot-reloaded.
 - **Right-click anywhere empty on the bar** → native context menu: **Settings · Widgets · Restart
   Bar · Close Bar**.
-- **Custom chrome.** No window uses the Windows title bar. Every window has a custom header: bold
+- **Custom chrome.** No window uses the Windows title bar. Every window has a custom header: semi-bold
   title on the left, `×` close on the right. The Widget Manager header also has a search input.
 - **Minimal footprint.** Goal is the lowest possible RAM and CPU. No heavy framework, no
   per-window CSS backgrounds, compositor-friendly animations only.
@@ -452,9 +452,48 @@ All icons flow through **one** module: `src/shared/icon.ts`.
   pass `{ size }` or `data-size`.
 - **Do not** deep-import `lucide/dist/esm/icons/<name>.js` at runtime. Those files are not shipped to
   `dist/`, so such imports 404 and silently fall back to the Windows glyph. Resolution must go
-  through the registry / `registerIcons` so it stays tree-shaken and reliable.
+   through the registry / `registerIcons` so it stays tree-shaken and reliable.
 
----
+### 6.2 Reusable TS components (`src/shared/`)
+
+Shared UI components live as plain functions in `src/shared/*.ts`. Each accepts an `HTMLElement`
+parent, builds DOM imperatively, and returns a controller handle. No JSX, no framework. Every
+component must use `.zen-*` CSS classes exclusively.
+
+| Module | Export | Purpose |
+|---|---|---|
+| `window.ts` | `mountWindow(opts)` | Builds header + content; returns `{ root, content, search }` |
+| `tabs.ts` | `mountTabs(parent, TabDef[], initialId?)` | Builds tab bar + panes; returns `{ container, panes, switchTo, activeId }` |
+| `icon.ts` | `setIcon(el, name, opts?)`, `applyIcons(root?)` | Renders Lucide SVG sprite or Win32 glyph |
+| `config.ts` | `loadConfig()`, `saveConfig(cfg)`, `getConfigValue()` | Typed config client |
+| `log.ts` | `initLog()`, `logInfo/Warn/Error()`, `logMemory()`, `time()` | Per-window file logging |
+| `widgets.ts` | `loadWidgets()`, `renderWidget(manifest, zone)`, `layoutBar(config)` | Widget loading |
+
+Pattern — tabs.ts (reference):
+```ts
+export interface TabDef { id: string; label: string; }
+export interface TabMount {
+  container: HTMLElement;
+  panes: Record<string, HTMLElement>;
+  switchTo(id: string): void;
+  readonly activeId: string;
+}
+export function mountTabs(parent: HTMLElement, tabs: TabDef[], initialId?: string): TabMount {
+  // Build nav.zen-tabs > button.zen-tab per def + div.zen-tab-pane per def
+  // Wire click delegation on container
+  // Return handle with switchTo/panes/activeId
+}
+```
+
+Rules:
+1. **One component, one file** — no bundling unrelated UI into a single module.
+2. **Imperative DOM, no innerHTML** — use `document.createElement` / `append` to avoid XSS
+   and keep the V8 JIT happy. Exception: widget content loaded from disk.
+3. **Return a handle, not the DOM.** The caller should never need to query-select for
+   the panes or buttons — they are returned as `Record<string, HTMLElement>`.
+4. **Event delegation over binding.** Attach one listener to the component root
+   instead of one per child element. This avoids memory churn from closure allocation.
+5. **Use `.zen-*` classes exclusively.** Never inline styles or hardcode colors in TS.
 
 ## 7. Transparency contract (Windows Acrylic/Mica)
 
@@ -508,7 +547,7 @@ All icons flow through **one** module: `src/shared/icon.ts`.
   `main.ts` imports `src/styles/globals.css` once (the `@import` chain: tokens → base → components
   → icons → window).
 - **`src/shared/window.ts` is the single source of the custom header.** `mountWindow({ title,
-  searchable })` builds the bold title (left) + optional search input + `×` close (right), wires
+  searchable })` builds the semi-bold title (left) + optional search input + `×` close (right), wires
   close to `getCurrentWindow().close()`, and bootstraps theme + icons. It returns
   `{ root, content, search }` so the window fills `content` and (for the manager) wires `search`.
 - **Drag region uses manual `pointerdown`, NOT `data-tauri-drag-region`.** The declarative
@@ -520,7 +559,7 @@ All icons flow through **one** module: `src/shared/icon.ts`.
 - **Theme.** `applyTheme()` resolves `appearance.theme` (`auto|dark|light`) and sets `data-theme`;
   `watchSystemTheme()` keeps `auto` in sync with the OS. The bar window has no header (it *is* the
   bar), so it calls only `applyTheme()` + `applyIcons()` and builds its own strip.
-- All windows: `decorations: false`, custom header via `mountWindow` (bold title left, `×` right;
+- All windows: `decorations: false`, custom header via `mountWindow` (semi-bold title left, `×` right;
   manager adds a search input).
 - One `capabilities/*.json` per window label (`default`=bar, `settings`, `widgets`). Never grant a
   permission globally that only one window needs. Close requires `core:window:allow-close`.

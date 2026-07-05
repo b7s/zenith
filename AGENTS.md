@@ -525,17 +525,65 @@ Rules:
 
 ## 9. Widget contract
 
-- Location: `widgets/<name>/{manifest.json, widget.html, widget.js, widget.css}` — plain
-  JS/CSS/HTML, no framework.
+- **Each widget is fully self-contained in its own folder.** All code lives in
+  `widgets/<name>/` — the folder IS the widget. Adding a widget = create a folder with these
+  files; removing a widget = delete the folder. No imports, no registration, no config outside
+  the folder.
+
+### 9.1 Folder layout
+
+```
+widgets/<name>/
+├── manifest.json      # metadata (required)
+├── widget.html        # HTML fragment (required) — injected into bar DOM
+├── widget.js          # IIFE (optional) — runs once on mount
+└── widget.css         # styles (optional) — injected once per session
+```
+
 - `manifest.json` fields: `name`, `id`, `version`, `description`, `default_zone` (`left|center|right`),
   `icon` (Lucide name), `min_width`, `preview` (thumbnail asset).
-- Discovery: the `widgets` domain scans `widgets/` at startup and on demand; the manager lists them
-  with thumbnails. **Green ✓ icon = add**, **red − icon = remove** (per spec).
-- Order in `config.widgets.enabled` == left-to-right order within each zone.
-- **`workspace` widget special rule:** shows one circle per virtual desktop; active desktop is a
-  filled/colored circle, others outlined. Click to switch. **If there is only one virtual desktop,
-  the bar layout layer hides the widget automatically — even if the user enabled it.** Enumeration
-  uses the undocumented `IVirtualDesktopManagerInternal` COM (only way on Windows).
+- `widget.html` is a plain HTML fragment (no `<html>`/`<body>` — just the content elements).
+- `widget.js` wraps its logic in an IIFE to keep scope clean. It uses
+  `window.__zenith_invoke` (set by the bar's `main.ts`) to call Tauri commands — never
+  imports from `@tauri-apps/api` directly.
+- `widget.css` is injected once per session into `<head>` (deduplicated by widget id).
+
+### 9.2 Self-contained rule
+
+There is no central widget registry to edit. The Rust `widgets` domain scans
+`widgets/` at startup and on demand by reading each subdirectory's `manifest.json`.
+The 3 source files (`widget.html`, `widget.js`, `widget.css`) are read into strings and
+sent to the frontend via `get_widget_source` at layout time. Because every widget's code
+lives in exactly one folder, adding/removing a widget is just `mkdir`/`rmdir`.
+
+### 9.3 Widget lifecycle
+
+- **Discovery:** `widgets::registry::scan_widgets()` reads `widgets/` subdirectories,
+  parses `manifest.json`, and returns a `Vec<WidgetManifest>`. Invalid manifests are
+  logged and skipped (never crash).
+- **Source loading:** `widgets::registry::widget_source(id)` reads the 3 source files
+  from `widgets/<id>/`. Missing files produce empty strings.
+- **Layout:** `layoutBar()` in `src/shared/widgets.ts` iterates `cfg.widgets.enabled`,
+  fetches each widget's source via IPC, injects CSS, sets `innerHTML` with the HTML
+  fragment, and appends a `<script>` node for the JS IIFE.
+- **Config** controls order (`enabled` array) and per-widget zone (`positions` map).
+  To show/hide a widget, users toggle it in the Widget Manager (which edits
+  `cfg.widgets.enabled`).
+
+### 9.4 Sizing
+
+- `min_width` in the manifest sets the widget slot's `min-width` in the bar. Use `0`
+  for widgets that grow/shrink with content (e.g. workspace dots). Use a positive value
+  for fixed-minimum widgets (e.g. clock at `80`).
+- Widgets do not set their own width via CSS — the slot (`widget-slot`) controls it.
+
+### 9.5 Special rules
+
+- **`workspace` widget:** shows one circle per virtual desktop; active desktop is a
+  filled/colored circle, others outlined. Click to switch. **If there is only one
+  virtual desktop, the bar layout layer (`layoutBar`) hides the widget automatically
+  — even if the user enabled it.** Enumeration uses the undocumented
+  `IVirtualDesktopManagerInternal` COM interface (the only way on Windows).
 
 ---
 

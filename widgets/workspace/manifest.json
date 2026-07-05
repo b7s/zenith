@@ -1,0 +1,9 @@
+{
+  "id": "workspace",
+  "name": "Workspace",
+  "version": "1.0.0",
+  "description": "Virtual desktop workspace switcher",
+  "default_zone": "left",
+  "icon": "monitor",
+  "min_width": 0
+}

@@ -164,8 +164,11 @@ pub struct WidgetsConfig {
 impl Default for WidgetsConfig {
     fn default() -> Self {
         Self {
-            enabled: vec!["clock".into()],
-            positions: std::collections::HashMap::from([("clock".into(), "left".into())]),
+            enabled: vec!["workspace".into(), "clock".into()],
+            positions: std::collections::HashMap::from([
+                ("clock".into(), "left".into()),
+                ("workspace".into(), "left".into()),
+            ]),
         }
     }
 }

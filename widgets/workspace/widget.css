@@ -1,0 +1,26 @@
+.ws-desktops {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  height: 100%;
+}
+.ws-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--muted-foreground);
+  background: transparent;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+  flex: 0 0 auto;
+}
+.ws-dot:hover {
+  border-color: var(--foreground);
+  background: color-mix(in oklch, var(--foreground) 20%, transparent);
+}
+.ws-dot.is-active {
+  background: var(--foreground);
+  border-color: var(--foreground);
+}

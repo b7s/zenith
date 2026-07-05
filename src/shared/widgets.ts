@@ -18,6 +18,15 @@ export async function getWidgetSource(id: string): Promise<WidgetSource | null> 
   }
 }
 
+export async function getWorkspaceCount(): Promise<number> {
+  try {
+    const ws = await invoke<{ id: number; label: string }[]>(CMD.getWorkspaces);
+    return ws.length;
+  } catch {
+    return 0;
+  }
+}
+
 const injectedCss = new Set<string>();
 
 function injectWidgetCss(id: string, css: string): void {
@@ -62,6 +71,8 @@ export async function layoutBar(barElement: HTMLElement, cfg: Config): Promise<v
   const manifests = await getWidgets();
   const manifestMap = new Map(manifests.map((m) => [m.id, m]));
 
+  const workspaceCount = await getWorkspaceCount();
+
   for (const id of cfg.widgets.enabled) {
     const man = manifestMap.get(id);
     if (!man) continue;
@@ -69,6 +80,9 @@ export async function layoutBar(barElement: HTMLElement, cfg: Config): Promise<v
     const zone = cfg.widgets.positions[id] ?? man.default_zone;
     const zoneEl = zones.get(zone);
     if (!zoneEl) continue;
+
+    // Hide workspace widget when only 1 desktop exists
+    if (id === "workspace" && workspaceCount <= 1) continue;
 
     const source = await getWidgetSource(id);
     if (!source) continue;

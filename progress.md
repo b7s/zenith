@@ -87,7 +87,7 @@ Goal: full settings form, changes apply live.
 - [x] **About tab**: version, name, description
 - [x] All fields bound to config, `saveConfig()` on change, live reload bar
 - [x] Use `.zen-*` component classes exclusively
-- [ ] Color pickers: native `ChooseColor` Win32 dialog integration
+- [x] Color pickers (HTML `<input type="color">` in settings)
 - [ ] Widget position per widget (left/center/right selector)
 - [ ] Widget reordering (drag or up/down buttons)
 

@@ -13,6 +13,8 @@ void (async () => {
   await initLog();
   logMemory("startup");
 
+  (window as any).__zenith_invoke = invoke;
+
   await time("applyTheme", () => applyTheme());
   watchSystemTheme(() => void applyTheme());
   applyIcons();

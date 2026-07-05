@@ -5,8 +5,9 @@ mod shared;
 mod tray;
 mod widgets;
 mod window;
+mod workspace;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 pub fn run() {
     tauri::Builder::default()
@@ -20,8 +21,13 @@ pub fn run() {
             widgets::commands::get_widget_source,
             log::log_write,
             log::log_clear,
+            workspace::commands::get_workspaces,
+            workspace::commands::get_active_workspace,
+            workspace::commands::switch_workspace,
         ])
         .setup(|app| {
+            // Initialize COM once for the main thread (used by workspace domain)
+            unsafe { let _ = windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_APARTMENTTHREADED); }
             let handle = app.handle().clone();
             if let Some(bar) = handle.get_webview_window("bar") {
                 let h = handle.clone();
@@ -54,6 +60,25 @@ pub fn run() {
                     if dark != last_dark {
                         last_dark = dark;
                         let _ = window::apply_material(&h, "bar");
+                    }
+                }
+            });
+
+            let h2 = handle.clone();
+            std::thread::spawn(move || {
+                unsafe { let _ = windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_APARTMENTTHREADED); }
+                let mut last_active = workspace::commands::get_active_workspace();
+                let _ = h2.emit(crate::shared::EVENT_WORKSPACE_CHANGED, last_active);
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    if h2.get_webview_window("bar").is_none() {
+                        continue;
+                    }
+                    let active = workspace::commands::get_active_workspace();
+                    if active != last_active {
+                        eprintln!("[zenith:ws] external switch detected: {} -> {}", last_active, active);
+                        last_active = active;
+                        let _ = h2.emit(crate::shared::EVENT_WORKSPACE_CHANGED, active);
                     }
                 }
             });

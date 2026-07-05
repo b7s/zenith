@@ -15,6 +15,9 @@ pub fn run() {
             commands::open_settings,
             commands::open_widgets,
             commands::show_context_menu,
+            commands::show_workspace_context_menu,
+            commands::confirm_delete_desktop,
+            commands::show_rename_dialog,
             config::commands::get_config,
             config::commands::save_config,
             widgets::commands::get_widgets,
@@ -24,6 +27,11 @@ pub fn run() {
             workspace::commands::get_workspaces,
             workspace::commands::get_active_workspace,
             workspace::commands::switch_workspace,
+            workspace::commands::move_window_to_desktop,
+            workspace::commands::create_desktop,
+            workspace::commands::delete_desktop,
+            workspace::commands::rename_desktop,
+            workspace::commands::toggle_pin_window,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)
@@ -64,24 +72,12 @@ pub fn run() {
                 }
             });
 
+            // Initial workspace emit
             let h2 = handle.clone();
-            std::thread::spawn(move || {
-                unsafe { let _ = windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_APARTMENTTHREADED); }
-                let mut last_active = workspace::commands::get_active_workspace();
-                let _ = h2.emit(crate::shared::EVENT_WORKSPACE_CHANGED, last_active);
-                loop {
-                    std::thread::sleep(std::time::Duration::from_secs(2));
-                    if h2.get_webview_window("bar").is_none() {
-                        continue;
-                    }
-                    let active = workspace::commands::get_active_workspace();
-                    if active != last_active {
-                        eprintln!("[zenith:ws] external switch detected: {} -> {}", last_active, active);
-                        last_active = active;
-                        let _ = h2.emit(crate::shared::EVENT_WORKSPACE_CHANGED, active);
-                    }
-                }
-            });
+            let _ = h2.emit(crate::shared::EVENT_WORKSPACE_CHANGED, workspace::commands::get_active_workspace());
+
+            // Start COM notification listener for instant external switch detection
+            workspace::notification::setup(handle.clone());
 
             Ok(())
         })

@@ -1,8 +1,21 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicPtr, Ordering};
+use std::sync::OnceLock;
+use std::ffi::c_void;
 use serde::Serialize;
 use tauri::Emitter;
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_LOCAL_SERVER};
-use windows::core::{IUnknown, GUID};
+use windows::core::{HSTRING, IUnknown, GUID};
+use windows::Win32::Foundation::{HWND, WIN32_ERROR};
+use windows::Win32::System::Registry::*;
+
+static WS_FOREGROUND_HWND: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+/// Save the foreground HWND before the bar takes focus.
+pub fn set_foreground_hwnd(hwnd: *mut c_void) { WS_FOREGROUND_HWND.store(hwnd, Ordering::Relaxed); }
+pub fn get_cached_foreground_hwnd() -> HWND { HWND(WS_FOREGROUND_HWND.load(Ordering::Relaxed)) }
+fn skip_bar_hwnd(hwnd: HWND) -> bool {
+    hwnd.is_invalid()
+}
 
 const CLSID_IMMERSIVE_SHELL: GUID = GUID {
     data1: 0xC2F03A33, data2: 0x21F5, data3: 0x47FA,
@@ -24,8 +37,19 @@ const IID_IVIRTUAL_DESKTOP: GUID = GUID {
     data1: 0x3F07F4BE, data2: 0xB107, data3: 0x441A,
     data4: [0xAF, 0x0F, 0x39, 0xD8, 0x25, 0x29, 0x07, 0x2C],
 };
+const IID_IAPPLICATION_VIEW_COLLECTION: GUID = GUID {
+    data1: 0x1841C6D7, data2: 0x4F9D, data3: 0x42C0,
+    data4: [0xAF, 0x41, 0x87, 0x47, 0x53, 0x8F, 0x10, 0xE5],
+};
+const CLSID_VIRTUAL_DESKTOP_PINNED_APPS: GUID = GUID {
+    data1: 0xB1F5C0C7, data2: 0x9841, data3: 0x4FC0,
+    data4: [0xA1, 0xF9, 0x14, 0xE2, 0x73, 0x75, 0x2E, 0xED],
+};
+const IID_VIRTUAL_DESKTOP_PINNED_APPS: GUID = GUID {
+    data1: 0x4CE81583, data2: 0x1E4C, data3: 0x4CB6,
+    data4: [0xA6, 0x30, 0x69, 0x0E, 0x5B, 0xC9, 0xB6, 0xC7],
+};
 
-// Vtable function pointer types
 type QIFn = unsafe extern "system" fn(*mut std::ffi::c_void, *const GUID, *mut *mut std::ffi::c_void) -> i32;
 type ReleaseFn = unsafe extern "system" fn(*mut std::ffi::c_void) -> u32;
 type QueryServiceFn = unsafe extern "system" fn(*mut std::ffi::c_void, *const GUID, *const GUID, *mut *mut std::ffi::c_void) -> i32;
@@ -35,6 +59,66 @@ type GetDesktopsFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut *mut 
 type SwitchDesktopFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut std::ffi::c_void) -> i32;
 type ArrGetAtFn = unsafe extern "system" fn(*mut std::ffi::c_void, u32, *const GUID, *mut *mut std::ffi::c_void) -> i32;
 type DesktopGetIdFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut GUID) -> i32;
+type DesktopGetNameFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut HSTRING) -> i32;
+type GetViewForHwndFn = unsafe extern "system" fn(*mut std::ffi::c_void, HWND, *mut *mut std::ffi::c_void) -> i32;
+type MoveViewFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void) -> i32;
+type CreateDesktopFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut *mut std::ffi::c_void) -> i32;
+type RemoveDesktopFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut std::ffi::c_void, *mut std::ffi::c_void) -> i32;
+type DesktopRenameFn = unsafe extern "system" fn(*mut std::ffi::c_void, *const HSTRING) -> i32;
+type IsWindowPinnedFn = unsafe extern "system" fn(*mut std::ffi::c_void, HWND, *mut i32) -> i32;
+type PinUnpinHwndFn = unsafe extern "system" fn(*mut std::ffi::c_void, HWND) -> i32;
+
+// --- Vtable layout detection ---
+// Pre-24H2 (build < 26100, e.g. 22621):
+//   3:GetCount 4:MoveViewToDesktop 5:CanViewMoveDesktop
+//   6:GetCurrentDesktop 7:GetDesktops 8:GetAdjacentDesktop
+//   9:SwitchDesktop 10:CreateDesktop 11:MoveDesktop 12:RemoveDesktop 13:FindDesktop
+// 24H2+ (build >= 26100, e.g. 26100/26200): EnsureConnection inserted at 8, SwitchDesktopWithAnimation at 11
+//   3:GetCount 4:MoveViewToDesktop 5:CanViewMoveDesktop
+//   6:GetCurrentDesktop 7:GetDesktops 8:EnsureConnection
+//   9:GetAdjacentDesktop 10:SwitchDesktop 11:SwitchDesktopWithAnimation
+//   12:CreateDesktop 13:MoveDesktop 14:RemoveDesktop 15:FindDesktop
+
+struct VtableLayout {
+    switch_desktop: usize,
+    create_desktop: usize,
+    remove_desktop: usize,
+}
+
+fn detect_layout() -> VtableLayout {
+    if is_24h2_or_later() {
+        VtableLayout { switch_desktop: 10, create_desktop: 12, remove_desktop: 14 }
+    } else {
+        VtableLayout { switch_desktop: 9, create_desktop: 10, remove_desktop: 12 }
+    }
+}
+
+fn layout() -> &'static VtableLayout {
+    static LAYOUT: OnceLock<VtableLayout> = OnceLock::new();
+    LAYOUT.get_or_init(detect_layout)
+}
+
+fn is_24h2_or_later() -> bool {
+    unsafe {
+        let mut hkey = HKEY::default();
+        let key = windows::core::w!("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion");
+        if RegOpenKeyExW(HKEY_LOCAL_MACHINE, key, None, KEY_READ, &mut hkey) != WIN32_ERROR(0) {
+            return false;
+        }
+        let mut buf = [0u16; 10];
+        let mut len = (buf.len() * 2) as u32;
+        let result = RegQueryValueExW(hkey, windows::core::w!("CurrentBuild"), None, None, Some(buf.as_mut_ptr() as *mut u8), Some(&mut len));
+        let _ = RegCloseKey(hkey);
+        if result != WIN32_ERROR(0) { return false; }
+        let char_count = (len / 2) as usize;
+        let s = String::from_utf16_lossy(&buf[..char_count]).trim_end_matches('\0').to_owned();
+        let build: u32 = s.trim().parse().unwrap_or(0);
+        eprintln!("[zenith:ws] Windows build {}", build);
+        build >= 26100
+    }
+}
+
+// --- COM helpers ---
 
 unsafe fn get_vtable(ptr: *mut std::ffi::c_void) -> *mut *mut std::ffi::c_void {
     *(ptr as *mut *mut *mut std::ffi::c_void)
@@ -47,75 +131,81 @@ unsafe fn release_com(ptr: *mut std::ffi::c_void) {
     release(ptr);
 }
 
-/// Get the `IVirtualDesktopManagerInternal` via:
-/// 1. CoCreate(CLSID_ImmersiveShell) → IServiceProvider
-/// 2. QueryService(CLSID_VDM_INTERNAL, IID_VDM_INTERNAL) → IVirtualDesktopManagerInternal
-unsafe fn get_manager_internal() -> Option<*mut std::ffi::c_void> {
-    // Step 1: Create ImmersiveShell and get IServiceProvider
+struct ManagerPtr(*mut std::ffi::c_void);
+unsafe impl Send for ManagerPtr {}
+unsafe impl Sync for ManagerPtr {}
+
+fn cached_manager() -> Option<*mut std::ffi::c_void> {
+    static CACHE: OnceLock<ManagerPtr> = OnceLock::new();
+    if let Some(ptr) = CACHE.get() {
+        return Some(ptr.0);
+    }
+    unsafe {
+        let mgr = create_manager_internal()?;
+        let _ = CACHE.set(ManagerPtr(mgr));
+        Some(mgr)
+    }
+}
+
+unsafe fn create_manager_internal() -> Option<*mut std::ffi::c_void> {
     let shell: IUnknown = match CoCreateInstance(&CLSID_IMMERSIVE_SHELL, None, CLSCTX_LOCAL_SERVER) {
         Ok(s) => s,
-        Err(e) => {
-            eprintln!("[zenith:ws] CoCreateInstance(ImmersiveShell) FAILED: {e}");
-            return None;
-        }
+        Err(e) => { eprintln!("[zenith:ws] CoCreateInstance FAILED: {e}"); return None; }
     };
     let shell_raw = std::mem::transmute::<IUnknown, *mut std::ffi::c_void>(shell);
-
-    // QI for IServiceProvider
-    let provider = query_interface(shell_raw, &IID_ISERVICE_PROVIDER);
-    release_com(shell_raw);
-    let provider = match provider {
-        Some(p) => p,
-        None => {
-            eprintln!("[zenith:ws] QI for IServiceProvider FAILED");
-            return None;
-        }
+    let provider = {
+        let vtbl = get_vtable(shell_raw);
+        let qi: QIFn = std::mem::transmute(*vtbl.add(0));
+        let mut out: *mut std::ffi::c_void = std::ptr::null_mut();
+        let hr = qi(shell_raw, &IID_ISERVICE_PROVIDER, &mut out);
+        release_com(shell_raw);
+        if hr < 0 || out.is_null() { eprintln!("[zenith:ws] QI IServiceProvider FAILED"); return None; }
+        out
     };
-
-    // Step 2: QueryService for IVirtualDesktopManagerInternal
     let service_vtbl = get_vtable(provider);
     let query_svc: QueryServiceFn = std::mem::transmute(*service_vtbl.add(3));
     let mut mgr: *mut std::ffi::c_void = std::ptr::null_mut();
     let hr = query_svc(provider, &CLSID_VDM_INTERNAL as *const _, &IID_VDM_INTERNAL as *const _, &mut mgr);
     release_com(provider);
-
-    if hr >= 0 && !mgr.is_null() {
-        eprintln!("[zenith:ws] get_manager_internal OK mgr={:p}", mgr);
-        Some(mgr)
-    } else {
-        eprintln!("[zenith:ws] QueryService for VirtualDesktopManagerInternal FAILED hr=0x{:08X}", hr as u32);
+    if hr >= 0 && !mgr.is_null() { Some(mgr) } else {
+        eprintln!("[zenith:ws] QueryService VDM Internal FAILED hr=0x{:08X}", hr as u32);
         None
     }
 }
 
-unsafe fn query_interface(unk: *mut std::ffi::c_void, iid: *const GUID) -> Option<*mut std::ffi::c_void> {
-    let vtbl = get_vtable(unk);
-    let qi: QIFn = std::mem::transmute(*vtbl.add(0));
-    let mut out: *mut std::ffi::c_void = std::ptr::null_mut();
-    let hr = qi(unk, iid, &mut out);
-    if hr >= 0 && !out.is_null() { Some(out) } else { None }
+unsafe fn get_view_collection() -> Option<*mut std::ffi::c_void> {
+    let shell: IUnknown = match CoCreateInstance(&CLSID_IMMERSIVE_SHELL, None, CLSCTX_LOCAL_SERVER) {
+        Ok(s) => s,
+        Err(e) => { eprintln!("[zenith:ws] view col CoCreateInstance FAILED: {e}"); return None; }
+    };
+    let shell_raw = std::mem::transmute::<IUnknown, *mut std::ffi::c_void>(shell);
+    let provider = {
+        let vtbl = get_vtable(shell_raw);
+        let qi: QIFn = std::mem::transmute(*vtbl.add(0));
+        let mut out: *mut std::ffi::c_void = std::ptr::null_mut();
+        let hr = qi(shell_raw, &IID_ISERVICE_PROVIDER, &mut out);
+        release_com(shell_raw);
+        if hr < 0 || out.is_null() { eprintln!("[zenith:ws] view col QI FAILED"); return None; }
+        out
+    };
+    let service_vtbl = get_vtable(provider);
+    let query_svc: QueryServiceFn = std::mem::transmute(*service_vtbl.add(3));
+    let mut col: *mut std::ffi::c_void = std::ptr::null_mut();
+    let hr = query_svc(provider, &CLSID_IMMERSIVE_SHELL as *const _, &IID_IAPPLICATION_VIEW_COLLECTION as *const _, &mut col);
+    release_com(provider);
+    if hr >= 0 && !col.is_null() { Some(col) } else {
+        eprintln!("[zenith:ws] query view collection FAILED hr=0x{:08X}", hr as u32);
+        None
+    }
 }
 
-/// IVirtualDesktopManagerInternal vtable (IID 53F5CA0B-158F-4124-900C-057158060B27):
-/// 0: QI  1: AddRef  2: Release
-/// 3: GetCount                (UINT*)
-/// 4: MoveViewToDesktop
-/// 5: CanViewMoveDesktops
-/// 6: GetCurrentDesktop       (IVirtualDesktop**)
-/// 7: GetDesktops             (IObjectArray**)
-/// 8: GetAdjacentDesktop
-/// 9: SwitchDesktop           (IVirtualDesktop*)
-/// 10: CreateDesktop
-/// 11: MoveDesktop
-/// 12: RemoveDesktop
-/// 13: FindDesktop
+// --- Desktop operations (use layout() for variable slots) ---
 
 unsafe fn get_desktop_count(mgr: *mut std::ffi::c_void) -> u32 {
     let vtbl = get_vtable(mgr);
     let func: GetCountFn = std::mem::transmute(*vtbl.add(3));
     let mut count = 0u32;
-    let hr = func(mgr, &mut count);
-    eprintln!("[zenith:ws] get_desktop_count hr=0x{:08X} count={}", hr as u32, count);
+    func(mgr, &mut count);
     count
 }
 
@@ -124,15 +214,15 @@ unsafe fn get_current_desktop_ptr(mgr: *mut std::ffi::c_void) -> Option<*mut std
     let func: GetCurrentDesktopFn = std::mem::transmute(*vtbl.add(6));
     let mut desktop: *mut std::ffi::c_void = std::ptr::null_mut();
     let hr = func(mgr, &mut desktop);
-    eprintln!("[zenith:ws] get_current_desktop hr=0x{:08X} desktop={:p}", hr as u32, desktop);
     if hr >= 0 && !desktop.is_null() { Some(desktop) } else { None }
 }
 
 unsafe fn switch_to_desktop(mgr: *mut std::ffi::c_void, desktop: *mut std::ffi::c_void) -> bool {
+    let slot = layout().switch_desktop;
     let vtbl = get_vtable(mgr);
-    let func: SwitchDesktopFn = std::mem::transmute(*vtbl.add(9));
+    let func: SwitchDesktopFn = std::mem::transmute(*vtbl.add(slot));
     let hr = func(mgr, desktop);
-    eprintln!("[zenith:ws] switch_desktop hr=0x{:08X}", hr as u32);
+    if hr < 0 { eprintln!("[zenith:ws] switch_desktop slot {} FAILED hr=0x{:08X}", slot, hr as u32); }
     hr >= 0
 }
 
@@ -140,113 +230,217 @@ unsafe fn desktop_get_id(desktop: *mut std::ffi::c_void) -> GUID {
     let vtbl = get_vtable(desktop);
     let func: DesktopGetIdFn = std::mem::transmute(*vtbl.add(4));
     let mut guid: GUID = std::mem::zeroed();
-    let hr = func(desktop, &mut guid);
-    eprintln!("[zenith:ws] desktop_get_id hr=0x{:08X} guid={:08X}-{:04X}-{:04X}", hr as u32, guid.data1, guid.data2, guid.data3);
+    func(desktop, &mut guid);
     guid
 }
 
-unsafe fn get_desktop_at_index(mgr: *mut std::ffi::c_void, index: u32) -> Option<*mut std::ffi::c_void> {
+unsafe fn desktop_get_name(desktop: *mut std::ffi::c_void) -> Option<String> {
+    let vtbl = get_vtable(desktop);
+    let func: DesktopGetNameFn = std::mem::transmute(*vtbl.add(5));
+    let mut name = HSTRING::default();
+    let hr = func(desktop, &mut name);
+    if hr >= 0 && !name.is_empty() {
+        Some(name.to_string_lossy().to_string())
+    } else {
+        None
+    }
+}
+
+unsafe fn get_desktop_array(mgr: *mut std::ffi::c_void) -> Option<*mut std::ffi::c_void> {
     let vtbl = get_vtable(mgr);
     let func: GetDesktopsFn = std::mem::transmute(*vtbl.add(7));
     let mut arr: *mut std::ffi::c_void = std::ptr::null_mut();
     let hr = func(mgr, &mut arr);
-    eprintln!("[zenith:ws] get_desktops hr=0x{:08X} arr={:p}", hr as u32, arr);
-    if hr < 0 || arr.is_null() { return None; }
+    if hr >= 0 && !arr.is_null() { Some(arr) } else { None }
+}
 
+unsafe fn get_desktop_at_index(arr: *mut std::ffi::c_void, index: u32) -> Option<*mut std::ffi::c_void> {
     let arr_vtbl = get_vtable(arr);
     let get_at: ArrGetAtFn = std::mem::transmute(*arr_vtbl.add(4));
     let mut desktop: *mut std::ffi::c_void = std::ptr::null_mut();
-    let hr2 = get_at(arr, index, &IID_IVIRTUAL_DESKTOP as *const _, &mut desktop);
-    eprintln!("[zenith:ws] get_desktop_at_index({}) GetAt hr=0x{:08X} desktop={:p}", index, hr2 as u32, desktop);
-    release_com(arr);
-    if hr2 >= 0 && !desktop.is_null() { Some(desktop) } else { None }
+    let hr = get_at(arr, index, &IID_IVIRTUAL_DESKTOP as *const _, &mut desktop);
+    if hr >= 0 && !desktop.is_null() { Some(desktop) } else { None }
 }
 
+// --- Public operations ---
+
 fn try_com_get_workspaces() -> Option<Vec<DesktopInfo>> {
-    eprintln!("[zenith:ws] try_com_get_workspaces");
     unsafe {
-        let mgr = get_manager_internal()?;
+        let mgr = cached_manager()?;
         let count = get_desktop_count(mgr);
-        if count == 0 { release_com(mgr); return None; }
-
+        if count == 0 { return None; }
+        let arr = get_desktop_array(mgr)?;
         let workspaces: Vec<DesktopInfo> = (0..count).map(|i| {
-            DesktopInfo { id: i, label: format!("{}", i + 1) }
+            let name = get_desktop_at_index(arr, i).and_then(|d| {
+                let n = desktop_get_name(d);
+                release_com(d);
+                n
+            });
+            DesktopInfo { id: i, label: name.unwrap_or_else(|| format!("{}", i + 1)) }
         }).collect();
-
-        release_com(mgr);
-        eprintln!("[zenith:ws] returning {} workspaces", count);
+        release_com(arr);
         Some(workspaces)
     }
 }
 
 fn try_com_get_active() -> Option<u32> {
-    eprintln!("[zenith:ws] try_com_get_active");
     unsafe {
-        let mgr = get_manager_internal()?;
+        let mgr = cached_manager()?;
         let count = get_desktop_count(mgr);
-        if count == 0 { release_com(mgr); return None; }
-
-        let current = get_current_desktop_ptr(mgr);
-        let active_idx = match current {
-            Some(c) => {
-                let target_id = desktop_get_id(c);
-                release_com(c);
-                let mut found = 0u32;
-                for i in 0..count {
-                    if let Some(d) = get_desktop_at_index(mgr, i) {
-                        let did = desktop_get_id(d);
-                        release_com(d);
-                        if did == target_id { found = i; break; }
-                    }
-                }
-                eprintln!("[zenith:ws] active desktop idx={}", found);
-                found
+        if count == 0 { return None; }
+        let current = get_current_desktop_ptr(mgr)?;
+        let target_id = desktop_get_id(current);
+        release_com(current);
+        let arr = get_desktop_array(mgr)?;
+        let mut found = 0u32;
+        for i in 0..count {
+            if let Some(d) = get_desktop_at_index(arr, i) {
+                let did = desktop_get_id(d);
+                release_com(d);
+                if did == target_id { found = i; break; }
             }
-            None => {
-                eprintln!("[zenith:ws] no current desktop ptr, returning 0");
-                0
-            }
-        };
-
-        release_com(mgr);
-        Some(active_idx)
+        }
+        release_com(arr);
+        Some(found)
     }
 }
 
 fn try_com_switch(index: u32) -> bool {
-    eprintln!("[zenith:ws] try_com_switch index={}", index);
     unsafe {
-        let mgr = match get_manager_internal() {
-            Some(m) => m,
-            None => {
-                eprintln!("[zenith:ws] try_com_switch: get_manager_internal FAILED");
-                return false;
-            }
-        };
-
+        let mgr = match cached_manager() { Some(m) => m, None => return false };
         let count = get_desktop_count(mgr);
-        if index >= count {
-            eprintln!("[zenith:ws] try_com_switch: index {} >= count {}", index, count);
-            release_com(mgr);
+        if index >= count { return false; }
+        let arr = match get_desktop_array(mgr) { Some(a) => a, None => return false };
+        let desktop = get_desktop_at_index(arr, index);
+        release_com(arr);
+        match desktop {
+            Some(d) => { let r = switch_to_desktop(mgr, d); release_com(d); r }
+            None => false
+        }
+    }
+}
+
+fn try_com_move_window_to_desktop(window_index: u32) -> bool {
+    unsafe {
+        let hwnd = get_cached_foreground_hwnd();
+        if skip_bar_hwnd(hwnd) { eprintln!("[zenith:ws] move: no foreground window"); return false; }
+
+        let col = match get_view_collection() { Some(c) => c, None => return false };
+        let col_vtbl = get_vtable(col);
+        let get_view: GetViewForHwndFn = std::mem::transmute(*col_vtbl.add(6));
+        let mut view: *mut std::ffi::c_void = std::ptr::null_mut();
+        let hr = get_view(col, hwnd, &mut view);
+        if hr < 0 || view.is_null() {
+            eprintln!("[zenith:ws] move: GetViewForHwnd FAILED hr=0x{:08X}", hr as u32);
+            release_com(col);
             return false;
         }
+        release_com(col);
 
-        let desktop = get_desktop_at_index(mgr, index);
-        let ok = match desktop {
-            Some(d) => {
-                eprintln!("[zenith:ws] try_com_switch: got desktop ptr={:p}, switching...", d);
-                let result = switch_to_desktop(mgr, d);
-                release_com(d);
-                result
-            }
-            None => {
-                eprintln!("[zenith:ws] try_com_switch: get_desktop_at_index returned None");
-                false
-            }
+        let mgr = match cached_manager() { Some(m) => m, None => { release_com(view); return false; } };
+        let count = get_desktop_count(mgr);
+        if window_index >= count { release_com(view); return false; }
+
+        let arr = match get_desktop_array(mgr) { Some(a) => a, None => { release_com(view); return false; } };
+        let desktop = match get_desktop_at_index(arr, window_index) { Some(d) => d, None => { release_com(arr); release_com(view); return false; } };
+        release_com(arr);
+
+        let mgr_vtbl = get_vtable(mgr);
+        let move_fn: MoveViewFn = std::mem::transmute(*mgr_vtbl.add(4));
+        let result = move_fn(mgr, view, desktop) >= 0;
+        if !result { eprintln!("[zenith:ws] move: MoveViewToDesktop FAILED"); }
+
+        release_com(desktop);
+        release_com(view);
+        result
+    }
+}
+
+unsafe fn create_desktop_com(mgr: *mut std::ffi::c_void) -> bool {
+    let slot = layout().create_desktop;
+    let vtbl = get_vtable(mgr);
+    let func: CreateDesktopFn = std::mem::transmute(*vtbl.add(slot));
+    let mut desktop: *mut std::ffi::c_void = std::ptr::null_mut();
+    let hr = func(mgr, &mut desktop);
+    if hr >= 0 && !desktop.is_null() { release_com(desktop); true }
+    else { eprintln!("[zenith:ws] create desktop slot {} FAILED hr=0x{:08X}", slot, hr as u32); false }
+}
+
+unsafe fn remove_desktop_at_index(mgr: *mut std::ffi::c_void, index: u32) -> bool {
+    let count = get_desktop_count(mgr);
+    if count < 2 || index >= count { return false; }
+    let fallback_index = if index > 0 { 0u32 } else { 1u32 };
+    let arr = match get_desktop_array(mgr) { Some(a) => a, None => return false };
+    let desktop = get_desktop_at_index(arr, index);
+    let fallback = get_desktop_at_index(arr, fallback_index);
+    release_com(arr);
+    match (desktop, fallback) {
+        (Some(d), Some(f)) => {
+            let slot = layout().remove_desktop;
+            let vtbl = get_vtable(mgr);
+            let func: RemoveDesktopFn = std::mem::transmute(*vtbl.add(slot));
+            let hr = func(mgr, d, f);
+            release_com(d); release_com(f);
+            if hr < 0 { eprintln!("[zenith:ws] remove desktop slot {} FAILED hr=0x{:08X}", slot, hr as u32); }
+            hr >= 0
+        }
+        _ => false,
+    }
+}
+
+unsafe fn rename_desktop_at_index(mgr: *mut std::ffi::c_void, index: u32, name: &str) -> bool {
+    let arr = match get_desktop_array(mgr) { Some(a) => a, None => return false };
+    let desktop = match get_desktop_at_index(arr, index) { Some(d) => d, None => { release_com(arr); return false; } };
+    release_com(arr);
+    let vtbl = get_vtable(desktop);
+    let func: DesktopRenameFn = std::mem::transmute(*vtbl.add(6));
+    let hstr = HSTRING::from(name);
+    let hr = func(desktop, &hstr);
+    release_com(desktop);
+    hr >= 0
+}
+
+fn get_pinned_apps() -> Option<*mut std::ffi::c_void> {
+    unsafe {
+        let shell: IUnknown = match CoCreateInstance(&CLSID_IMMERSIVE_SHELL, None, CLSCTX_LOCAL_SERVER) { Ok(s) => s, Err(_) => return None };
+        let shell_raw = std::mem::transmute::<IUnknown, *mut std::ffi::c_void>(shell);
+        let provider = {
+            let vtbl = get_vtable(shell_raw);
+            let qi: QIFn = std::mem::transmute(*vtbl.add(0));
+            let mut out: *mut std::ffi::c_void = std::ptr::null_mut();
+            let hr = qi(shell_raw, &IID_ISERVICE_PROVIDER, &mut out);
+            release_com(shell_raw);
+            if hr < 0 || out.is_null() { return None; }
+            out
         };
+        let vtbl = get_vtable(provider);
+        let qs: QueryServiceFn = std::mem::transmute(*vtbl.add(3));
+        let mut out: *mut std::ffi::c_void = std::ptr::null_mut();
+        let hr = qs(provider, &CLSID_VIRTUAL_DESKTOP_PINNED_APPS as *const _, &IID_VIRTUAL_DESKTOP_PINNED_APPS as *const _, &mut out);
+        release_com(provider);
+        if hr >= 0 && !out.is_null() { Some(out) } else { None }
+    }
+}
 
-        release_com(mgr);
-        ok
+unsafe fn toggle_pin_hwnd(hwnd: HWND) -> Result<bool, String> {
+    let pinned = match get_pinned_apps() { Some(p) => p, None => return Err("pinned apps service unavailable".into()) };
+    let vtbl = get_vtable(pinned);
+    let mut is_pinned: i32 = 0;
+    let is_pinned_fn: IsWindowPinnedFn = std::mem::transmute(*vtbl.add(3));
+    let hr = is_pinned_fn(pinned, hwnd, &mut is_pinned);
+    if hr < 0 { release_com(pinned); return Err("IsWindowPinned failed".into()); }
+    if is_pinned != 0 {
+        let unpin: PinUnpinHwndFn = std::mem::transmute(*vtbl.add(5));
+        let hr = unpin(pinned, hwnd);
+        release_com(pinned);
+        if hr < 0 { return Err("UnpinWindow failed".into()); }
+        Ok(false)
+    } else {
+        let pin: PinUnpinHwndFn = std::mem::transmute(*vtbl.add(4));
+        let hr = pin(pinned, hwnd);
+        release_com(pinned);
+        if hr < 0 { return Err("PinWindow failed".into()); }
+        Ok(true)
     }
 }
 
@@ -280,10 +474,69 @@ pub fn get_active_workspace() -> u32 {
 
 #[tauri::command]
 pub fn switch_workspace(app: tauri::AppHandle, id: u32) -> Result<(), String> {
-    eprintln!("[zenith:ws] switch_workspace command id={}", id);
     let ok = try_com_switch(id);
-    eprintln!("[zenith:ws] switch_workspace command result={}", ok);
     FALLBACK_ACTIVE.store(id, Ordering::Relaxed);
     let _ = app.emit(crate::shared::EVENT_WORKSPACE_CHANGED, id);
+    if !ok { return Err("switch failed".into()); }
     Ok(())
+}
+
+#[tauri::command]
+pub fn move_window_to_desktop(app: tauri::AppHandle, id: u32) -> Result<(), String> {
+    let ok = try_com_move_window_to_desktop(id);
+    if !ok { return Err("move failed".into()); }
+    if let Some(active) = try_com_get_active() {
+        FALLBACK_ACTIVE.store(active, Ordering::Relaxed);
+        let _ = app.emit(crate::shared::EVENT_WORKSPACE_CHANGED, active);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn create_desktop(app: tauri::AppHandle) -> Result<(), String> {
+    let ok = unsafe { match cached_manager() { Some(mgr) => create_desktop_com(mgr), None => false } };
+    if ok {
+        let _ = app.emit(crate::shared::EVENT_WORKSPACE_CHANGED, get_active_workspace());
+        Ok(())
+    } else {
+        Err("create desktop failed".into())
+    }
+}
+
+#[tauri::command]
+pub fn delete_desktop(app: tauri::AppHandle, id: u32) -> Result<(), String> {
+    let ok = unsafe { match cached_manager() { Some(mgr) => remove_desktop_at_index(mgr, id), None => false } };
+    if ok {
+        let _ = app.emit(crate::shared::EVENT_WORKSPACE_CHANGED, get_active_workspace());
+        Ok(())
+    } else {
+        Err("delete desktop failed".into())
+    }
+}
+
+#[tauri::command]
+pub fn rename_desktop(id: u32, name: String) -> Result<(), String> {
+    let ok = unsafe { match cached_manager() { Some(mgr) => rename_desktop_at_index(mgr, id, &name), None => false } };
+    if ok { Ok(()) } else { Err("rename desktop failed".into()) }
+}
+
+#[tauri::command]
+pub fn toggle_pin_window() -> Result<bool, String> {
+    let hwnd = get_cached_foreground_hwnd();
+    if skip_bar_hwnd(hwnd) { return Err("no foreground window".into()); }
+    unsafe { toggle_pin_hwnd(hwnd) }
+}
+
+pub fn pin_state() -> bool {
+    let hwnd = get_cached_foreground_hwnd();
+    if skip_bar_hwnd(hwnd) { return false; }
+    unsafe {
+        let pinned = match get_pinned_apps() { Some(p) => p, None => return false };
+        let vtbl = get_vtable(pinned);
+        let mut is_pinned: i32 = 0;
+        let fn_ptr: IsWindowPinnedFn = std::mem::transmute(*vtbl.add(3));
+        let hr = fn_ptr(pinned, hwnd, &mut is_pinned);
+        release_com(pinned);
+        hr >= 0 && is_pinned != 0
+    }
 }

@@ -577,7 +577,38 @@ lives in exactly one folder, adding/removing a widget is just `mkdir`/`rmdir`.
   for fixed-minimum widgets (e.g. clock at `80`).
 - Widgets do not set their own width via CSS — the slot (`widget-slot`) controls it.
 
-### 9.5 Special rules
+### 9.5 Widget right-click behavior
+
+A widget may intercept right-click (`contextmenu` event) to show its own custom context menu.
+When it does, it **must** call `e.preventDefault()` and `e.stopPropagation()` so the bar's
+default context menu (Settings · Widgets · Restart Bar · Close Bar) does **not** appear when
+right-clicking on that widget's area.
+
+- A widget that does **not** handle `contextmenu` inherits the bar's default right-click menu.
+- Widget context menus **must never be rendered as HTML divs** — the bar window is only 40px
+  tall with `overflow: hidden`, so any HTML content outside the window bounds is clipped.
+  Always use **Tauri's native `popup_menu` API** (`window.popup_menu(&menu)` in Rust, called
+  via `invoke("show_<name>_context_menu")` from the frontend). Native menus are rendered by
+  the OS outside the window bounds and match the system theme.
+- The workspace widget builds its native menu dynamically in `commands.rs::build_workspace_menu()`:
+  Rename, Delete (if >1 desktop), separator, Create New Desktop, separator, Move Window Here,
+  Move Window To (submenu per desktop), separator, Toggle Pin Window. The menu ID prefix is
+  `ws-`. Menu actions are handled in `handle_menu_event()` which emits typed events
+  (`zenith:workspace-rename`, `zenith:workspace-delete`, etc.) back to the frontend.
+- On the frontend side, the widget listens for these events via `__zenith_listen` and performs
+  the corresponding `invoke()` calls (Rename opens a small Tauri input window, Delete uses a
+  native MessageBoxW via `confirm_delete_desktop`).
+- **Never use `prompt()` or `confirm()` in widget JS.** The bar window is only 40px tall and clips
+  these dialogs. Use native Win32 dialogs via IPC instead (see §13.10).
+- The right-clicked desktop ID is stored in `WS_CONTEXT_ID` (an `AtomicU32` in `commands.rs`)
+  and passed as the event payload for rename/delete/move-here actions.
+- Follow this pattern for any new widget that needs a custom right-click menu:
+  1. Add a `show_<name>_context_menu` command in `commands.rs` that calls `build_<name>_menu()`.
+  2. Add menu ID constants and extend `handle_menu_event()` to emit frontend events.
+  3. In the widget's JS, prevent default contextmenu and `invoke("show_<name>_context_menu")`.
+  4. Listen for the events and handle them with native dialogs via IPC (see §13.10).
+
+### 9.6 Special rules
 
 - **`workspace` widget:** shows one circle per virtual desktop; active desktop is a
   filled/colored circle, others outlined. Click to switch. **If there is only one
@@ -733,7 +764,42 @@ Loading unused CSS wastes memory on parsed rule tables and style recalc.
 - Bar: `bar-globals.css` (no `.zen-button`, `.zen-input`, `.zen-window`).
 - Settings / Widgets: `globals.css` (full component library).
 
-### 13.9 Restart must unregister the AppBar before spawning
+### 13.10 Native Win32 dialogs for widget interactions
+
+The bar window is only 40px tall with `overflow: hidden`. JS built-in dialogs (`prompt`,
+`confirm`, `alert`) are rendered by the WebView and are clipped by the window bounds —
+the user sees nothing and the app appears frozen.
+
+- **Never call `prompt()`, `confirm()`, or `alert()`** in widget JS or the bar itself.
+- **Delete confirm:** Expose a `confirm_delete_desktop` async command that calls
+  `MessageBoxW(MB_YESNO | MB_ICONQUESTION)` on a background thread via
+  `tauri::async_runtime::spawn_blocking`. The IPC channel stays responsive because the
+  blocking is off the main thread. Returns `bool`.
+- **Rename input:** Do NOT use `prompt()`. Instead, open a small transient Tauri webview
+  window (`rename.html` with a text field) via `show_rename_dialog`. The window is created
+  by a `#[tauri::command]`, has its own title bar, and is unclipped. On submit it calls
+  the rename IPC command and closes itself.
+- **Pattern:** Menu handler emits a typed event → frontend calls the native IPC command →
+  Rust shows the dialog on a worker thread → returns result → frontend refreshes.
+- **Reuse the pattern** for any widget that needs user input or confirmation: create a thin
+  Rust command that spawns the dialog off the main thread and returns the result.
+
+### 13.11 Foreground HWND cache for move/pin operations
+
+`GetForegroundWindow()` returns the bar's HWND when the user is interacting with the bar,
+not the actual application window. This breaks "Move Window Here" and "Toggle Pin" because
+the wrong window is moved/pinned.
+
+Fix: Capture the foreground HWND **before** the native context menu takes focus, then store
+it in a static `AtomicPtr<c_void>` in `workspace/commands.rs`. All move/pin IPC commands
+read from this cache instead of calling `GetForegroundWindow()` at invocation time.
+
+- `show_workspace_context_menu` → calls `set_foreground_hwnd(fg.0)` before `popup_menu`.
+- `move_window_to_desktop`, `toggle_pin_window`, `pin_state` → call `get_cached_foreground_hwnd()`.
+- `build_workspace_menu` → checks `get_cached_foreground_hwnd()` to decide whether to show
+  move/pin menu items (instead of `GetForegroundWindow()`).
+
+### 13.12 Restart must unregister the AppBar before spawning
 
 Spawning a new process and exiting the old one leaves a brief overlap where both windows exist.
 If the old AppBar is still registered, the new process can't claim the band and the user sees

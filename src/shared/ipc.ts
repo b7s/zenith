@@ -7,6 +7,14 @@ export const CMD = {
   getWorkspaces: "get_workspaces",
   getActiveWorkspace: "get_active_workspace",
   switchWorkspace: "switch_workspace",
+  moveWindowToDesktop: "move_window_to_desktop",
+  createDesktop: "create_desktop",
+  deleteDesktop: "delete_desktop",
+  renameDesktop: "rename_desktop",
+  togglePinWindow: "toggle_pin_window",
+  showWorkspaceContextMenu: "show_workspace_context_menu",
+  confirmDeleteDesktop: "confirm_delete_desktop",
+  showRenameDialog: "show_rename_dialog",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

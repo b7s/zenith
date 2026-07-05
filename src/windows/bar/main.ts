@@ -14,6 +14,7 @@ void (async () => {
   logMemory("startup");
 
   (window as any).__zenith_invoke = invoke;
+  (window as any).__zenith_listen = listen;
 
   await time("applyTheme", () => applyTheme());
   watchSystemTheme(() => void applyTheme());

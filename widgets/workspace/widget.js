@@ -96,15 +96,8 @@
       });
     });
 
-    window.__zenith_listen("zenith:workspace-delete", function (ev) {
-      var id = Number(ev.payload);
-      invoke("confirm_delete_desktop", { id: id }).then(function (deleted) {
-        if (deleted) load();
-      }).catch(function (err) {
-        console.error("[workspace] delete error:", err);
-        load();
-      });
-    });
+    // Delete is handled entirely from Rust (MessageBoxW + COM delete).
+    // The zenith:workspace-changed listener above will refresh the bar on success.
 
     window.__zenith_listen("zenith:workspace-create", function () {
       invoke("create_desktop").then(load).catch(function (err) {

@@ -127,7 +127,10 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
         }
         WS_DELETE => {
             let id = WS_CONTEXT_ID.load(Ordering::Relaxed);
-            let _ = app.emit("zenith:workspace-delete", id);
+            let app2 = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = confirm_and_delete(app2, id).await;
+            });
         }
         WS_CREATE => {
             let _ = app.emit("zenith:workspace-create", ());
@@ -164,6 +167,10 @@ pub fn show_workspace_context_menu(app: tauri::AppHandle, desktop_id: u32) -> Re
 
 #[tauri::command]
 pub async fn confirm_delete_desktop(app: tauri::AppHandle, id: u32) -> Result<bool, String> {
+    confirm_and_delete(app, id).await
+}
+
+async fn confirm_and_delete(app: tauri::AppHandle, id: u32) -> Result<bool, String> {
     let title = HSTRING::from("Delete Desktop");
     let msg = HSTRING::from(format!("Delete Desktop {}?\nWindows will be moved to another desktop.", id + 1));
 
@@ -181,12 +188,18 @@ pub async fn confirm_delete_desktop(app: tauri::AppHandle, id: u32) -> Result<bo
 }
 
 #[tauri::command]
-pub fn show_rename_dialog(app: tauri::AppHandle, id: u32, current_name: String) -> Result<(), String> {
+pub async fn show_rename_dialog(app: tauri::AppHandle, id: u32, current_name: String) -> Result<(), String> {
     // Store data so the rename window can retrieve it via get_rename_data
     if let Ok(mut state) = rename_state().lock() {
         *state = (id, current_name.clone());
     }
 
+    tauri::async_runtime::spawn_blocking(move || create_rename_window(&app, id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn create_rename_window(app: &tauri::AppHandle, id: u32) -> Result<(), String> {
     let label = format!("rename-{}", id);
     if let Some(win) = app.get_webview_window(&label) {
         win.show().map_err(|e| e.to_string())?;
@@ -194,7 +207,7 @@ pub fn show_rename_dialog(app: tauri::AppHandle, id: u32, current_name: String) 
         return Ok(());
     }
     let win = tauri::WebviewWindowBuilder::new(
-        &app,
+        app,
         &label,
         tauri::WebviewUrl::App("rename.html".into()),
     )
@@ -209,7 +222,7 @@ pub fn show_rename_dialog(app: tauri::AppHandle, id: u32, current_name: String) 
     .build()
     .map_err(|e| e.to_string())?;
 
-    let _ = window::apply_fixed_acrylic(&app, &label);
+    let _ = window::apply_fixed_acrylic(app, &label);
     let _ = window::set_rounded_corners(&win);
     Ok(())
 }

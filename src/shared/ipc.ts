@@ -15,6 +15,7 @@ export const CMD = {
   showWorkspaceContextMenu: "show_workspace_context_menu",
   confirmDeleteDesktop: "confirm_delete_desktop",
   showRenameDialog: "show_rename_dialog",
+  getRenameData: "get_rename_data",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

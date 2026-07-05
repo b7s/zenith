@@ -18,6 +18,7 @@ pub fn run() {
             commands::show_workspace_context_menu,
             commands::confirm_delete_desktop,
             commands::show_rename_dialog,
+            commands::get_rename_data,
             config::commands::get_config,
             config::commands::save_config,
             widgets::commands::get_widgets,

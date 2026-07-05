@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Mutex, OnceLock};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Emitter;
 use tauri::Manager;
@@ -9,6 +10,12 @@ use crate::window;
 use crate::workspace;
 
 static WS_CONTEXT_ID: AtomicU32 = AtomicU32::new(0);
+
+/// Shared state for the rename dialog: (desktop_id, current_name)
+static RENAME_STATE: OnceLock<Mutex<(u32, String)>> = OnceLock::new();
+fn rename_state() -> &'static Mutex<(u32, String)> {
+    RENAME_STATE.get_or_init(|| Mutex::new((0, String::new())))
+}
 
 const MI_SETTINGS: &str = "ctx-settings";
 const MI_WIDGETS: &str = "ctx-widgets";
@@ -142,7 +149,9 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
 }
 
 #[tauri::command]
-pub fn show_workspace_context_menu(app: tauri::AppHandle) -> Result<(), String> {
+pub fn show_workspace_context_menu(app: tauri::AppHandle, desktop_id: u32) -> Result<(), String> {
+    WS_CONTEXT_ID.store(desktop_id, Ordering::Relaxed);
+
     // Capture the real foreground window before the bar takes focus
     let fg = unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
     workspace::commands::set_foreground_hwnd(fg.0);
@@ -173,18 +182,21 @@ pub async fn confirm_delete_desktop(app: tauri::AppHandle, id: u32) -> Result<bo
 
 #[tauri::command]
 pub fn show_rename_dialog(app: tauri::AppHandle, id: u32, current_name: String) -> Result<(), String> {
+    // Store data so the rename window can retrieve it via get_rename_data
+    if let Ok(mut state) = rename_state().lock() {
+        *state = (id, current_name.clone());
+    }
+
     let label = format!("rename-{}", id);
     if let Some(win) = app.get_webview_window(&label) {
         win.show().map_err(|e| e.to_string())?;
         win.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
-    let encoded = urlencoding(&current_name);
-    let url = format!("rename.html?id={}&name={}", id, encoded);
     let win = tauri::WebviewWindowBuilder::new(
         &app,
         &label,
-        tauri::WebviewUrl::App(url.into()),
+        tauri::WebviewUrl::App("rename.html".into()),
     )
     .title("Rename Desktop")
     .inner_size(320.0, 140.0)
@@ -202,16 +214,9 @@ pub fn show_rename_dialog(app: tauri::AppHandle, id: u32, current_name: String) 
     Ok(())
 }
 
-fn urlencoding(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for b in s.bytes() {
-        match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
-            b' ' => out.push_str("%20"),
-            _ => out.push_str(&format!("%{:02X}", b)),
-        }
-    }
-    out
+#[tauri::command]
+pub fn get_rename_data() -> Result<(u32, String), String> {
+    rename_state().lock().map(|s| s.clone()).map_err(|e| e.to_string())
 }
 
 fn create_settings_window(app: &tauri::AppHandle) -> Result<(), String> {

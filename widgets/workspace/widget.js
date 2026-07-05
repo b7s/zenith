@@ -31,7 +31,7 @@
         dot.addEventListener("contextmenu", function (e) {
           e.preventDefault();
           e.stopPropagation();
-          invoke("show_workspace_context_menu");
+          invoke("show_workspace_context_menu", { desktopId: id });
         });
       })(w.id);
       container.appendChild(dot);
@@ -79,12 +79,15 @@
 
   load();
 
+  // Guard: register listeners only once to prevent accumulation on re-layout
+  if (window.__zenith_ws_listening) return;
+  window.__zenith_ws_listening = true;
+
   if (window.__zenith_listen) {
     window.__zenith_listen("zenith:workspace-changed", function () {
       load();
     });
 
-    // Native dialog: opens a small Tauri window with an input field
     window.__zenith_listen("zenith:workspace-rename", function (ev) {
       var id = Number(ev.payload);
       var currentName = workspaces[id] ? workspaces[id].label : "Desktop " + (id + 1);
@@ -93,7 +96,6 @@
       });
     });
 
-    // Native dialog: uses Win32 MessageBoxW via Rust (spawn_blocking)
     window.__zenith_listen("zenith:workspace-delete", function (ev) {
       var id = Number(ev.payload);
       invoke("confirm_delete_desktop", { id: id }).then(function (deleted) {

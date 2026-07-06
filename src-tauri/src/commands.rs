@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::Emitter;
 use tauri::Manager;
 use serde::Serialize;
@@ -41,6 +41,7 @@ const WS_CREATE: &str = "ws-create";
 const WS_MOVE_HERE: &str = "ws-move-here";
 const WS_MOVE_TO: &str = "ws-move-to-";
 const WS_TOGGLE_PIN: &str = "ws-toggle-pin";
+const WS_MOVE_PENDING: &str = "ws-move-pending";
 
 pub fn build_context_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
     let builder = MenuBuilder::new(app)
@@ -73,34 +74,16 @@ fn build_workspace_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Me
         .separator()
         .item(&MenuItemBuilder::with_id(WS_CREATE, "Create New Desktop").build(app)?);
 
-    // Check for foreground window (use cached HWND captured before menu opened)
-    let hwnd_ptr = workspace::commands::get_cached_foreground_hwnd_ptr();
-    let has_window = !hwnd_ptr.is_null();
-
-    if has_window {
-        builder = builder
-            .separator()
-            .item(&MenuItemBuilder::with_id(WS_MOVE_HERE, "Move Window Here").build(app)?);
-
-        // Build "Move Window To" submenu
-        let mut sub = SubmenuBuilder::new(app, "Move Window To");
-        for w in &ws {
-            let label = if w.label.is_empty() {
-                format!("Desktop {}", w.id + 1)
-            } else {
-                w.label.clone()
-            };
-            sub = sub.item(&MenuItemBuilder::with_id(format!("{}{}", WS_MOVE_TO, w.id), label).build(app)?);
-        }
-        builder = builder.item(&sub.build()?);
-
-        // Check current pin state
-        let pin_state = workspace::commands::pin_state();
-        let pin_label = if pin_state { "Unpin Window From All Desktops" } else { "Pin Window To All Desktops" };
-        builder = builder
-            .separator()
-            .item(&MenuItemBuilder::with_id(WS_TOGGLE_PIN, pin_label).build(app)?);
-    }
+    // Move Window / Pin items are **gated off** in this build. The Win32
+    // `EVENT_SYSTEM_FOREGROUND` hook failed to install with
+    // `ERROR_HOOK_NEEDS_HMOD` from this Rust/Tauri binary (the OS expects a
+    // module-backed callback), so we have no reliable way to capture the
+    // user's foreground HWND before the bar's webview child steals focus on
+    // right-click. Re-enable once a polling/HWND-injection solution is in
+    // place — see `workspace::foreground` for the pending implementation.
+    builder = builder
+        .separator()
+        .item(&MenuItemBuilder::with_id(WS_MOVE_PENDING, "Move Window (Pending)").enabled(false).build(app)?);
 
     builder.build()
 }
@@ -179,32 +162,20 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
             let _ = app.emit("zenith:workspace-create", ());
             workspace::commands::release_action();
         }
-        WS_MOVE_HERE => {
-            if !workspace::commands::try_claim_action() {
-                eprintln!("[zenith] ws-move-here: guard dropped duplicate menu event");
-                return;
-            }
-            let id = WS_CONTEXT_ID.load(Ordering::Relaxed);
-            let _ = app.emit("zenith:workspace-move-here", id);
-            workspace::commands::release_action();
+        WS_MOVE_HERE | WS_MOVE_PENDING => {
+            // Move/pin are gated off in this build — see
+            // `workspace::foreground` for the pending implementation and why.
+            eprintln!("[zenith] ws-move-here: ignored (pending WinEvent hook fix)");
         }
         id if id.starts_with(WS_MOVE_TO) => {
-            if !workspace::commands::try_claim_action() {
-                eprintln!("[zenith] ws-move-to: guard dropped duplicate menu event");
-                return;
-            }
-            if let Ok(index) = id[WS_MOVE_TO.len()..].parse::<u32>() {
-                let _ = app.emit("zenith:workspace-move-to", index);
-            }
-            workspace::commands::release_action();
+            // Move/pin are gated off in this build — see
+            // `workspace::foreground` for the pending implementation and why.
+            eprintln!("[zenith] ws-move-to: ignored (pending WinEvent hook fix)");
         }
         WS_TOGGLE_PIN => {
-            if !workspace::commands::try_claim_action() {
-                eprintln!("[zenith] ws-toggle-pin: guard dropped duplicate menu event");
-                return;
-            }
-            let _ = app.emit("zenith:workspace-toggle-pin", ());
-            workspace::commands::release_action();
+            // Move/pin are gated off in this build — see
+            // `workspace::foreground` for the pending implementation and why.
+            eprintln!("[zenith] ws-toggle-pin: ignored (pending WinEvent hook fix)");
         }
         _ => {}
     }
@@ -213,21 +184,6 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
 #[tauri::command]
 pub fn show_workspace_context_menu(app: tauri::AppHandle, desktop_id: u32) -> Result<(), String> {
     WS_CONTEXT_ID.store(desktop_id, Ordering::Relaxed);
-
-    // Refresh the foreground fallback right before building the menu.
-    // The EVENT_SYSTEM_FOREGROUND hook maintains `LAST_REAL_FG` between events,
-    // but if the user has not switched focus since Zenith started (or the hook
-    // is still spinning up), the cache may be empty. `GetForegroundWindow()`
-    // here is the last-known foreground window BEFORE the bar steals focus to
-    // show its context menu. We filter out our own process — the bar, settings,
-    // widgets, and dialog windows all share our PID so this never returns them.
-    let fg = unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
-    let mut fg_pid: u32 = 0;
-    unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(fg, Some(&mut fg_pid as *mut u32)); }
-    let me = unsafe { windows::Win32::System::Threading::GetCurrentProcessId() };
-    if fg_pid != me && !fg.0.is_null() {
-        workspace::commands::set_foreground_hwnd(fg.0);
-    }
 
     let bar = app.get_webview_window("bar").ok_or("bar window not found")?;
     let menu = build_workspace_menu(&app).map_err(|e| e.to_string())?;
@@ -294,9 +250,9 @@ Object.freeze(window.__ZENITH_DIALOG_KIND);"#,
 
     // Show AFTER the materials are applied so DWM blur is ready before pixels hit
     // the screen. This eliminates the white-flash race.
-    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE};
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOMOVE};
     let hwnd = win.hwnd().map_err(|e| e.to_string())?;
-    let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE) };
+    let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE) };
     let _ = win.set_focus();
     Ok(())
 }
@@ -340,9 +296,9 @@ fn create_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
         let _ = window::set_rounded_corners(&win);
         // Show *after* the material is applied, so DWM blur is ready before
         // any pixels hit the screen — eliminates the white-flash race.
-        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE};
+        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOMOVE};
         let hwnd = win.hwnd().map_err(|e| e.to_string())?;
-        let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE) };
+        let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE) };
         let _ = win.set_focus();
         eprintln!("[zenith] create_settings: done");
     }
@@ -379,9 +335,9 @@ fn create_widgets_window(app: &tauri::AppHandle) -> Result<(), String> {
         let _ = window::set_rounded_corners(&win);
         // Show *after* the material is applied, so DWM blur is ready before
         // any pixels hit the screen — eliminates the white-flash race.
-        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE};
+        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOMOVE};
         let hwnd = win.hwnd().map_err(|e| e.to_string())?;
-        let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE) };
+        let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE) };
         let _ = win.set_focus();
         eprintln!("[zenith] create_widgets: done");
     }

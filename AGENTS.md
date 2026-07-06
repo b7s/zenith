@@ -38,6 +38,18 @@ Core ideas:
 - **Minimal footprint.** Goal is the lowest possible RAM and CPU. No heavy framework, no
   per-window CSS backgrounds, compositor-friendly animations only.
 
+### Pending / known limitations
+
+- **Workspace: "Move Window Here", "Move Window To", "Pin Window To/From All Desktops"** are
+  currently disabled in the workspace context menu (replaced with a disabled "Move Window
+  (Pending)" item). The Win32 `SetWinEventHook` for `EVENT_SYSTEM_FOREGROUND` returned
+  `ERROR_HOOK_NEEDS_HMOD (1428)` from this Rust/Tauri binary (the OS expects a module-backed
+  callback with `WINEVENT_OUTOFCONTEXT`), so the foreground-HWND cache never received any
+  post-startup updates: move/pin always acted on whatever window was foreground when Zenith
+  launched. Until a polling or HWND-injection solution is implemented (see
+  `src-tauri/src/workspace/foreground.rs`), the workspace widget provides rename, delete,
+  create, and switch only.
+
 ---
 
 ## 2. Tech stack (use exactly these — latest stable)
@@ -105,7 +117,7 @@ zenith/
         │   └── commands.rs
         ├── appearance/                # domain: material/background/theme
         ├── widgets/                   # domain: widget registry (scan manifests) + positions
-        ├── workspace/                 # domain: virtual-desktop wrapper (`winvd` crate) + foreground HWND cache + event listener
+        ├── workspace/                 # domain: virtual-desktop wrapper (`winvd` crate) + foreground HWND tracking + event listener
         ├── motion/                    # domain: animation backend selection
         ├── gpu/                       # domain: GPU capability detect (cpu/vulkan/cuda/hip)
         ├── menu/                      # domain: native Win32 context menu
@@ -648,13 +660,19 @@ the COM notification.
 - **Do not poll for workspace state.** Use the event. The initial emit in `lib.rs::setup` primes
   the bar; subsequent changes come exclusively from the listener.
 
-**Foreground window tracking for move/pin.** The bar window steals focus when right-clicked,
-so `GetForegroundWindow()` at menu-open time returns the bar, not the target app window.
-Solution: install a Win32 `SetWinEventHook` for `EVENT_SYSTEM_FOREGROUND` on a dedicated
-message-pumping thread (`WINEVENT_OUTOFCONTEXT`). The hook filters out windows belonging to
-our own PID (bar, settings, widgets, dialogs) and stores the last "real" foreground `HWND` in
-`workspace::foreground::last_real_foreground_ptr()`. `move_window_to_desktop` and
-`toggle_pin_window` read this cached HWND — no per-invocation `GetForegroundWindow()` call.
+**Foreground window tracking for move/pin.** The bar window steals focus when
+right-clicked, so `GetForegroundWindow()` at menu-open time returns the bar,
+not the target app window. Solution: install a Win32 `SetWinEventHook` for
+`EVENT_SYSTEM_FOREGROUND` on a dedicated message-pumping thread
+(`WINEVENT_OUTOFCONTEXT`). The hook PID-filters our own windows, **walks each
+event HWND up to its top-level owner** via `GetAncestor(GA_ROOTOWNER)` (the
+event can deliver a child HWND for WinUI/Chromium apps), and rejects non-
+`OBJID_WINDOW` events. It stores the last "real" foreground `HWND` in
+`workspace::foreground::last_real_foreground_ptr()`. `move_window_to_desktop`
+and `toggle_pin_window` call `get_cached_foreground_hwnd_ptr()` which
+**prefers a live PID-filtered `GetForegroundWindow()` read** and falls back to
+the hook cache only when the live read returns null (foreground was stolen by
+the bar). See §13.11.
 
 **Duplicate menu event guard.** Tauri 2's `on_menu_event` can fire twice for a single click.
 Guard all workspace menu actions (`WS_CREATE`, `WS_MOVE_HERE`, `WS_MOVE_TO_*`, `WS_TOGGLE_PIN`,
@@ -847,15 +865,61 @@ Fix is two-layered:
    background to fully transparent BEFORE the first paint.
 2. Build the window with `visible(false)`. After `.build()` returns,
    call `apply_fixed_acrylic` (or `apply_material` for the bar).
-   Finally show the window via `SetWindowPos(hwnd, None, 0, 0, 0, 0,
-   SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE)` followed by
-   `win.set_focus()`. The window is hidden while the materials are
-   registered, so the WebView paints nothing visible — when the
-   `SWP_SHOWWINDOW` flips the window visible, DWM blur is already in
-   place.
+   Finally show the window via
+   `SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE)`
+   followed by `win.set_focus()`. The window is hidden while the
+   materials are registered, so the WebView paints nothing visible —
+   when the `SWP_SHOWWINDOW` flips the window visible, DWM blur is
+   already in place.
 
 This pattern must be used for **every** transparent window: bar,
 settings, widgets, dialog. See `commands.rs::create_*_window`.
+
+### 13.10b `SetWindowPos` show flags: ALWAYS include SWP_NOSIZE | SWP_NOMOVE
+
+`SetWindowPos` interprets the `cx`/`cy` parameters as the new window
+size **only when `SWP_NOSIZE` is absent**, and `x`/`y` as the new
+position **only when `SWP_NOMOVE` is absent**. The common "show
+window, don't touch geometry" call passes `0, 0, 0, 0` for the
+position/size args — so without `SWP_NOSIZE | SWP_NOMOVE` the window
+is silently **resized to 0×0 and moved to (0,0)**.
+
+This bug caused the settings and widgets windows to open blank /
+appear frozen (JS ran to completion and logged `settings ready`, but
+the window had zero area so nothing was visible). The dialog window
+*appeared* to work because `mountDialog` → `fitWindow()` calls
+`getCurrentWindow().setSize()` after two `requestAnimationFrame`s,
+which recovered the 0×0 size — but that two-frame + IPC round-trip
+was exactly the content-show delay users saw.
+
+**Correct (every transparent window show):**
+```rust
+use windows::Win32::UI::WindowsAndMessaging::{
+    SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE,
+    SWP_NOSIZE, SWP_NOMOVE,
+};
+let hwnd = win.hwnd().map_err(|e| e.to_string())?;
+let _ = unsafe {
+    SetWindowPos(hwnd, None, 0, 0, 0, 0,
+        SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE)
+};
+let _ = win.set_focus();
+```
+
+**Wrong** (resizes to 0×0, moves to top-left):
+```rust
+SetWindowPos(hwnd, None, 0, 0, 0, 0,
+    SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE)  // missing SWP_NOSIZE | SWP_NOMOVE
+```
+
+Rule: any `SetWindowPos` call that only wants to change visibility
+or Z-order MUST pass `SWP_NOSIZE | SWP_NOMOVE` whenever the
+x/y/cx/cy args are zero/unused. Alternatively call
+`win.show().ok()` then `win.set_focus()` — Tauri wraps the same
+Win32 show without the geometry footgun, at the cost of losing the
+exact ordering guarantee against `apply_fixed_acrylic`. Prefer the
+`SetWindowPos` form for transparent windows so the
+material-then-show ordering in §13.10a is preserved.
 
 ### 13.10 Unified dialog window for user input / confirmation
 
@@ -919,26 +983,33 @@ await mountDialog({
 - The window auto-fits its content (≤ 600×600), with `overflow: auto` on the body wrapper. Layout is `flex column` with header / scrollable content / footer; the footer is rendered only when `actions.length > 0`.
 - **Permissions** for the dialog window are granted in `src-tauri/capabilities/dialog.json`. Includes `core:window:allow-set-size` so the dialog can resize itself. Matches all windows whose label starts with `dialog-` (i.e., `dialog-rename`, `dialog-delete`, etc.).
 
-### 13.11 Foreground HWND cache for move/pin operations
+### 13.11 Foreground HWND for move/pin operations
 
-`GetForegroundWindow()` returns the bar's HWND when the user is interacting with the bar,
-not the actual application window. This breaks "Move Window Here" and "Toggle Pin" because
-the wrong window is moved/pinned.
+`GetForegroundWindow()` returns the wrong window in two distinct failure modes:
 
-Fix: Install a Win32 `SetWinEventHook` for `EVENT_SYSTEM_FOREGROUND` on a dedicated
-message-pumping thread (`WINEVENT_OUTOFCONTEXT`). The hook filters out windows belonging to
-our own PID (bar, settings, widgets, dialogs) and stores the last "real" foreground `HWND` in
-`workspace::foreground::last_real_foreground_ptr()`. `move_window_to_desktop` and
-`toggle_pin_window` read this cached HWND — no per-invocation `GetForegroundWindow()` call.
+1. **After right-click** the bar's webview child briefly steals Windows
+   foreground — `GetForegroundWindow()` then returns our own PID, which the
+   move/pin COM call rejects.
+2. **`EVENT_SYSTEM_FOREGROUND` can deliver a child HWND** (WinUI XAML islands,
+   Chromium/Electron content windows) for the new foreground — the COM virtual
+   desktop API requires a *top-level* HWND and silently rejects child HWNDs.
 
-- `workspace::foreground::install()` → called in `lib.rs::setup`, spawns a thread that
-  pumps messages and runs the hook. **Seeds the cache immediately** with the current
-  foreground window (PID-filtered) so the "Move Window To" submenu is available the first
-  time the user right-clicks a workspace dot — without the seed, move/pin items wouldn't
-  appear until the user alt-tabbed to another app *after* Zenith started.
-- `move_window_to_desktop`, `toggle_pin_window`, `pin_state` → call
-  `get_cached_foreground_hwnd_ptr()` which prefers the event-tracked HWND.
-- `build_workspace_menu` → checks the same cache to decide whether to show move/pin items.
+Fix (three layers, see `src-tauri/src/workspace/foreground.rs`):
+
+- A Win32 `SetWinEventHook` for `EVENT_SYSTEM_FOREGROUND` runs on a dedicated
+  message-pumping thread (required for `WINEVENT_OUTOFCONTEXT`). It PID-filters
+  our own windows and walks each event HWND up to its **top-level owner**
+  (`GetAncestor(hwnd, GA_ROOTOWNER)`) so the cache never holds a child HWND.
+  It also rejects events where `idObject != OBJID_WINDOW (0)` — the same
+  foreground change can fire multiple times with `OBJID_CLIENT`,
+  `OBJID_SYSMENU`, etc., and those carry child HWNDs that confuse the COM API.
+- The hook is **seeded** with `GetForegroundWindow()` at install time so the
+  "Move Window To" submenu is available the first time the user right-clicks.
+- `workspace::commands::get_cached_foreground_hwnd_ptr` calls
+  `foreground::best_effort_foreground_ptr()` which **prefers a live
+  PID-filtered `GetForegroundWindow()` read** and falls back to the hook cache
+  only when live returns null (foreground was stolen by our own bar). This
+  guards against hook thread death and stale-cache races.
 
 ### 13.12 Restart must unregister the AppBar before spawning
 

@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicU32, AtomicPtr, AtomicBool, Ordering};
 use std::ffi::c_void;
+use std::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 use std::sync::mpsc;
 use serde::Serialize;
 use tauri::Emitter;
@@ -9,7 +9,6 @@ use windows::Win32::Foundation::HWND as Win61Hwnd;
 
 /// Last "real" foreground window (not belonging to our process), updated by the
 /// `EVENT_SYSTEM_FOREGROUND` hook. This is the window that move/pin act on.
-static WS_FOREGROUND_HWND: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static FALLBACK_COUNT: AtomicU32 = AtomicU32::new(0);
 static FALLBACK_ACTIVE: AtomicU32 = AtomicU32::new(0);
 
@@ -17,17 +16,15 @@ static FALLBACK_ACTIVE: AtomicU32 = AtomicU32::new(0);
 /// quirk) cannot double-execute create / move / pin.
 static WS_ACTION_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
 
-/// Best-effort foreground HWND: prefer the event-tracked "real" window, fall
-/// back to the explicit capture taken at menu-open time.
+/// Best-effort foreground HWND: prefer a live `GetForegroundWindow()` read
+/// (PID-filtered, walked to top-level), fall back to the last value recorded
+/// by the `EVENT_SYSTEM_FOREGROUND` hook — that hook survives focus theft by
+/// the bar's webview child, so when the user has Notepad active and right-
+/// clicks the workspace dot, the hook cache still holds Notepad's HWND (the
+/// live read returns null in that case because the foreground momentarily
+/// belongs to our own process).
 pub fn get_cached_foreground_hwnd_ptr() -> *mut c_void {
-    let tracked = super::foreground::last_real_foreground_ptr();
-    if !tracked.is_null() { tracked } else { WS_FOREGROUND_HWND.load(Ordering::Relaxed) }
-}
-
-pub fn set_foreground_hwnd(hwnd: *mut c_void) {
-    if !hwnd.is_null() {
-        WS_FOREGROUND_HWND.store(hwnd, Ordering::Relaxed);
-    }
+    super::foreground::best_effort_foreground_ptr()
 }
 
 fn get_winvd_hwnd() -> WinvdHwnd { WinvdHwnd(get_cached_foreground_hwnd_ptr()) }
@@ -127,13 +124,35 @@ pub fn rename_desktop(id: u32, name: String) -> Result<(), String> {
 pub fn move_window_to_desktop(id: u32) -> Result<(), String> {
     let hwnd = get_winvd_hwnd();
     if skip_hwnd(hwnd) { return Err("no foreground window".into()); }
-    eprintln!("[zenith:ws] move_window_to_desktop id={} hwnd={:p}", id, hwnd.0);
-    let mut pid: u32 = 0;
-    unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(Win61Hwnd(hwnd.0), Some(&mut pid as *mut u32)); }
-    let me = unsafe { windows::Win32::System::Threading::GetCurrentProcessId() };
-    eprintln!("[zenith:ws] move_window_to_desktop: target_pid={} me={}", pid, me);
+    eprintln!(
+        "[zenith:ws] move_window_to_desktop id={} hwnd={:p} title={:?} pid={} me={}",
+        id,
+        hwnd.0,
+        window_title(Win61Hwnd(hwnd.0)),
+        window_pid(Win61Hwnd(hwnd.0)),
+        unsafe { windows::Win32::System::Threading::GetCurrentProcessId() }
+    );
     winvd::move_window_to_desktop(id, &hwnd).map_err(|e| format!("move_window failed: {e:?}"))?;
     Ok(())
+}
+
+fn window_pid(hwnd: Win61Hwnd) -> u32 {
+    let mut pid: u32 = 0;
+    unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(hwnd, Some(&mut pid as *mut u32)); }
+    pid
+}
+
+fn window_title(hwnd: Win61Hwnd) -> String {
+    let len = unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowTextLengthW(hwnd) };
+    if len <= 0 {
+        return String::new();
+    }
+    let mut buf = vec![0u16; (len + 1) as usize];
+    let written = unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowTextW(hwnd, &mut buf) };
+    if written <= 0 {
+        return String::new();
+    }
+    String::from_utf16_lossy(&buf[..written as usize])
 }
 
 #[tauri::command]
@@ -150,6 +169,7 @@ pub fn toggle_pin_window() -> Result<bool, String> {
     }
 }
 
+#[allow(dead_code)]
 pub fn pin_state() -> bool {
     let hwnd = get_winvd_hwnd();
     if skip_hwnd(hwnd) { return false; }

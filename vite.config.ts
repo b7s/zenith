@@ -20,7 +20,7 @@ export default defineConfig({
         bar: resolve(__dirname, "index.html"),
         settings: resolve(__dirname, "settings.html"),
         widgets: resolve(__dirname, "widgets.html"),
-        rename: resolve(__dirname, "rename.html"),
+        dialog: resolve(__dirname, "dialog.html"),
       },
     },
   },

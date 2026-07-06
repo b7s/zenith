@@ -7,7 +7,7 @@ mod widgets;
 mod window;
 mod workspace;
 
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Listener, Manager};
 
 pub fn run() {
     tauri::Builder::default()
@@ -16,9 +16,8 @@ pub fn run() {
             commands::open_widgets,
             commands::show_context_menu,
             commands::show_workspace_context_menu,
-            commands::confirm_delete_desktop,
-            commands::show_rename_dialog,
-            commands::get_rename_data,
+            commands::show_dialog,
+            commands::get_dialog_data,
             config::commands::get_config,
             config::commands::save_config,
             widgets::commands::get_widgets,
@@ -79,6 +78,20 @@ pub fn run() {
 
             // Start COM notification listener for instant external switch detection
             workspace::notification::setup(handle.clone());
+
+            // Install EVENT_SYSTEM_FOREGROUND hook to track last real foreground window
+            workspace::foreground::install();
+
+            // Start an explorer-restart watcher that re-registers the AppBar
+            // when explorer.exe crashes and restarts (broadcasts TaskbarCreated).
+            let h3 = handle.clone();
+            window::appbar_monitor::install(handle.clone());
+            handle.listen("zenith:appbar-restore", move |_event| {
+                eprintln!("[zenith:appbar] explorer restarted → re-registering AppBar");
+                if let Some(bar) = h3.get_webview_window("bar") {
+                    let _ = window::register_appbar(&bar);
+                }
+            });
 
             Ok(())
         })

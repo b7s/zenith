@@ -13,9 +13,8 @@ export const CMD = {
   renameDesktop: "rename_desktop",
   togglePinWindow: "toggle_pin_window",
   showWorkspaceContextMenu: "show_workspace_context_menu",
-  confirmDeleteDesktop: "confirm_delete_desktop",
-  showRenameDialog: "show_rename_dialog",
-  getRenameData: "get_rename_data",
+  showDialog: "show_dialog",
+  getDialogData: "get_dialog_data",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

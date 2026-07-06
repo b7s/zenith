@@ -1,4 +1,5 @@
 pub mod appbar;
+pub mod appbar_monitor;
 pub mod transparency;
 
 pub use appbar::{register_appbar, unregister_appbar, update_appbar};

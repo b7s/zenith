@@ -31,7 +31,8 @@
         "focusable": false,
         "visible": false,
         "center": false,
-        "shadow": false
+        "shadow": false,
+        "additionalBrowserArgs": "--default-background-color=00000000"
       }
     ],
     "security": {

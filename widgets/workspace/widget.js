@@ -116,5 +116,11 @@
         console.error("[workspace] pin error:", err);
       });
     });
+
+    // Re-render the dots when the theme changes so the new --foreground /
+    // --muted-foreground CSS variables are picked up.
+    window.__zenith_listen("zenith:config-updated", function () {
+      load();
+    });
   }
 })();

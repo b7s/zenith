@@ -1,23 +1,34 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { applyIcons } from "./icon";
-import { loadConfig } from "./config";
 import { logInfo } from "./log";
 
 export function isSystemDark(): boolean {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
 }
 
+/**
+ * Apply the theme synchronously from system preferences and fire a background
+ * `loadConfig()` to override with the user's auto/dark/light preference.
+ * Returns when the system theme is applied — the user pref may follow a
+ * frame later. This avoids an IPC roundtrip (`invoke("get_config")`) BEFORE
+ * the dialog/window chrome can paint.
+ */
 export async function applyTheme(): Promise<"dark" | "light"> {
-  let dark = isSystemDark();
-  try {
-    const { theme } = (await loadConfig()).appearance;
-    dark = theme === "dark" || (theme === "auto" && isSystemDark());
-  } catch {
-    /* fall back to system theme */
-  }
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
-  return dark ? "dark" : "light";
+  const sys = isSystemDark() ? "dark" : "light";
+  document.documentElement.dataset.theme = sys;
+  // Best-effort refinement from config; if it fails or differs, repaint.
+  void (async () => {
+    try {
+      const { loadConfig } = await import("./config");
+      const { theme } = (await loadConfig()).appearance;
+      const dark = theme === "dark" || (theme === "auto" && isSystemDark());
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    } catch {
+      /* keep system theme */
+    }
+  })();
+  return sys;
 }
 
 export function watchSystemTheme(onChange: (dark: boolean) => void): () => void {
@@ -32,12 +43,17 @@ export interface MountOptions {
   title: string;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /** Optional footer element(s) appended below the content. The footer is
+   *  rendered as a fixed band outside `<main>`, so action buttons stay
+   *  visible when the content scrolls. */
+  footer?: HTMLElement | HTMLElement[];
 }
 
 export interface MountedWindow {
   root: HTMLElement;
   content: HTMLElement;
   search: HTMLInputElement | null;
+  footer: HTMLElement | null;
 }
 
 /**
@@ -97,13 +113,24 @@ export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
   const content = document.createElement("main");
   content.className = "zen-window__content";
 
+  const footer = opts.footer ? document.createElement("footer") : null;
+  if (footer && opts.footer) {
+    footer.className = "zen-window__footer";
+    const items: HTMLElement[] = Array.isArray(opts.footer) ? opts.footer : [opts.footer];
+    for (const item of items) footer.append(item);
+  }
+
   const t1 = performance.now();
-  root.replaceChildren(header, content);
+  if (footer) {
+    root.replaceChildren(header, content, footer);
+  } else {
+    root.replaceChildren(header, content);
+  }
   enableDrag(header);
   applyIcons(root);
   logInfo(`mountWindow: DOM build + icons ${Math.round(performance.now() - t1)}ms`);
 
-  return { root, content, search };
+  return { root, content, search, footer };
 }
 
 function ensureRoot(): HTMLElement {

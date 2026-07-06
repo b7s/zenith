@@ -11,6 +11,10 @@ Zenith is a **top bar for Windows 11** — a custom, always-available status bar
 the top edge of the screen. It is inspired visually by **Cooldock** (macOS) and structurally by
 **yasb** (Windows status bar).
 
+**Required Windows build: Windows 11 24H2 (build ≥ 26100.2605).** Zenith uses the
+[`winvd`](https://docs.rs/winvd) crate to drive the virtual-desktop API, which only supports
+24H2+. Users on older builds see a startup error and the app exits.
+
 Core ideas:
 
 - **Stays on top and reserves space.** Zenith registers as a Windows **desktop AppBar**
@@ -42,7 +46,7 @@ Core ideas:
 |---|---|
 | Shell / backend | **Rust** (edition 2021) |
 | App framework | **Tauri 2** |
-| Windows interop | `windows` crate **0.61** (`Win32_UI_Shell` for AppBar, `Win32_Graphics_Dwm` for corners, `Win32_Graphics_Gdi` for monitors, `SetWindowCompositionAttribute` for Mica/Acrylic) |
+| Windows interop | `windows` crate **0.61** (`Win32_UI_Shell` for AppBar, `Win32_Graphics_Dwm` for corners, `Win32_Graphics_Gdi` for monitors, `SetWindowCompositionAttribute` for Mica/Acrylic) + **`winvd` 0.0.49** for the virtual-desktop COM API (IVirtualDesktopManagerInternal / IVirtualDesktop). Requires a thin alias crate `windows_058 = { package = "windows", version = "0.58", features = ["Win32_Foundation"] }` to construct the HWND type `winvd` expects. |
 | Frontend | **plain TypeScript** (no React, no Vue) + **plain CSS** |
 | Icons | **Lucide** |
 | Design system | **shadcn design tokens** implemented in CSS (oklch on `:root`, `.dark`, `.light`) — *not* the React library |
@@ -101,7 +105,7 @@ zenith/
         │   └── commands.rs
         ├── appearance/                # domain: material/background/theme
         ├── widgets/                   # domain: widget registry (scan manifests) + positions
-        ├── workspace/                 # domain: virtual-desktop COM (IVirtualDesktopManagerInternal)
+        ├── workspace/                 # domain: virtual-desktop wrapper (`winvd` crate) + foreground HWND cache + event listener
         ├── motion/                    # domain: animation backend selection
         ├── gpu/                       # domain: GPU capability detect (cpu/vulkan/cuda/hip)
         ├── menu/                      # domain: native Win32 context menu
@@ -593,28 +597,92 @@ right-clicking on that widget's area.
 - The workspace widget builds its native menu dynamically in `commands.rs::build_workspace_menu()`:
   Rename, Delete (if >1 desktop), separator, Create New Desktop, separator, Move Window Here,
   Move Window To (submenu per desktop), separator, Toggle Pin Window. The menu ID prefix is
-  `ws-`. Menu actions are handled in `handle_menu_event()` which emits typed events
-  (`zenith:workspace-rename`, `zenith:workspace-delete`, etc.) back to the frontend.
-- On the frontend side, the widget listens for these events via `__zenith_listen` and performs
-  the corresponding `invoke()` calls (Rename opens a small Tauri input window, Delete uses a
-  native MessageBoxW via `confirm_delete_desktop`).
-- **Never use `prompt()` or `confirm()` in widget JS.** The bar window is only 40px tall and clips
-  these dialogs. Use native Win32 dialogs via IPC instead (see §13.10).
-- The right-clicked desktop ID is stored in `WS_CONTEXT_ID` (an `AtomicU32` in `commands.rs`)
-  and passed as the event payload for rename/delete/move-here actions.
+  `ws-`. Menu actions are handled in `handle_menu_event()` **entirely in Rust** — rename and
+  delete open a small unified Tauri dialog window directly (see §13.10). State-change actions
+  (create, move, switch, pin) emit typed events that the frontend listens for.
+- The rename and delete flows go through `show_dialog(spec)` in `commands.rs` (a single command
+  that opens the unified `dialog.html` window). The spec selects which body builder runs.
+  This avoids the duplication that existed when there was a `rename.html` + `delete.html`.
+- **No frontend event round-trip for rename/delete.** Both open the dialog window directly from
+  the Rust menu handler via `spawn`. This prevents double dialogs caused by Tauri event-listener
+  accumulation on re-layout (which we observed previously).
+- Data is passed to the dialog window via a single `Mutex<DialogSpec>` in Rust (`DIALOG_STATE`)
+  retrieved by the `get_dialog_data` IPC command — NOT via query params (Tauri strips query
+  strings from `WebviewUrl::App` URLs). See §13.10.
+- **Never use `prompt()`, `confirm()`, or `alert()`** in widget JS or the bar itself. Use the
+  unified dialog (see §13.10) for any user input or confirmation.
+- The right-clicked desktop ID is stored in `WS_CONTEXT_ID` (an `AtomicU32` in `commands.rs`).
 - Follow this pattern for any new widget that needs a custom right-click menu:
   1. Add a `show_<name>_context_menu` command in `commands.rs` that calls `build_<name>_menu()`.
-  2. Add menu ID constants and extend `handle_menu_event()` to emit frontend events.
-  3. In the widget's JS, prevent default contextmenu and `invoke("show_<name>_context_menu")`.
-  4. Listen for the events and handle them with native dialogs via IPC (see §13.10).
+  2. Add menu ID constants and extend `handle_menu_event()`.
+  3. For actions that need user input/confirmation, call `show_dialog(DialogSpec { kind, data })`
+     directly from the Rust menu handler — no frontend event — see §13.10.
+  4. For pure state-change actions, emit a typed event the widget JS listens for.
+  5. In the widget's JS, prevent default contextmenu and `invoke("show_<name>_context_menu")`.
 
 ### 9.6 Special rules
 
 - **`workspace` widget:** shows one circle per virtual desktop; active desktop is a
   filled/colored circle, others outlined. Click to switch. **If there is only one
   virtual desktop, the bar layout layer (`layoutBar`) hides the widget automatically
-  — even if the user enabled it.** Enumeration uses the undocumented
-  `IVirtualDesktopManagerInternal` COM interface (the only way on Windows).
+  — even if the user enabled it.** Enumeration and operations (switch / create / destroy /
+  rename / move-window / pin) go through the [`winvd`](https://docs.rs/winvd) crate, which
+  wraps the undocumented `IVirtualDesktopManagerInternal` and `IVirtualDesktop` COM interfaces.
+  Requires Windows 11 24H2 (build ≥ 26100.2605); see §1.
+
+### 9.7 winvd usage & workspace event sourcing (critical)
+
+**Single source of truth for workspace changes.** The `winvd` crate delivers virtual-desktop
+events (`DesktopChanged`, `DesktopCreated`, `DesktopDestroyed`, `DesktopNameChanged`) via a
+background thread (`winvd::listen_desktop_events`). **This listener is the ONLY emitter of
+`zenith:workspace-changed`.** Do NOT emit `zenith:workspace-changed` from command handlers
+(`switch_workspace`, `create_desktop`, `delete_desktop`, `rename_desktop`,
+`move_window_to_desktop`). Doing so double-fires the event: once from the command, once from
+the COM notification.
+
+- `winvd` functions (`switch_desktop`, `create_desktop`, `remove_desktop`, `get_desktop`,
+  `move_window_to_desktop`, `pin_window`, `unpin_window`, `is_pinned_window`) are synchronous
+  and return `Result`. They wrap `IVirtualDesktopManagerInternal`/`IVirtualDesktop` COM calls.
+- The listener runs on its own thread, receives events via `mpsc::channel`, and emits
+  `zenith:workspace-changed` with the new active desktop index.
+- **Do not poll for workspace state.** Use the event. The initial emit in `lib.rs::setup` primes
+  the bar; subsequent changes come exclusively from the listener.
+
+**Foreground window tracking for move/pin.** The bar window steals focus when right-clicked,
+so `GetForegroundWindow()` at menu-open time returns the bar, not the target app window.
+Solution: install a Win32 `SetWinEventHook` for `EVENT_SYSTEM_FOREGROUND` on a dedicated
+message-pumping thread (`WINEVENT_OUTOFCONTEXT`). The hook filters out windows belonging to
+our own PID (bar, settings, widgets, dialogs) and stores the last "real" foreground `HWND` in
+`workspace::foreground::last_real_foreground_ptr()`. `move_window_to_desktop` and
+`toggle_pin_window` read this cached HWND — no per-invocation `GetForegroundWindow()` call.
+
+**Duplicate menu event guard.** Tauri 2's `on_menu_event` can fire twice for a single click.
+Guard all workspace menu actions (`WS_CREATE`, `WS_MOVE_HERE`, `WS_MOVE_TO_*`, `WS_TOGGLE_PIN`,
+plus `WS_RENAME`/`WS_DELETE` which use `DIALOG_IN_FLIGHT`) with an atomic `AtomicBool`
+claim/release pattern. **Important:** release must be deferred (`spawn` a 400 ms timer) — if
+the guard is released synchronously, the duplicate event (which arrives microseconds later)
+sees an unclaimed guard and re-runs the action (creating two desktops). Synchronous release
+is fine only when the duplicate arrives *after* the action completes (e.g. dialog creation
+finishes naturally).
+
+**Workspace event deduplication.** `winvd`'s COM notification can deliver overlapping
+events for one action (`DesktopCreated` + `DesktopChanged` for one create), and may repeat
+on edge cases. The listener in `setup_events` dedupes by `(event-kind, index)` within a
+150 ms window — only the first matching emit goes out, duplicates are silenced. This keeps
+`zenith:workspace-changed` to exactly one fire per user action.
+
+**Command signatures.** Workspace commands take only their payload (e.g. `id: u32`,
+`name: String`) — **no `AppHandle`**. The `winvd` event listener owns all `zenith:workspace-changed`
+emits. This keeps command handlers pure and testable.
+
+**Threading.** `winvd` requires COM initialized (`COINIT_APARTMENTTHREADED`) on the calling
+thread. `lib.rs::setup` does this once on the main thread before any workspace command runs.
+The event listener thread and the foreground hook thread each initialize COM internally
+(via `winvd`'s internal handling or explicit `CoInitializeEx` if needed).
+
+**Version requirement.** `winvd` 0.0.49+ requires Windows 11 24H2 (build ≥ 26100.2605). The app
+exits with an error on older builds (see §1). Do not add fallback logic — the crate handles
+`ERROR_OLD_WIN_VERSION` and propagates it as `winvd::Error`.
 
 ---
 
@@ -764,25 +832,92 @@ Loading unused CSS wastes memory on parsed rule tables and style recalc.
 - Bar: `bar-globals.css` (no `.zen-button`, `.zen-input`, `.zen-window`).
 - Settings / Widgets: `globals.css` (full component library).
 
-### 13.10 Native Win32 dialogs for widget interactions
+### 13.10a WebView2 white-flash prevention
+
+Transparent Tauri windows that use Win32 Acrylic/Mica via
+`SetWindowCompositionAttribute` race the WebView2 first paint by default:
+the WebView paints a white background before DWM blur is registered,
+producing a visible white flash before the blur settles.
+
+Fix is two-layered:
+1. `additional_browser_args("--default-background-color=00000000")` on
+   every transparent `WebviewWindowBuilder` (and `additionalBrowserArgs`
+   in `tauri.conf.json` for the bar window). Format is `0xAABBGGRR`
+   (alpha-blue-green-red, little-endian). This sets the WebView's
+   background to fully transparent BEFORE the first paint.
+2. Build the window with `visible(false)`. After `.build()` returns,
+   call `apply_fixed_acrylic` (or `apply_material` for the bar).
+   Finally show the window via `SetWindowPos(hwnd, None, 0, 0, 0, 0,
+   SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE)` followed by
+   `win.set_focus()`. The window is hidden while the materials are
+   registered, so the WebView paints nothing visible — when the
+   `SWP_SHOWWINDOW` flips the window visible, DWM blur is already in
+   place.
+
+This pattern must be used for **every** transparent window: bar,
+settings, widgets, dialog. See `commands.rs::create_*_window`.
+
+### 13.10 Unified dialog window for user input / confirmation
 
 The bar window is only 40px tall with `overflow: hidden`. JS built-in dialogs (`prompt`,
-`confirm`, `alert`) are rendered by the WebView and are clipped by the window bounds —
-the user sees nothing and the app appears frozen.
+`confirm`, `alert`) are rendered by the WebView and are clipped by the window bounds — the
+user sees nothing and the app appears frozen.
 
 - **Never call `prompt()`, `confirm()`, or `alert()`** in widget JS or the bar itself.
-- **Delete confirm:** Expose a `confirm_delete_desktop` async command that calls
-  `MessageBoxW(MB_YESNO | MB_ICONQUESTION)` on a background thread via
-  `tauri::async_runtime::spawn_blocking`. The IPC channel stays responsive because the
-  blocking is off the main thread. Returns `bool`.
-- **Rename input:** Do NOT use `prompt()`. Instead, open a small transient Tauri webview
-  window (`rename.html` with a text field) via `show_rename_dialog`. The window is created
-  by a `#[tauri::command]`, has its own title bar, and is unclipped. On submit it calls
-  the rename IPC command and closes itself.
-- **Pattern:** Menu handler emits a typed event → frontend calls the native IPC command →
-  Rust shows the dialog on a worker thread → returns result → frontend refreshes.
-- **Reuse the pattern** for any widget that needs user input or confirmation: create a thin
-  Rust command that spawns the dialog off the main thread and returns the result.
+- Zenith has **one** transient dialog window for all user input / confirmation flows. It
+  loads `dialog.html` and renders a builder from a registry selected by `kind`. New dialogs
+  add a builder; they do **not** add a new HTML/JS bundle.
+- The window is created by `show_dialog(spec)` in `commands.rs::show_dialog`, called directly
+  from the menu handler via `spawn`, with `decorations: false`, `transparent: true`,
+  `apply_fixed_acrylic`, `set_rounded_corners`, `max_inner_size(600, 600)`, `resizable: false`.
+- Data is passed from Rust to the dialog via a `Mutex<DialogSpec>` (`DIALOG_STATE` in
+  `commands.rs`) and retrieved by the dialog JS through the IPC command `get_dialog_data`.
+  The dialog window calls `show_dialog` with `kind: "rename"` or `kind: "delete"` and `data` is
+  the payload the builder consumes (`[id, current_name]` for rename, `id` for delete).
+- The dialog window mounts via `mountDialog(opts)` in `src/windows/dialog/base.ts`. It always
+  uses `mountWindow()` for the chrome (header + close button + drag) and optionally renders a
+  footer (action buttons) and a body (HTMLElement or builder). If `actions` is empty/omitted,
+  the footer is not rendered.
+- **No frontend event round-trip.** The menu handler invokes `show_dialog(spec)` directly in
+  Rust (no `app.emit` for dialog opens) to prevent double dialogs caused by Tauri
+  event-listener accumulation on re-layout.
+- Buttons use `.zen-button` variants: primary / outline / ghost / destructive. The Delete
+  button uses `.is-destructive`. For "borderless" text-link buttons, set
+  `action.borderless = true`.
+- Built-in builders live in `src/windows/dialog/builders.ts`. To add a new dialog:
+  1. Define a builder function `myDialogBuilder(data): DialogOptions` in `builders.ts` and
+     register it via `registerDialog("my_kind", myDialogBuilder)`.
+  2. From Rust, call `show_dialog(DialogSpec { kind: "my_kind".into(), data: Some(...) })`.
+
+#### `mountDialog` API (`src/windows/dialog/base.ts`)
+
+```ts
+import { mountDialog, type DialogOptions, type DialogAction } from "@/windows/dialog/base";
+
+await mountDialog({
+  title: "Delete Desktop",                      // header text (always shown)
+  data: { id: 0 },                              // opaque payload, available as ctx.data
+  body: (ctx) => { /* returns HTMLElement */ }, // scrollable content; omit → no body
+  actions: [                                     // omit / empty → NO footer rendered
+    { label: "Cancel", variant: "outline", onClick: (ctx) => ctx.close() },
+    { label: "Delete", variant: "destructive", autofocus: true,
+      onClick: async (ctx) => { /* return false to keep open */ return true; } },
+  ],
+  disableContextMenu: true,                      // default true in prod
+  disableSelect: true,                           // default true
+  closeOnEscape: true,                           // default true
+  onKeyDown: (e, ctx) => { /* return false to preventDefault */ },
+});
+```
+
+- `DialogAction.variant`: `"primary" | "secondary" | "outline" | "ghost" | "destructive" | "danger" | "alert" | "info" | "success"`. `danger`/`alert` map to `is-destructive`.
+- `DialogAction.borderless: true` renders a plain text link (no background / no border / minimal padding).
+- `DialogAction.autofocus: true` focuses this button after mount (only the first one wins).
+- `DialogAction.onClick(ctx)` may return `false` (or `Promise<false>`) to keep the dialog open; anything else closes it.
+- `Enter` (when focused on an action button) fires its `onClick` unless `submitOnEnter: false`.
+- `Escape` closes (unless `closeOnEscape: false`).
+- The window auto-fits its content (≤ 600×600), with `overflow: auto` on the body wrapper. Layout is `flex column` with header / scrollable content / footer; the footer is rendered only when `actions.length > 0`.
+- **Permissions** for the dialog window are granted in `src-tauri/capabilities/dialog.json`. Includes `core:window:allow-set-size` so the dialog can resize itself. Matches all windows whose label starts with `dialog-` (i.e., `dialog-rename`, `dialog-delete`, etc.).
 
 ### 13.11 Foreground HWND cache for move/pin operations
 
@@ -790,14 +925,20 @@ the user sees nothing and the app appears frozen.
 not the actual application window. This breaks "Move Window Here" and "Toggle Pin" because
 the wrong window is moved/pinned.
 
-Fix: Capture the foreground HWND **before** the native context menu takes focus, then store
-it in a static `AtomicPtr<c_void>` in `workspace/commands.rs`. All move/pin IPC commands
-read from this cache instead of calling `GetForegroundWindow()` at invocation time.
+Fix: Install a Win32 `SetWinEventHook` for `EVENT_SYSTEM_FOREGROUND` on a dedicated
+message-pumping thread (`WINEVENT_OUTOFCONTEXT`). The hook filters out windows belonging to
+our own PID (bar, settings, widgets, dialogs) and stores the last "real" foreground `HWND` in
+`workspace::foreground::last_real_foreground_ptr()`. `move_window_to_desktop` and
+`toggle_pin_window` read this cached HWND — no per-invocation `GetForegroundWindow()` call.
 
-- `show_workspace_context_menu` → calls `set_foreground_hwnd(fg.0)` before `popup_menu`.
-- `move_window_to_desktop`, `toggle_pin_window`, `pin_state` → call `get_cached_foreground_hwnd()`.
-- `build_workspace_menu` → checks `get_cached_foreground_hwnd()` to decide whether to show
-  move/pin menu items (instead of `GetForegroundWindow()`).
+- `workspace::foreground::install()` → called in `lib.rs::setup`, spawns a thread that
+  pumps messages and runs the hook. **Seeds the cache immediately** with the current
+  foreground window (PID-filtered) so the "Move Window To" submenu is available the first
+  time the user right-clicks a workspace dot — without the seed, move/pin items wouldn't
+  appear until the user alt-tabbed to another app *after* Zenith started.
+- `move_window_to_desktop`, `toggle_pin_window`, `pin_state` → call
+  `get_cached_foreground_hwnd_ptr()` which prefers the event-tracked HWND.
+- `build_workspace_menu` → checks the same cache to decide whether to show move/pin items.
 
 ### 13.12 Restart must unregister the AppBar before spawning
 
@@ -807,6 +948,22 @@ two bars.
 
 - **Correct:** `unregister_appbar` → `spawn` new exe → `app.exit(0)`.
   See `src-tauri/src/commands.rs:handle_menu_event`, `MI_RESTART`.
+
+### 13.13 Explorer restart must re-register the AppBar
+
+When `explorer.exe` crashes and restarts, it broadcasts the registered window message
+`"TaskbarCreated"` on the message-only-window scope. The new explorer instance has no
+knowledge of AppBars registered before it started → the work-area reservation is lost and
+maximized windows cover the bar.
+
+- **Detected via** a hidden message-only window (`HWND_MESSAGE`) on a dedicated thread
+  (`window/appbar_monitor.rs`). The window class registers a `WNDCLASSEXW` once and pumps
+  messages; on receiving `TaskbarCreated` it emits `zenith:appbar-restore`.
+- **Handled via** `lib.rs::setup` → `handle.listen("zenith:appbar-restore", ...)` calls
+  `window::register_appbar(&bar)` again. The re-registration is idempotent (`ABM_NEW` is
+  safe to issue again; the shell treats it as a refresh).
+- Without this, killing explorer (or letting it crash) leaves the bar visible but no longer
+  reserving space, so maximized windows cover it.
 
 ---
 
@@ -823,6 +980,7 @@ time, and IPC issues.
 | `%TEMP%/zenith/{date}/bar.log` | bar window (`index.html`) |
 | `%TEMP%/zenith/{date}/settings.log` | settings window (`settings.html`) |
 | `%TEMP%/zenith/{date}/widgets.log` | widget manager (`widgets.html`) |
+| `%TEMP%/zenith/{date}/dialog.log` | unified dialog window (`dialog.html`) |
 
 Each entry: `[elapsed_seconds.mmm] [LEVEL] message`. Elapsed is relative to process start (not
 wall clock). Open the files in any text editor, or tail them during dev.

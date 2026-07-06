@@ -26,4 +26,7 @@ windows = { version = "0.61", features = [
     "Win32_System_Registry",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",
+    "Win32_UI_Accessibility",
 ] }
+windows_058 = { package = "windows", version = "0.58", features = ["Win32_Foundation"] }
+winvd = "0.0.49"

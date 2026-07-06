@@ -9,7 +9,7 @@
 | Area | Status | Notes |
 |---|---|---|
 | Project structure | ✅ | Tauri 2 + Rust 2021 + plain TS/CSS, DDD layout |
-| AGENTS.md contract | ✅ | 12 sections, all conventions codified |
+| AGENTS.md contract | ✅ | 14 sections, all conventions codified |
 | Config domain (Rust) | ✅ | Safe getter, 6 tests pass, `#[serde(default)]` everywhere |
 | Config client (TS) | ✅ | `loadConfig()`, `getConfigValue()`, `saveConfig()` |
 | Icon system | ✅ | Static Lucide registry + Windows font fallback, sync API |
@@ -19,11 +19,15 @@
 | Transparency | ✅ | Mica/Acrylic via `SetWindowCompositionAttribute` |
 | AppBar | ✅ | `SHAppBarMessage` work-area reservation |
 | System tray | ✅ | Context menu (Settings/Widgets/Restart/Close) |
-| Build pipeline | ✅ | `make check` clean, git pushed |
+| Build pipeline | ✅ | `npm run check` / `cargo check` clean, git pushed |
+| Dialog system | ✅ | Unified dialog window (`dialog.html` + `mountDialog` + builder registry); no `prompt`/`confirm`/`alert` |
+| AppBar explorer-restart monitor | ✅ | Message-only window detects `TaskbarCreated`, re-registers AppBar automatically |
+| Workspace domain | ✅ | `winvd`-based virtual desktop management; rename, delete, create, switch via unified dialog; move/pin gated off |
+| Window creation pattern | ✅ | `visible(false)` → apply material → `SetWindowPos` with `SWP_NOSIZE\|SWP_NOMOVE` → `set_focus()` (white-flash fix) |
 
 ---
 
-## Phase 1 — Visible Bar (IN PROGRESS)
+## Phase 1 — Visible Bar (DONE)
 
 Goal: `npm run tauri dev` shows a real top bar with a working clock widget.
 
@@ -80,11 +84,10 @@ Goal: `npm run tauri dev` shows a real top bar with a working clock widget.
 
 Goal: full settings form, changes apply live.
 
-- [x] Tabbed layout: Appearance · Bar · Widgets · About (reusable `mountTabs()` in `src/shared/tabs.ts`)
-- [x] **Appearance tab**: material (acrylic/mica/none), tint alpha slider, corner radius, theme (auto/dark/light)
-- [x] **Bar tab**: bar height slider, margins (top/left/right), background mode (transparent/solid/gradient), color swatch
-- [x] **Widgets tab**: enabled list (checkbox per widget from manifest)
-- [x] **About tab**: version, name, description
+- [x] Tabbed layout with reusable `mountTabs()` in `src/shared/tabs.ts`
+- [x] **Bar tab** (dual-purpose): material, tint alpha, background mode/colors, corner radius, bar height, margins, padding, theme — all in one tab
+- [x] **About tab**: version, name, description, logo, GitHub link
+- [x] "Widgets" external link button in tab bar → opens widget manager window
 - [x] All fields bound to config, `saveConfig()` on change, live reload bar
 - [x] Use `.zen-*` component classes exclusively
 - [x] Color pickers (HTML `<input type="color">` in settings)
@@ -109,17 +112,17 @@ Goal: browse/add/remove widgets with thumbnails.
 
 - [ ] **Battery** — % + charging state + icon
 - [ ] **Volume** — current level + icon, click to open system mixer
-- [ ] **Workspace** — virtual desktop dots (filled = active), click to switch; auto-hide if only 1 desktop (requires `IVirtualDesktopManagerInternal` COM)
+- [x] **Workspace** — virtual desktop dots (filled = active), click to switch; auto-hide if only 1 desktop; rename, delete, create via unified dialog; move/pin gated off (pending foreground HWND fix)
 - [ ] **System stats** — CPU/RAM mini graphs
 
 ---
 
 ## Phase 5 — Polish
 
-- [ ] Native right-click context menu on bar (Win32, not HTML)
+- [x] Native right-click context menu on bar (Win32 `popup_menu` API, `show_context_menu` / `show_workspace_context_menu` commands)
 - [ ] Custom CSS injection (`%APPDATA%\zenith\custom.css`, hot-reload)
-- [ ] Multi-monitor support (per-monitor or all)
-- [ ] Motion domain (GPU/CPU animation backend selection)
+- [ ] Multi-monitor support (config schema supports `MonitorsSelection`, AppBar handles monitor-of; frontend UI missing)
+- [ ] Motion domain (model/config exists in `MotionConfig`; runtime domain not yet wired)
 - [ ] Auto-start on login
 - [ ] Installer (NSIS bundle)
 

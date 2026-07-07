@@ -21,6 +21,7 @@ export const CMD = {
   openVolumePopup: "open_volume_popup",
   openWidgetConfig: "open_widget_config",
   getBatteryStatus: "get_battery_status",
+  getSystemStats: "get_system_stats",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

@@ -1,0 +1,48 @@
+{
+  "id": "system_stats",
+  "name": "System Stats",
+  "version": "1.0.0",
+  "description": "CPU and RAM usage with switchable styles",
+  "default_zone": "right",
+  "icon": "activity",
+  "min_width": 96,
+  "preview": "<span class=\"sys-preview\"><span class=\"sys-row\"><span class=\"sys-label\">CPU</span><span class=\"sys-bar-mini\"><span class=\"sys-fill\" style=\"width:35%\"></span></span><span class=\"sys-pct\">35</span></span><span class=\"sys-row\"><span class=\"sys-label\">RAM</span><span class=\"sys-bar-mini\"><span class=\"sys-fill\" style=\"width:62%\"></span></span><span class=\"sys-pct\">62</span></span></span>",
+  "config": {
+    "style": {
+      "type": "select",
+      "value": "bar",
+      "options": ["bar", "dots", "graph"],
+      "label": "Style",
+      "hint": "Visual: bar, dots, or sparkline graph"
+    },
+    "format": {
+      "type": "select",
+      "value": "percent",
+      "options": ["percent", "raw", "both"],
+      "label": "Value format",
+      "hint": "percent = 45% / raw = 3.6 GB / both = 45% · 3.6 GB"
+    },
+    "show_cpu": {
+      "type": "bool",
+      "value": true,
+      "label": "Show CPU"
+    },
+    "show_ram": {
+      "type": "bool",
+      "value": true,
+      "label": "Show RAM"
+    },
+    "refresh_seconds": {
+      "type": "int",
+      "value": 1,
+      "label": "Refresh interval",
+      "hint": "Polling interval in seconds (1-10)"
+    },
+    "history_size": {
+      "type": "int",
+      "value": 20,
+      "label": "Graph history",
+      "hint": "Number of samples in the sparkline (5-40). Only used by style=graph."
+    }
+  }
+}

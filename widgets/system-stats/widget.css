@@ -1,0 +1,141 @@
+.sys-root {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding-inline: 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1;
+  color: var(--muted-foreground);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+
+.sys-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 80px;
+}
+
+.sys-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.sys-label {
+  width: 1.6em;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  font-size: 0.5625rem;
+  letter-spacing: 0.06em;
+  flex: 0 0 auto;
+}
+
+.sys-bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--border) 55%, transparent);
+  overflow: hidden;
+  min-width: 24px;
+}
+
+.sys-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    color-mix(in oklch, var(--primary) 70%, transparent),
+    var(--primary));
+  transition: width 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: width;
+}
+
+.sys-fill.is-warn {
+  background: linear-gradient(90deg,
+    color-mix(in oklch, var(--warning, oklch(0.78 0.16 70)) 70%, transparent),
+    var(--warning, oklch(0.78 0.16 70)));
+}
+
+.sys-fill.is-hot {
+  background: linear-gradient(90deg,
+    color-mix(in oklch, var(--destructive) 70%, transparent),
+    var(--destructive));
+}
+
+.sys-dots {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 30px;
+}
+
+.sys-dot {
+  display: inline-block;
+  width: 4px;
+  height: 6px;
+  border-radius: 1px;
+  background: color-mix(in oklch, var(--border) 60%, transparent);
+  flex: 1 1 0;
+  max-width: 8px;
+  transition: background 200ms ease;
+}
+
+.sys-dot.is-on {
+  background: var(--primary);
+}
+
+.sys-dot.is-on.is-warn {
+  background: var(--warning, oklch(0.78 0.16 70));
+}
+
+.sys-dot.is-on.is-hot {
+  background: var(--destructive);
+}
+
+.sys-graph {
+  flex: 1 1 auto;
+  height: 16px;
+  min-width: 30px;
+  display: block;
+  overflow: hidden;
+}
+
+.sys-graph path {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+.sys-graph path.is-warn { stroke: var(--warning, oklch(0.78 0.16 70)); }
+.sys-graph path.is-hot { stroke: var(--destructive); }
+
+.sys-pct {
+  flex: 0 0 auto;
+  min-width: 2.4em;
+  text-align: right;
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.sys-pct-suffix {
+  opacity: 0.55;
+  margin-left: 1px;
+  font-weight: 400;
+}
+
+.sys-row.is-hidden {
+  display: none;
+}

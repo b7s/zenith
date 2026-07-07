@@ -91,20 +91,23 @@ Goal: full settings form, changes apply live.
 - [x] All fields bound to config, `saveConfig()` on change, live reload bar
 - [x] Use `.zen-*` component classes exclusively
 - [x] Color pickers (HTML `<input type="color">` in settings)
-- [ ] Widget position per widget (left/center/right selector)
-- [ ] Widget reordering (drag or up/down buttons)
+- [x] Widget position per widget (left/center/right) — drag between bar zones in arrange mode
+- [x] Widget reordering (drag-and-drop within bar, +/− from widget manager)
 
 ---
 
-## Phase 3 — Widget Manager
+## Phase 3 — Widget Manager (DONE)
 
-Goal: browse/add/remove widgets with thumbnails.
+Goal: browse/add/remove widgets with the arrange-mode UX.
 
-- [ ] Grid of widget cards (thumbnail + name + description)
-- [ ] Green ✓ = add to enabled, red − = remove
-- [ ] Search input filters the grid
-- [ ] Reordering (drag or up/down arrows)
-- [ ] Persists to `config.widgets.enabled` + `positions`
+- [x] Grid of widget cards (icon + name + description) from manifest scan
+- [x] Green `+` to add, red `−` to remove — round action buttons on each card
+- [x] Search input filters the grid (manager header search wired)
+- [x] Arranging: opening manager OR long-pressing the bar activates arrange mode
+- [x] Sway animation on widgets in both bar and manager (GPU-composited `transform`)
+- [x] Bar drop-zone indicators: dashed borders on left/center/right, highlighted on drag-over
+- [x] Drag-and-drop to reorder widgets between bar zones (HTML5 DnD, delegated)
+- [x] Persists to `config.widgets.enabled` + `positions` via `saveConfig()` → live bar reload
 
 ---
 

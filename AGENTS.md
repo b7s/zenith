@@ -141,6 +141,93 @@ zenith/
 6. **Config is the only mutable global state**, and it is always accessed through the `config`
    domain's `load()`/`save()` (see §5).
 
+### DRY — zero duplication, always (read this before writing ANY code)
+
+The codebase is small and must stay small. Duplication is the #1 source of bugs here — a fix
+made in one copy is forgotten in the other. **Before writing a function, a CSS rule, or a
+command name, search the repo for an existing one.** The rules below are mandatory.
+
+#### Before you write code — the 5-step duplication check
+
+1. **Search first.** Use `Grep`/`Glob` for the concept you're about to implement — by name,
+   by keyword, by type signature. The function you need probably already exists.
+2. **Find the single home.** Every concern has exactly one file/module that owns it (see the
+   "Where X lives" table below). New code for that concern goes **there**, not in a new file
+   and not inlined into a caller.
+3. **Extract before you copy.** If two callers need the same logic, **first** extract it into
+   the owning module, **then** have both callers import it. Never paste-and-edit.
+4. **Re-export, don't redeclare.** Names (commands, events, DTOs, CSS classes) are declared
+   **once** in their owner and imported everywhere. If you need a value in two languages
+   (Rust + TS), mirror it once and link the two with a comment — do not invent a parallel name.
+5. **If you're about to write a 2nd copy of anything, stop.** Open the owning module and
+   extend it instead. If no owner exists, create one and move both copies into it.
+
+#### Where each concern lives (single home — do not create a second)
+
+| Concern | Owner | Examples |
+|---|---|---|
+| Command names | `src/shared/ipc.ts` (`CMD`) | `CMD.getConfig`, `CMD.openWidgets` |
+| Event names | `src/shared/events.ts` (`EVENT`) + `src-tauri/src/shared/mod.rs` | `zenith:config-updated`, `zenith:arrange-mode` |
+| DTO types | `src/shared/types.ts` (+ Rust `model.rs` mirrored) | `Config`, `WidgetManifest` |
+| Config load/save | `src/shared/config.ts` (TS) + `config/repository.rs` (Rust) | `loadConfig()`, `saveConfig()` |
+| Window material (Mica/Acrylic) | `window/transparency.rs` | `apply_material`, `apply_fixed_acrylic` |
+| AppBar | `window/appbar.rs` | `register_appbar`, `unregister_appbar` |
+| Custom header + drag | `src/shared/window.ts` | `mountWindow()`, `enableDrag()` |
+| Icon rendering | `src/shared/icon.ts` | `setIcon()`, `applyIcons()` |
+| Per-window logging | `src/shared/log.ts` | `logInfo()`, `initLog()` |
+| Widget loading/layout | `src/shared/widgets.ts` | `layoutBar()`, `getWidgets()` |
+| Widget arrange / add / remove / move / drag-drop | `src/shared/widget-arrange.ts` | `addWidget()`, `applyArrangeUI()`, `setupBarDropZones()` |
+| `.zen-*` CSS components | `src/styles/components.css` | `.zen-button`, `.zen-input` |
+| Arrange-mode CSS (sway, +/− buttons, drop-zones) | `src/styles/arrange.css` | `.zen-widget-btn`, `.is-drop-over` |
+| Rust `SetWindowPos` show pattern | `src-tauri/src/commands.rs::create_*_window` | the one `SWP_NOSIZE\|SWP_NOMOVE` call shape |
+
+#### Anti-patterns that are forbidden
+
+- **Inline-styling a control** (`style="..."`) when a `.zen-*` class exists for it. Add to
+  `components.css` once instead.
+- **Re-implementing drag-and-drop / arrange logic** in a window's `main.ts`. It lives in
+  `widget-arrange.ts`; import it.
+- **Calling `invoke("get_config")` directly.** Go through `shared/config.ts`.
+- **Hardcoding a command or event string** (`"zenith:config-updated"`) instead of importing
+  `EVENT.configUpdated` / `CMD.*`.
+- **Two `SetWindowPos` show sequences** with different flags. There is one correct shape
+  (§13.10a/§13.10b); copy it verbatim.
+- **A second CSS background on a transparent window.** There is one transparency contract (§7).
+- **Mirroring a Rust struct into TS by hand** without keeping the two in sync. Edit both in the
+  same change and cross-link them with a comment.
+
+#### Glass / translucent control aesthetic — the only allowed fill pattern
+
+Every control that sits on an Acrylic/Mica window (bar, settings, widgets manager, dialog)
+must let the native blur show through. **Never use an opaque `background`** (`var(--success)`,
+`var(--danger)`, a raw hex, or `oklch(... )` at full alpha) on a `.zen-*` class or any element
+inside a transparent window. Always mix with transparency:
+
+- **Fills:** `background: color-mix(in oklch, <token> 60–75%, transparent);` (range scales with
+  how prominent the control is — buttons ~60–72%, cards ~75%, inputs ~55%).
+- **Borders:** `border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);` — never a
+  hard 100% border.
+- **Blur (optional, for floating chips):** `backdrop-filter: blur(8px) saturate(160%);` plus the
+  `-webkit-` prefix. Only on small floating elements (e.g. `.zen-widget-btn`); the window already
+  has the OS-wide blur.
+- **Hover/active:** change the mix percentage (`60% → 78%`) or add an `opacity` transition — never
+  swap to an opaque fill.
+
+Reference implementations: `.zen-button` (`components.css`), `.zen-card`, `.zen-input`,
+`.zen-widget-btn` (`arrange.css`). When creating a new control, copy the `color-mix` fill pattern
+from the closest existing one and adjust the percentage only.
+
+#### How AI agents specifically avoid duplication
+
+- **Prefer one large edit to many small ones.** When a concern spans Rust + TS, do both edits
+  in the same turn so they cannot drift.
+- **Read the owner before extending it.** Don't guess the API — `Read` the owning module,
+  match its existing style, then add.
+- **When asked for a new feature, first ask "which existing module owns this?"** If the answer
+  is "none", the first task is to create the owner, not to spread the feature across callers.
+- **Treat copy-paste as a build failure.** If your diff contains two near-identical blocks,
+  extract a helper. The reviewer (human or AI) will ask for it anyway.
+
 ---
 
 ## 4. Configuration contract
@@ -701,6 +788,51 @@ The event listener thread and the foreground hook thread each initialize COM int
 **Version requirement.** `winvd` 0.0.49+ requires Windows 11 24H2 (build ≥ 26100.2605). The app
 exits with an error on older builds (see §1). Do not add fallback logic — the crate handles
 `ERROR_OLD_WIN_VERSION` and propagates it as `winvd::Error`.
+
+### 9.8 Arrange mode — single shared module (no duplication)
+
+**Arrange mode** lets the user add/remove/reorder widgets on the bar. It is activated by
+**long-pressing the bar** OR **opening the Widget Manager**. While active, every widget on the
+bar and every card in the manager plays a smooth sway animation (`transform`-only, GPU-composited),
+shows a round action button (green `+` to add, red `−` to remove), and the bar's three zones
+show dashed drop-target borders that highlight on drag-over.
+
+**All arrange logic lives in ONE module: `src/shared/widget-arrange.ts`.** Both `bar/main.ts`
+and `manager/main.ts` import from it. **Never duplicate** widget-manipulation logic (add /
+remove / move / drag-drop / arrange-state) into a window's `main.ts` — add it to the shared
+module and import it.
+
+Public API of `widget-arrange.ts`:
+
+| Export | Used by | Purpose |
+|---|---|---|
+| `isArrangeActive()` | both | read arrange state |
+| `setArrangeActive(active, broadcast?)` | both | flip state + toggle `body.is-arranging` + emit `zenith:arrange-mode` (broadcast=false used by the sync listener to avoid an emit loop) |
+| `toggleArrangeMode()` | bar | convenience for long-press |
+| `onArrangeChange(fn)` | bar | re-apply chrome when arrange flips |
+| `initArrangeSync()` | both | listen for `zenith:arrange-mode` from the other window |
+| `addWidget(cfg, id, zone?)` | manager | append to `enabled`, persist, emit `config-updated` |
+| `removeWidget(cfg, id)` | both | filter out of `enabled`, persist |
+| `moveWidget(cfg, id, zone)` | bar | set zone + reorder `enabled` so widget lands after the last widget in that zone |
+| `createWidgetActionBtn(type, handler)` | both | round green `+`/red `−` button factory |
+| `attachLongPress(el, cb, ms?)` | bar | pointer-based long-press recognizer |
+| `applyArrangeUI(bar, cfg)` | bar | idempotent: adds/removes `−` buttons + `draggable` on every `.widget-slot` based on current arrange state. Call after **every** `layoutBar`. |
+| `setupBarDropZones(bar, cfg)` | bar | delegated HTML5 drag-over/drop on the bar; calls `moveWidget` on drop |
+
+Rules:
+1. **One module, one concern.** `widget-arrange.ts` owns arrange state + widget config ops +
+   the DOM helpers for arrange chrome. Do not split it; do not copy it.
+2. **`applyArrangeUI` is idempotent and must run after every layout.** `layoutBar` clears the
+   bar DOM, so the action buttons vanish — re-apply in the `configUpdated` listener.
+3. **Cross-window state uses the `zenith:arrange-mode` event**, not a shared file. The manager
+   calls `setArrangeActive(true)` on open and `setArrangeActive(false)` in `beforeunload`.
+4. **Widget config changes go through `saveConfig()`** which emits `zenith:config-updated`; the
+   bar listens and re-lays-out. Never emit a separate "widget added" event.
+5. **Sway + drop-zone styling is in `src/styles/arrange.css`**, imported by BOTH
+   `bar-globals.css` and `globals.css`. Keep it transform-only (no width/height/top/left).
+6. **Cross-window HTML5 drag-and-drop is impossible** in Tauri (each webview is isolated). The
+   manager uses click-to-add (`addWidget` with default zone); the user then drags within the
+   bar to reposition. Do not attempt OS-level cross-window drag.
 
 ---
 

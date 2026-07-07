@@ -1,6 +1,20 @@
 import "../../styles/globals.css";
 import { mountWindow } from "../../shared/window";
+import { setIcon } from "../../shared/icon";
+import { loadConfig } from "../../shared/config";
+import { getWidgets } from "../../shared/widgets";
 import { initLog, logMemory, logInfo, time } from "../../shared/log";
+import { listen } from "@tauri-apps/api/event";
+import {
+  holdArrange,
+  releaseArrangeHold,
+  initArrangeSync,
+  addWidget,
+  removeWidget,
+  createWidgetActionBtn,
+} from "../../shared/widget-arrange";
+import { EVENT } from "../../shared/events";
+import type { Config, WidgetManifest } from "../../shared/types";
 
 void (async () => {
   await initLog();
@@ -10,15 +24,85 @@ void (async () => {
     mountWindow({ title: "Widgets", searchable: true, searchPlaceholder: "Search widgets" }),
   );
 
-  const hint = document.createElement("p");
-  hint.className = "zen-hint";
-  hint.textContent = "Widget grid will render here.";
-  content.append(hint);
+  let cfg = await loadConfig();
+  let manifests = await getWidgets();
+  let filter = "";
 
-  if (search) {
-    search.addEventListener("input", () => {});
+  // The manager "holds" arrange mode so bar clicks/focus don't deactivate it
+  // while the manager window is open.
+  void initArrangeSync();
+  holdArrange();
+  window.addEventListener("beforeunload", () => releaseArrangeHold());
+
+  function render(): void {
+    content.replaceChildren(buildGrid());
   }
 
+  function buildGrid(): HTMLElement {
+    const grid = document.createElement("div");
+    grid.className = "widget-grid";
+
+    const q = filter.trim().toLowerCase();
+    const shown = manifests.filter(
+      (m) => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q),
+    );
+
+    for (const m of shown) {
+      grid.append(buildCard(m, cfg.widgets.enabled.includes(m.id)));
+    }
+
+    if (!shown.length) {
+      const empty = document.createElement("p");
+      empty.className = "zen-hint";
+      empty.style.padding = "1rem";
+      empty.textContent = "No widgets match your search.";
+      grid.append(empty);
+    }
+    return grid;
+  }
+
+  function buildCard(m: WidgetManifest, enabled: boolean): HTMLElement {
+    const card = document.createElement("div");
+    card.className = "widget-card";
+    card.dataset.widgetId = m.id;
+
+    const icon = document.createElement("span");
+    icon.className = "widget-card__icon";
+    setIcon(icon, m.icon || m.id, { size: 22 });
+    card.append(icon);
+
+    const body = document.createElement("div");
+    body.className = "widget-card__body";
+    const name = document.createElement("div");
+    name.className = "widget-card__name";
+    name.textContent = m.name;
+    const desc = document.createElement("div");
+    desc.className = "widget-card__desc";
+    desc.textContent = m.description || m.id;
+    body.append(name, desc);
+    card.append(body);
+
+    card.append(
+      createWidgetActionBtn(enabled ? "remove" : "add", () => {
+        const op = enabled ? removeWidget(cfg, m.id) : addWidget(cfg, m.id);
+        void op;
+      }),
+    );
+    return card;
+  }
+
+  search?.addEventListener("input", () => {
+    filter = search.value.toLowerCase();
+    render();
+  });
+
+  // Re-render when config changes (button flips add ↔ remove after a click).
+  listen<Config>(EVENT.configUpdated, (e) => {
+    cfg = e.payload;
+    render();
+  });
+
+  render();
   logMemory("after mount");
   logInfo("widgets ready");
 })();

@@ -1,6 +1,7 @@
 export const EVENT = {
   configUpdated: "zenith:config-updated",
   appearanceChanged: "zenith:appearance-changed",
+  arrangeMode: "zenith:arrange-mode",
   widgetsChanged: "zenith:widgets-changed",
   workspaceChanged: "zenith:workspace-changed",
   workspaceRename: "zenith:workspace-rename",

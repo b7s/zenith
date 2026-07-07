@@ -1,0 +1,174 @@
+/* ============================================================================
+   Widget arrange mode — sway animation, action buttons, drop-zone indicators.
+   Shared by the bar window (widget-slot) and the widget manager (widget-card).
+   Imported from both bar-globals.css and globals.css.
+   ========================================================================== */
+
+@keyframes zen-widget-sway {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(1.5px) rotate(0.5deg);
+  }
+  75% {
+    transform: translateX(-1.5px) rotate(-0.5deg);
+  }
+}
+
+/* Slow, gentle sway — 2.4s so it reads as "wobbling in place", not jiggling. */
+.is-arranging .widget-slot,
+.is-arranging .widget-card {
+  animation: zen-widget-sway 2.4s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+.is-arranging .widget-slot:nth-child(2n),
+.is-arranging .widget-card:nth-child(2n) {
+  animation-delay: -0.8s;
+}
+.is-arranging .widget-slot:nth-child(3n),
+.is-arranging .widget-card:nth-child(3n) {
+  animation-delay: -1.6s;
+}
+
+/* Action buttons need a positioned host */
+.is-arranging .widget-slot,
+.widget-card {
+  position: relative;
+}
+
+/* While arranging, the widget's own interactive content (clock, workspace
+   dots, etc.) must NOT receive pointer events — otherwise a click intended to
+   remove the widget would trigger the widget's action (e.g. switch desktop).
+   The action button is a sibling so it stays clickable via pointer-events:auto.
+   NOTE: we do NOT use CSS pointer-events: none here because in WebView2 that
+   also blocks drag-and-drop hit-testing: dragenter/dragover never fire over
+   children with pointer-events: none, making drops impossible. Instead we use
+   a capture-phase click handler in widget-arrange.ts. */
+
+/* ---- Drag visual feedback ------------------------------------------------ */
+/* The dragged widget stops swaying, dims, and gets a subtle highlight so
+   it's clear WHICH widget is being moved. Other widgets shift in real-time
+   via FLIP animation (translateX transitions). */
+.widget-slot.is-dragging {
+  animation: none !important;
+  opacity: 0.4;
+  outline: 2px solid color-mix(in oklch, var(--primary) 70%, transparent);
+  outline-offset: -2px;
+  border-radius: var(--radius);
+}
+body.zen-dragging.is-arranging,
+body.zen-dragging.is-arranging * {
+  cursor: grabbing !important;
+}
+body.zen-dragging.is-arranging .widget-slot:not(.is-dragging) {
+  cursor: grabbing;
+  pointer-events: none;
+}
+
+/* ---- Round add / remove button (Apple-glass) ----------------------------- */
+/* Translucent fill + hairline border so the native blur shows through — the
+   Apple "vibrancy" look. Border is a translucent white so it reads on both
+   light and dark accents. Positioned to stay within the bar's `overflow:hidden`. */
+.zen-widget-btn {
+  position: absolute;
+  top: -1px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--background) 70%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  z-index: 10;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+  flex: 0 0 auto;
+  opacity: .75;
+}
+.zen-widget-btn:hover {
+  transform: scale(1.18);
+  border-color: color-mix(in oklch, var(--background) 85%, transparent);
+  opacity: 1;
+}
+.zen-widget-btn:active {
+  transform: scale(0.9);
+}
+.zen-widget-btn.is-add {
+  background: var(--success);
+  color: #fff;
+}
+
+.zen-widget-btn.is-remove {
+  background: var(--danger);
+  color: #fff;
+}
+
+
+/* ---- Bar drop-zone indicators -------------------------------------------- */
+/* Clearly visible while editing: solid-feeling translucent dashed border on
+   every zone, brighter + tinted fill on the zone currently under the cursor. */
+.is-arranging .bar-zone {
+  align-self: stretch;
+  border: 2px dashed color-mix(in oklch, var(--foreground) 45%, transparent);
+  border-radius: var(--radius);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.is-arranging .bar-zone.is-drop-over {
+  border-color: color-mix(in oklch, var(--primary) 90%, transparent);
+  background: color-mix(in oklch, var(--primary) 16%, transparent);
+}
+
+/* ---- Widget manager grid ------------------------------------------------- */
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.widget-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--card) 75%, transparent);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.widget-card:hover {
+  border-color: var(--ring);
+}
+.widget-card__icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: calc(var(--radius) - 0.25rem);
+  background: color-mix(in oklch, var(--accent) 50%, transparent);
+  color: var(--foreground);
+}
+.widget-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.widget-card__name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.widget-card__desc {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

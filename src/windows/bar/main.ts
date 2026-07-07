@@ -7,6 +7,16 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { initLog, logMemory, logInfo, logError, time } from "../../shared/log";
 import { EVENT } from "../../shared/events";
+import {
+  initArrangeSync,
+  isArrangeActive,
+  onArrangeChange,
+  toggleArrangeMode,
+  attachLongPress,
+  applyArrangeUI,
+  setupBarDropZones,
+  attachOutsideClickDeactivate,
+} from "../../shared/widget-arrange";
 import type { Config } from "../../shared/types";
 
 void (async () => {
@@ -32,17 +42,35 @@ void (async () => {
     void invoke("show_context_menu");
   });
 
-  const cfg = await time("loadConfig", () => loadConfig());
+  // Arrange mode: long-press ACTIVATES it (deactivation is via outside-click).
+  // Using long-press only to activate prevents it from accidentally turning
+  // arrange OFF while the user is pressing a widget to drag it.
+  attachLongPress(bar, () => {
+    if (!isArrangeActive()) toggleArrangeMode();
+  });
+  // Click outside widgets (or window blur) deactivates arrange — unless the
+  // widget manager is holding it open.
+  attachOutsideClickDeactivate();
+
+  let cfg = await time("loadConfig", () => loadConfig());
+
+  // Cross-window sync + re-apply chrome whenever arrange flips.
+  void initArrangeSync();
+  onArrangeChange(() => applyArrangeUI(bar, cfg));
+
   applyBarDom(wrapper, bar, cfg);
   await time("layoutBar", () => layoutBar(bar, cfg));
+  applyArrangeUI(bar, cfg);
+  setupBarDropZones(bar, cfg);
   logMemory("after layout");
   logInfo("bar ready");
 
   listen<Config>(EVENT.configUpdated, async (e) => {
-    const newCfg = e.payload;
+    cfg = e.payload;
     applyTheme();
-    applyBarDom(wrapper, bar, newCfg);
-    await layoutBar(bar, newCfg);
+    applyBarDom(wrapper, bar, cfg);
+    await layoutBar(bar, cfg);
+    applyArrangeUI(bar, cfg);
     logInfo("bar re-applied config");
   });
 })();

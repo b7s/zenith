@@ -13,6 +13,8 @@
     format: "percent",
     show_cpu: true,
     show_ram: true,
+    show_gpu: true,
+    show_hd: true,
     refresh_seconds: 3,
     history_size: 20,
   };
@@ -26,6 +28,8 @@
           if (wc.format) cfg.format = wc.format;
           if (typeof wc.show_cpu === "boolean") cfg.show_cpu = wc.show_cpu;
           if (typeof wc.show_ram === "boolean") cfg.show_ram = wc.show_ram;
+          if (typeof wc.show_gpu === "boolean") cfg.show_gpu = wc.show_gpu;
+          if (typeof wc.show_hd === "boolean") cfg.show_hd = wc.show_hd;
           if (wc.refresh_seconds >= 1 && wc.refresh_seconds <= 10)
             cfg.refresh_seconds = wc.refresh_seconds;
           if (wc.history_size >= 5 && wc.history_size <= 40)
@@ -36,13 +40,13 @@
     } catch (_) {}
   }
 
-  var cpuEl, ramEl;
-  var cpuFillEl, ramFillEl;
-  var cpuPctEl, ramPctEl;
-  var cpuDots, ramDots;
-  var cpuGraphEl, ramGraphEl;
-  var cpuHistory, ramHistory;
-  var cpuGraphPath, ramGraphPath;
+  var cpuEl, ramEl, gpuEl, hdEl;
+  var cpuFillEl, ramFillEl, gpuFillEl, hdFillEl;
+  var cpuPctEl, ramPctEl, gpuPctEl, hdPctEl;
+  var cpuDots, ramDots, gpuDots, hdDots;
+  var cpuGraphEl, ramGraphEl, gpuGraphEl, hdGraphEl;
+  var cpuHistory, ramHistory, gpuHistory, hdHistory;
+  var cpuGraphPath, ramGraphPath, gpuGraphPath, hdGraphPath;
 
   function formatVal(pct, used, total) {
     if (cfg.format === "raw") {
@@ -94,9 +98,31 @@
         ramPctEl = r.querySelector(".sys-pct");
       }
 
+      if (cfg.show_gpu) {
+        var r = document.createElement("span");
+        r.className = "sys-row";
+        r.innerHTML = '<span class="sys-label">GPU</span><span class="sys-dots"></span><span class="sys-pct"></span>';
+        w.append(r);
+        gpuEl = r;
+        gpuDots = r.querySelector(".sys-dots");
+        gpuPctEl = r.querySelector(".sys-pct");
+      }
+
+      if (cfg.show_hd) {
+        var r = document.createElement("span");
+        r.className = "sys-row";
+        r.innerHTML = '<span class="sys-label">HD</span><span class="sys-dots"></span><span class="sys-pct"></span>';
+        w.append(r);
+        hdEl = r;
+        hdDots = r.querySelector(".sys-dots");
+        hdPctEl = r.querySelector(".sys-pct");
+      }
+
       var n = 10;
       if (cpuDots) buildDots(cpuDots, n);
       if (ramDots) buildDots(ramDots, n);
+      if (gpuDots) buildDots(gpuDots, n);
+      if (hdDots) buildDots(hdDots, n);
 
     } else if (cfg.style === "graph") {
       root.innerHTML = '<span class="sys-wrap"></span>';
@@ -105,6 +131,10 @@
       cpuHistory.fill(0);
       ramHistory = new Float64Array(cfg.history_size);
       ramHistory.fill(0);
+      gpuHistory = new Float64Array(cfg.history_size);
+      gpuHistory.fill(0);
+      hdHistory = new Float64Array(cfg.history_size);
+      hdHistory.fill(0);
 
       if (cfg.show_cpu) {
         var r = document.createElement("span");
@@ -126,6 +156,28 @@
         ramGraphEl = r.querySelector(".sys-graph");
         ramGraphPath = ramGraphEl.querySelector("path");
         ramPctEl = r.querySelector(".sys-pct");
+      }
+
+      if (cfg.show_gpu) {
+        var r = document.createElement("span");
+        r.className = "sys-row";
+        r.innerHTML = '<span class="sys-label">GPU</span><svg class="sys-graph" preserveAspectRatio="none" viewBox="0 0 100 16"><path></path></svg><span class="sys-pct"></span>';
+        w.append(r);
+        gpuEl = r;
+        gpuGraphEl = r.querySelector(".sys-graph");
+        gpuGraphPath = gpuGraphEl.querySelector("path");
+        gpuPctEl = r.querySelector(".sys-pct");
+      }
+
+      if (cfg.show_hd) {
+        var r = document.createElement("span");
+        r.className = "sys-row";
+        r.innerHTML = '<span class="sys-label">HD</span><svg class="sys-graph" preserveAspectRatio="none" viewBox="0 0 100 16"><path></path></svg><span class="sys-pct"></span>';
+        w.append(r);
+        hdEl = r;
+        hdGraphEl = r.querySelector(".sys-graph");
+        hdGraphPath = hdGraphEl.querySelector("path");
+        hdPctEl = r.querySelector(".sys-pct");
       }
 
     } else {
@@ -150,6 +202,26 @@
         ramEl = r;
         ramFillEl = r.querySelector(".sys-fill");
         ramPctEl = r.querySelector(".sys-pct");
+      }
+
+      if (cfg.show_gpu) {
+        var r = document.createElement("span");
+        r.className = "sys-row";
+        r.innerHTML = '<span class="sys-label">GPU</span><span class="sys-bar"><span class="sys-fill"></span></span><span class="sys-pct"></span>';
+        w.append(r);
+        gpuEl = r;
+        gpuFillEl = r.querySelector(".sys-fill");
+        gpuPctEl = r.querySelector(".sys-pct");
+      }
+
+      if (cfg.show_hd) {
+        var r = document.createElement("span");
+        r.className = "sys-row";
+        r.innerHTML = '<span class="sys-label">HD</span><span class="sys-bar"><span class="sys-fill"></span></span><span class="sys-pct"></span>';
+        w.append(r);
+        hdEl = r;
+        hdFillEl = r.querySelector(".sys-fill");
+        hdPctEl = r.querySelector(".sys-pct");
       }
     }
   }
@@ -197,30 +269,67 @@
     buf[n - 1] = val;
   }
 
+  function cpuText(pct, ghz) {
+    if (cfg.format === "raw") {
+      return (ghz || 0).toFixed(2) + " GHz";
+    }
+    if (cfg.format === "both") {
+      return Math.round(pct) + "% " + (ghz || 0).toFixed(2) + " GHz";
+    }
+    return Math.round(pct) + "";
+  }
+
   function updateUI(data) {
     var cpu = data.cpu_percent || 0;
+    var ghz = data.cpu_ghz || 0;
     var rUsed = data.ram_used || 0;
     var rTotal = data.ram_total || 0;
     var rPct = data.ram_percent || 0;
+    var gpu = data.gpu_percent || 0;
+    var hUsed = data.hd_used || 0;
+    var hTotal = data.hd_total || 0;
+    var hPct = data.hd_percent || 0;
 
     if (cpuEl) {
-      var cpuTxt = formatVal(cpu, 0, 0);
+      var txt = cpuText(cpu, ghz);
       if (cpuPctEl) {
         if (cfg.format === "percent") {
-          cpuPctEl.innerHTML = cpuTxt + '<span class="sys-pct-suffix">%</span>';
+          cpuPctEl.innerHTML = txt + '<span class="sys-pct-suffix">%</span>';
         } else {
-          cpuPctEl.textContent = cpuTxt;
+          cpuPctEl.textContent = txt;
         }
       }
     }
 
     if (ramEl) {
-      var ramTxt = formatVal(rPct, rUsed, rTotal);
+      var txt = formatVal(rPct, rUsed, rTotal);
       if (ramPctEl) {
         if (cfg.format === "percent") {
-          ramPctEl.innerHTML = ramTxt + '<span class="sys-pct-suffix">%</span>';
+          ramPctEl.innerHTML = txt + '<span class="sys-pct-suffix">%</span>';
         } else {
-          ramPctEl.textContent = ramTxt;
+          ramPctEl.textContent = txt;
+        }
+      }
+    }
+
+    if (gpuEl) {
+      var txt = cpuText(gpu, 0);
+      if (gpuPctEl) {
+        if (cfg.format === "percent") {
+          gpuPctEl.innerHTML = txt + '<span class="sys-pct-suffix">%</span>';
+        } else {
+          gpuPctEl.textContent = txt;
+        }
+      }
+    }
+
+    if (hdEl) {
+      var txt = formatVal(hPct, hUsed, hTotal);
+      if (hdPctEl) {
+        if (cfg.format === "percent") {
+          hdPctEl.innerHTML = txt + '<span class="sys-pct-suffix">%</span>';
+        } else {
+          hdPctEl.textContent = txt;
         }
       }
     }
@@ -235,13 +344,29 @@
       ramFillEl.className = "sys-fill " + heatClass(rPct);
     }
 
+    if (gpuFillEl) {
+      gpuFillEl.style.width = gpu + "%";
+      gpuFillEl.className = "sys-fill " + heatClass(gpu);
+    }
+
+    if (hdFillEl) {
+      hdFillEl.style.width = hPct + "%";
+      hdFillEl.className = "sys-fill " + heatClass(hPct);
+    }
+
     if (cpuDots) updateDots(cpuDots, cpu, 10);
     if (ramDots) updateDots(ramDots, rPct, 10);
+    if (gpuDots) updateDots(gpuDots, gpu, 10);
+    if (hdDots) updateDots(hdDots, hPct, 10);
 
     if (cpuHistory) pushHistory(cpuHistory, cpu);
     if (ramHistory) pushHistory(ramHistory, rPct);
+    if (gpuHistory) pushHistory(gpuHistory, gpu);
+    if (hdHistory) pushHistory(hdHistory, hPct);
     if (cpuGraphPath && cpuHistory) updateGraph(cpuGraphEl, cpuHistory, cpu);
     if (ramGraphPath && ramHistory) updateGraph(ramGraphEl, ramHistory, rPct);
+    if (gpuGraphPath && gpuHistory) updateGraph(gpuGraphEl, gpuHistory, gpu);
+    if (hdGraphPath && hdHistory) updateGraph(hdGraphEl, hdHistory, hPct);
   }
 
   loadConfig();

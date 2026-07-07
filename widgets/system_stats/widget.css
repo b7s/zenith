@@ -13,10 +13,10 @@
 }
 
 .sys-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 80px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 0.75rem;
+  min-width: 140px;
 }
 
 .sys-row {
@@ -41,7 +41,7 @@
   flex: 1 1 auto;
   height: 6px;
   border-radius: 999px;
-  background: color-mix(in oklch, var(--border) 55%, transparent);
+  background: color-mix(in oklch, var(--border) 80%, transparent);
   overflow: hidden;
   min-width: 24px;
 }
@@ -62,18 +62,16 @@
   display: inline-flex;
   gap: 2px;
   align-items: center;
-  flex: 1 1 auto;
-  min-width: 30px;
+  flex: 0 0 auto;
 }
 
 .sys-dot {
   display: inline-block;
-  width: 4px;
-  height: 6px;
-  border-radius: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
   background: color-mix(in oklch, var(--border) 60%, transparent);
-  flex: 1 1 0;
-  max-width: 8px;
+  flex: 0 0 auto;
   transition: background 200ms ease;
 }
 
@@ -82,9 +80,9 @@
 }
 
 .sys-graph {
-  flex: 1 1 auto;
+  width: 55px;
   height: 16px;
-  min-width: 30px;
+  flex: 0 0 auto;
   display: block;
   overflow: hidden;
 }

@@ -2,11 +2,11 @@
   "id": "system_stats",
   "name": "System Stats",
   "version": "1.0.0",
-  "description": "CPU and RAM usage with switchable styles",
+  "description": "CPU, RAM, GPU, and HD usage with switchable styles",
   "default_zone": "right",
   "icon": "activity",
-  "min_width": 96,
-  "preview": "<span class=\"sys-preview\"><span class=\"sys-row\"><span class=\"sys-label\">CPU</span><span class=\"sys-bar-mini\"><span class=\"sys-fill\" style=\"width:35%\"></span></span><span class=\"sys-pct\">35</span></span><span class=\"sys-row\"><span class=\"sys-label\">RAM</span><span class=\"sys-bar-mini\"><span class=\"sys-fill\" style=\"width:62%\"></span></span><span class=\"sys-pct\">62</span></span></span>",
+  "min_width": 160,
+  "preview": "<span class=\"sys-preview\"><span class=\"sys-row\"><span class=\"sys-label\">CPU</span><span class=\"sys-bar-mini\"><span class=\"sys-fill\" style=\"width:35%\"></span></span><span class=\"sys-pct\">35</span></span><span class=\"sys-row\"><span class=\"sys-label\">RAM</span><span class=\"sys-bar-mini\"><span class=\"sys-fill\" style=\"width:62%\"></span></span><span class=\"sys-pct\">62</span></span><span class=\"sys-row\"><span class=\"sys-label\">GPU</span><span class=\"sys-bar-mini\"><span class=\"sys-fill\" style=\"width:28%\"></span></span><span class=\"sys-pct\">28</span></span><span class=\"sys-row\"><span class=\"sys-label\">HD</span><span class=\"sys-bar-mini\"><span class=\"sys-fill\" style=\"width:45%\"></span></span><span class=\"sys-pct\">45</span></span></span>",
   "config": {
     "style": {
       "type": "select",
@@ -31,6 +31,16 @@
       "type": "bool",
       "value": true,
       "label": "Show RAM"
+    },
+    "show_gpu": {
+      "type": "bool",
+      "value": true,
+      "label": "Show GPU"
+    },
+    "show_hd": {
+      "type": "bool",
+      "value": true,
+      "label": "Show HD"
     },
     "refresh_seconds": {
       "type": "int",

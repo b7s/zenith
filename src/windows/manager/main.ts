@@ -86,18 +86,23 @@ void (async () => {
     );
 
     // Load real widget HTML into preview area (async — renders live preview)
-    void loadPreview(preview, m.id);
+    void loadPreview(preview, m);
 
     return card;
   }
 
-  async function loadPreview(container: HTMLElement, id: string): Promise<void> {
-    const source = await getWidgetSource(id);
+  async function loadPreview(container: HTMLElement, m: WidgetManifest): Promise<void> {
+    const source = await getWidgetSource(m.id);
     if (!source) {
-      container.textContent = id;
+      container.textContent = m.name;
       return;
     }
-    renderWidget(container, source, id, true);
+    const previewSource = {
+      ...source,
+      html: m.preview || source.html,
+      js: "",
+    };
+    renderWidget(container, previewSource, m.id, true);
     container.style.pointerEvents = "none";
   }
 

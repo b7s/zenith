@@ -28,9 +28,25 @@
 }
 
 .zen-window__search {
+  position: relative;
   flex: 1 1 auto;
-  max-width: 100%;
+  max-width: 26rem;
+  display: flex;
+  align-items: center;
+}
+.zen-window__search-icon {
+  position: absolute;
+  left: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  pointer-events: none;
+  color: var(--muted-foreground);
+}
+.zen-window__search-input {
+  width: 100%;
   height: 2rem;
+  padding-left: 2.125rem;
 }
 
 .zen-window__close {

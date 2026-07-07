@@ -5,5 +5,6 @@
   "description": "Virtual desktop workspace switcher",
   "default_zone": "left",
   "icon": "monitor",
-  "min_width": 0
+  "min_width": 0,
+  "preview": "<span class=\"ws-desktops\"><span class=\"ws-dot is-active\"></span><span class=\"ws-dot\"></span><span class=\"ws-dot\"></span></span>"
 }

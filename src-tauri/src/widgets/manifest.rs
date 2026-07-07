@@ -16,6 +16,8 @@ pub struct WidgetManifest {
     pub icon: String,
     #[serde(default = "default_min_width")]
     pub min_width: u32,
+    #[serde(default)]
+    pub preview: String,
     #[serde(skip)]
     pub widget_dir: String,
 }
@@ -38,6 +40,7 @@ impl Default for WidgetManifest {
             default_zone: default_zone(),
             icon: String::new(),
             min_width: default_min_width(),
+            preview: String::new(),
             widget_dir: String::new(),
         }
     }

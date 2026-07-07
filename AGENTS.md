@@ -644,7 +644,13 @@ widgets/<name>/
 ```
 
 - `manifest.json` fields: `name`, `id`, `version`, `description`, `default_zone` (`left|center|right`),
-  `icon` (Lucide name), `min_width`, `preview` (thumbnail asset).
+  `icon` (Lucide name), `min_width`, `preview` (static HTML fragment — fake sample content shown
+  in the Widget Manager card only; never rendered in the bar). The preview reuses the widget's own
+  `widget.css` classes so it looks identical to the live widget, but **no `widget.js` runs** and the
+  container has `pointer-events: none`, so the preview is fully inert. Example: the clock manifest
+  ships `"preview": "<span class=\"clock-time\">12:34</span>""`; the workspace manifest ships three
+  `.ws-dot` spans (one `.is-active`). If `preview` is empty/absent, the manager falls back to the
+  real `widget.html` (still without JS).
 - `widget.html` is a plain HTML fragment (no `<html>`/`<body>` — just the content elements).
 - `widget.js` wraps its logic in an IIFE to keep scope clean. It uses
   `window.__zenith_invoke` (set by the bar's `main.ts`) to call Tauri commands — never

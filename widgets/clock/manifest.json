@@ -5,5 +5,6 @@
   "description": "Current time display",
   "default_zone": "left",
   "icon": "clock",
-  "min_width": 80
+  "min_width": 80,
+  "preview": "<span class=\"clock-time\">12:34</span>"
 }

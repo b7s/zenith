@@ -111,8 +111,8 @@ body.zen-dragging.is-arranging .widget-slot:not(.is-dragging) {
   gap: 0.5rem;
   padding: 0.875rem;
   border-radius: var(--big-radius);
-  border: 1px solid var(--border);
-  background: color-mix(in oklch, var(--card) 75%, transparent);
+  border: 2px solid var(--border);
+  background: color-mix(in oklch, var(--card) 15%, transparent);
   transition: border-color 120ms ease, background 120ms ease;
   user-select: none;
   -webkit-user-select: none;

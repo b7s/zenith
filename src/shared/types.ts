@@ -62,6 +62,7 @@ export interface WidgetManifest {
   default_zone: WidgetZone;
   icon: string;
   min_width: number;
+  preview: string;
   widget_dir: string;
 }
 

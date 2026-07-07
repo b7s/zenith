@@ -88,12 +88,23 @@ export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
 
   let search: HTMLInputElement | null = null;
   if (opts.searchable) {
+    const wrap = document.createElement("div");
+    wrap.className = "zen-window__search";
+
+    const sIcon = document.createElement("i");
+    sIcon.dataset.icon = "search";
+    sIcon.dataset.size = "14";
+    sIcon.className = "zen-window__search-icon";
+    wrap.append(sIcon);
+
     search = document.createElement("input");
     search.type = "search";
-    search.className = "zen-input zen-window__search";
+    search.className = "zen-input zen-window__search-input";
     search.placeholder = opts.searchPlaceholder ?? "Search\u2026";
     search.setAttribute("aria-label", "Search");
-    header.append(search);
+    wrap.append(search);
+
+    header.append(wrap);
   }
 
   const close = document.createElement("button");

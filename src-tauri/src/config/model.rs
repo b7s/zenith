@@ -159,16 +159,20 @@ pub struct WidgetsConfig {
     pub enabled: Vec<String>,
     #[serde(default)]
     pub positions: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub config: std::collections::HashMap<String, std::collections::HashMap<String, serde_json::Value>>,
 }
 
 impl Default for WidgetsConfig {
     fn default() -> Self {
         Self {
-            enabled: vec!["workspace".into(), "clock".into()],
+            enabled: vec!["workspace".into(), "clock".into(), "volume".into()],
             positions: std::collections::HashMap::from([
-                ("clock".into(), "left".into()),
+                ("clock".into(), "center".into()),
                 ("workspace".into(), "left".into()),
+                ("volume".into(), "right".into()),
             ]),
+            config: std::collections::HashMap::new(),
         }
     }
 }

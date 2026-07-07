@@ -686,6 +686,100 @@ lives in exactly one folder, adding/removing a widget is just `mkdir`/`rmdir`.
   for fixed-minimum widgets (e.g. clock at `80`).
 - Widgets do not set their own width via CSS — the slot (`widget-slot`) controls it.
 
+### 9.4a Widget configuration (`config` in manifest)
+
+Widgets that need user-configurable settings declare them in `manifest.json` under the
+top-level `config` key. When a widget has a non-empty `config`, the Widget Manager card
+shows a **gear button** (below the add/remove button) that opens a **single generic
+widget-config window** (`widget-config.html`). This window is data-driven — it reads the
+manifest's `config` definition and renders the appropriate form controls via JS. **Never
+create a per-widget config window** — always extend the generic one.
+
+#### Manifest `config` schema
+
+```jsonc
+{
+  "config": {
+    "timezone": {              // key = the config field name
+      "type": "string",        // "string" | "int" | "bool" | "select"
+      "value": "",             // default value (used when user hasn't configured)
+      "label": "Timezone",     // human-readable label (optional, falls back to key)
+      "hint": "IANA tz …"      // helper text under the field (optional)
+    },
+    "format": {
+      "type": "select",
+      "value": "24h",
+      "options": ["24h", "12h"],   // required for "select" type
+      "label": "Time format"
+    },
+    "show_date": {
+      "type": "bool",
+      "value": true,
+      "label": "Show date"
+    }
+  }
+}
+```
+
+Each config field has **two required entries**: `type` and `value`. The type determines
+which `.zen-*` control the generic window renders:
+
+| `type` | Control | Notes |
+|---|---|---|
+| `"string"` | `.zen-input` (text) | Free-text input |
+| `"int"` | `.zen-input` (number) | Integer input |
+| `"bool"` | `.zen-checkbox` | Toggle |
+| `"select"` | `.zen-select` (dropdown) | Requires `options` array of strings/numbers |
+
+Optional entries: `label`, `hint`, `options` (for select).
+
+#### How values are stored
+
+Config values live in `config.json` under `widgets.config`:
+
+```jsonc
+{
+  "widgets": {
+    "enabled": ["datetime"],
+    "positions": { "datetime": "center" },
+    "config": {
+      "datetime": { "timezone": "America/New_York", "format": "12h", "show_date": true }
+    }
+  }
+}
+```
+
+If a widget's key is absent from `widgets.config[<id>]`, the widget JS uses the manifest's
+default `value`.
+
+#### How widget JS reads its config
+
+The widget IIFE calls `window.__zenith_invoke("get_config")`, navigates to
+`cfg.widgets.config[<widget-id>]`, and falls back to manifest defaults for any missing key.
+
+#### How the config window works (single generic implementation)
+
+- **Rust:** `open_widget_config(app, widget_id)` in `commands.rs` creates a
+  `widget-config-<id>` window with an init script `window.__ZENITH_WIDGET_CONFIG_ID`.
+- **Window JS:** `src/windows/widget-config/main.ts` reads the widget ID, fetches
+  the manifest (`get_widgets`) to get `config` field definitions, fetches the current
+  config (`get_config`) for saved values, renders `.zen-*` form controls dynamically,
+  and on Save writes values back via `save_config` — which emits `zenith:config-updated`
+  so the bar re-lays-out and the widget picks up the new values.
+- **No per-widget config UI code.** The generic window handles all types. To add a new
+  configurable widget, just add a `config` block to its manifest — no TS/Rust changes.
+
+#### Owner table (single home — do not create a second)
+
+| Concern | Owner |
+|---|---|
+| Manifest `config` field definition (Rust) | `widgets/manifest.rs::WidgetConfigField` |
+| Manifest `config` field definition (TS) | `shared/types.ts::WidgetConfigField` |
+| Stored config values | `config/model.rs::WidgetsConfig.config` + `shared/types.ts::WidgetsConfig.config` |
+| Config window (generic) | `src/windows/widget-config/main.ts` + `widget-config.html` |
+| Config window creation | `commands.rs::open_widget_config` |
+| Gear button rendering | `manager/main.ts::buildCard` |
+
 ### 9.5 Widget right-click behavior
 
 A widget may intercept right-click (`contextmenu` event) to show its own custom context menu.

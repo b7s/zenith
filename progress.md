@@ -108,14 +108,16 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 - [x] Bar drop-zone indicators: dashed borders on left/center/right, highlighted on drag-over
 - [x] Drag-and-drop to reorder widgets between bar zones (HTML5 DnD, delegated)
 - [x] Persists to `config.widgets.enabled` + `positions` via `saveConfig()` → live bar reload
+- [x] Cross-window drag-and-drop (manager → bar) fixed: pointer capture + screen coordinate sync via Tauri events, belt-and-suspenders fallback
 
 ---
 
 ## Phase 4 — Core Widgets
 
 - [ ] **Battery** — % + charging state + icon
-- [ ] **Volume** — current level + icon, click to open system mixer
+- [x] **Volume** — system audio endpoint via `IAudioEndpointVolume` (Win32 API); icon changes with level/mute; scroll to adjust; right-click mute/unmute context menu; click opens acrylic popup with `.zen-slider` for fine control
 - [x] **Workspace** — virtual desktop dots (filled = active), click to switch; auto-hide if only 1 desktop; rename, delete, create via unified dialog; move/pin gated off (pending foreground HWND fix)
+- [x] **Date & Time** — configurable timezone (IANA), 12/24h format, show/hide date; generic widget-config window with gear button in Widget Manager
 - [ ] **System stats** — CPU/RAM mini graphs
 
 ---

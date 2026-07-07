@@ -21,6 +21,8 @@ export default defineConfig({
         settings: resolve(__dirname, "settings.html"),
         widgets: resolve(__dirname, "widgets.html"),
         dialog: resolve(__dirname, "dialog.html"),
+        "volume-popup": resolve(__dirname, "volume-popup.html"),
+        "widget-config": resolve(__dirname, "widget-config.html"),
       },
     },
   },

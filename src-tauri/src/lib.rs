@@ -3,6 +3,7 @@ mod config;
 mod log;
 mod shared;
 mod tray;
+mod volume;
 mod widgets;
 mod window;
 mod workspace;
@@ -18,6 +19,7 @@ pub fn run() {
             commands::show_workspace_context_menu,
             commands::show_dialog,
             commands::get_dialog_data,
+            commands::open_widget_config,
             config::commands::get_config,
             config::commands::save_config,
             widgets::commands::get_widgets,
@@ -32,6 +34,10 @@ pub fn run() {
             workspace::commands::delete_desktop,
             workspace::commands::rename_desktop,
             workspace::commands::toggle_pin_window,
+            volume::commands::get_volume,
+            volume::commands::set_volume,
+            volume::commands::set_muted,
+            volume::commands::open_volume_popup,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)

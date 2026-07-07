@@ -34,6 +34,7 @@ export interface LayoutConfig {
 export interface WidgetsConfig {
   enabled: string[];
   positions: Record<string, WidgetZone>;
+  config: Record<string, Record<string, unknown>>;
 }
 
 export interface MotionConfig {
@@ -64,6 +65,17 @@ export interface WidgetManifest {
   min_width: number;
   preview: string;
   widget_dir: string;
+  config?: Record<string, WidgetConfigField>;
+}
+
+export type WidgetConfigType = "string" | "int" | "bool" | "select";
+
+export interface WidgetConfigField {
+  type: WidgetConfigType;
+  value: unknown;
+  label?: string;
+  hint?: string;
+  options?: (string | number)[];
 }
 
 export interface WidgetSource {

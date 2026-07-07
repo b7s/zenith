@@ -1,0 +1,13 @@
+{
+  "identifier": "volume-popup",
+  "description": "Capability for the volume popup window",
+  "windows": ["volume-popup"],
+  "webviews": ["volume-popup"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-effects"
+  ]
+}

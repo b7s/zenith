@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   monitors: "all",
   layout: { position: "top" },
-  widgets: { enabled: ["clock", "workspace"], positions: { clock: "left", workspace: "left" } },
+  widgets: { enabled: ["clock", "workspace"], positions: { clock: "left", workspace: "left" }, config: {} },
   motion: { backend: "auto", reduced_motion: false },
   css: { custom_enabled: true },
 };

@@ -5,6 +5,7 @@ use tauri::Emitter;
 use tauri::Manager;
 use serde::Serialize;
 
+use crate::volume;
 use crate::window;
 use crate::workspace;
 
@@ -176,6 +177,12 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
             // Move/pin are gated off in this build — see
             // `workspace::foreground` for the pending implementation and why.
             eprintln!("[zenith] ws-toggle-pin: ignored (pending WinEvent hook fix)");
+        }
+        "vol-mute" => {
+            let _ = volume::commands::set_muted(true);
+        }
+        "vol-unmute" => {
+            let _ = volume::commands::set_muted(false);
         }
         _ => {}
     }
@@ -364,4 +371,60 @@ pub fn show_context_menu(app: tauri::AppHandle) -> Result<(), String> {
     let menu = build_context_menu(&app).map_err(|e| e.to_string())?;
     bar.popup_menu(&menu).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn open_widget_config(app: tauri::AppHandle, widget_id: String) -> Result<(), String> {
+    let label = format!("widget-config-{}", widget_id);
+    if app.get_webview_window(&label).is_some() {
+        return Ok(());
+    }
+    let init_js = format!(
+        r#"window.__ZENITH_WIDGET_CONFIG_ID = {};"#,
+        serde_json::to_string(&widget_id).unwrap_or_else(|_| "\"\"".into())
+    );
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let win = tauri::WebviewWindowBuilder::new(
+            &app,
+            &label,
+            tauri::WebviewUrl::App("widget-config.html".into()),
+        )
+        .title("Widget Settings")
+        .inner_size(400.0, 500.0)
+        .min_inner_size(300.0, 200.0)
+        .max_inner_size(600.0, 700.0)
+        .resizable(true)
+        .decorations(false)
+        .transparent(true)
+        .center()
+        .visible(false)
+        .focused(true)
+        .additional_browser_args("--default-background-color=00000000")
+        .initialization_script(&init_js)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+        let _ = window::apply_fixed_acrylic(&app, &label);
+        let _ = window::set_rounded_corners(&win);
+
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
+        };
+        let hwnd = win.hwnd().map_err(|e| e.to_string())?;
+        let _ = unsafe {
+            SetWindowPos(
+                hwnd,
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE,
+            )
+        };
+        let _ = win.set_focus();
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

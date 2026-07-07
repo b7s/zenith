@@ -1,0 +1,17 @@
+{
+  "identifier": "widget-config",
+  "description": "Capability for the widget config window",
+  "windows": ["widget-config-*"],
+  "webviews": ["widget-config-*"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-size",
+    "core:window:allow-set-effects",
+    "core:event:default",
+    "core:event:allow-listen"
+  ]
+}

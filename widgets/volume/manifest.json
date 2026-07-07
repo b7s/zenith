@@ -1,0 +1,10 @@
+{
+  "id": "volume",
+  "name": "Volume",
+  "version": "1.0.0",
+  "description": "System volume control and mute toggle",
+  "default_zone": "right",
+  "icon": "volume",
+  "min_width": 20,
+  "preview": "<span class=\"vol-icon\" data-icon=\"volume-2\" data-size=\"16\"></span>"
+}

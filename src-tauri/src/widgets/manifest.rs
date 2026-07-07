@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WidgetManifest {
@@ -18,6 +19,8 @@ pub struct WidgetManifest {
     pub min_width: u32,
     #[serde(default)]
     pub preview: String,
+    #[serde(default)]
+    pub config: HashMap<String, WidgetConfigField>,
     #[serde(skip)]
     pub widget_dir: String,
 }
@@ -41,7 +44,22 @@ impl Default for WidgetManifest {
             icon: String::new(),
             min_width: default_min_width(),
             preview: String::new(),
+            config: HashMap::new(),
             widget_dir: String::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WidgetConfigField {
+    #[serde(default, rename = "type")]
+    pub field_type: String,
+    #[serde(default)]
+    pub value: serde_json::Value,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub hint: String,
+    #[serde(default)]
+    pub options: Vec<serde_json::Value>,
 }

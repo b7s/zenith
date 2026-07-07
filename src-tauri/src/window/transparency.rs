@@ -94,8 +94,8 @@ pub fn apply_material(app: &tauri::AppHandle, label: &str) -> Result<(), String>
     Ok(())
 }
 
-/// Apply a fixed neutral acrylic to settings/widgets windows.
-/// Alpha at 15% so the blur effect is clearly visible without too much tint.
+/// Apply a fixed neutral acrylic to settings/widgets/dialog windows.
+/// Alpha at 25% so the blur effect is clearly visible with a subtle tint.
 pub fn apply_fixed_acrylic(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
     let Some(window) = app.get_webview_window(label) else {
         return Ok(());
@@ -103,7 +103,7 @@ pub fn apply_fixed_acrylic(app: &tauri::AppHandle, label: &str) -> Result<(), St
     let hwnd = window.hwnd().map_err(|e| e.to_string())?;
     let is_light = !is_dark_mode();
     let base = if is_light { 0xF3F3F3u32 } else { 0x1A1A1Au32 };
-    let color = (0x26 << 24) | base; // 15% alpha = 38/255
+    let color = (0x59 << 24) | base; // 35% alpha = 89/255
     set_window_accent(hwnd, ACCENT_ENABLE_ACRYLICBLURBEHIND, color);
     Ok(())
 }

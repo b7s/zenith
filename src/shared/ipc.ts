@@ -15,6 +15,11 @@ export const CMD = {
   showWorkspaceContextMenu: "show_workspace_context_menu",
   showDialog: "show_dialog",
   getDialogData: "get_dialog_data",
+  getVolume: "get_volume",
+  setVolume: "set_volume",
+  setMuted: "set_muted",
+  openVolumePopup: "open_volume_popup",
+  openWidgetConfig: "open_widget_config",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

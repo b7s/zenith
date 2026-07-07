@@ -1,0 +1,31 @@
+{
+  "id": "datetime",
+  "name": "Date & Time",
+  "version": "1.0.0",
+  "description": "Date and time with configurable timezone",
+  "default_zone": "center",
+  "icon": "clock",
+  "min_width": 120,
+  "preview": "<span class=\"dt-wrap\"><span class=\"dt-time\">14:30</span><span class=\"dt-date\">Mon, Jan 15</span></span>",
+  "config": {
+    "timezone": {
+      "type": "string",
+      "value": "",
+      "label": "Timezone",
+      "hint": "IANA timezone (e.g. America/New_York). Leave empty for system default."
+    },
+    "format": {
+      "type": "select",
+      "value": "24h",
+      "options": ["24h", "12h"],
+      "label": "Time format",
+      "hint": "12-hour or 24-hour clock"
+    },
+    "show_date": {
+      "type": "bool",
+      "value": true,
+      "label": "Show date",
+      "hint": "Display the date next to the time"
+    }
+  }
+}

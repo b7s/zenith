@@ -26,6 +26,7 @@ void (async () => {
 
   (window as any).__zenith_invoke = invoke;
   (window as any).__zenith_listen = listen;
+  (window as any).__zenith_applyIcons = applyIcons;
 
   await time("applyTheme", () => applyTheme());
   watchSystemTheme(() => void applyTheme());

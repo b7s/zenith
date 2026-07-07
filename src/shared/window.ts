@@ -91,14 +91,10 @@ export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
     search = document.createElement("input");
     search.type = "search";
     search.className = "zen-input zen-window__search";
-    search.placeholder = opts.searchPlaceholder ?? "Search…";
+    search.placeholder = opts.searchPlaceholder ?? "Search\u2026";
     search.setAttribute("aria-label", "Search");
     header.append(search);
   }
-
-  const spacer = document.createElement("div");
-  spacer.className = "zen-window__spacer";
-  header.append(spacer);
 
   const close = document.createElement("button");
   close.className = "zen-icon-button zen-window__close";

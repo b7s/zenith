@@ -27,12 +27,9 @@
 }
 
 .zen-window__search {
-  width: min(16rem, 40vw);
-  height: 2rem;
-}
-
-.zen-window__spacer {
   flex: 1 1 auto;
+  max-width: 26rem;
+  height: 2rem;
 }
 
 .zen-window__close {

@@ -1,8 +1,7 @@
 import "../../styles/globals.css";
 import { mountWindow } from "../../shared/window";
-import { setIcon } from "../../shared/icon";
 import { loadConfig } from "../../shared/config";
-import { getWidgets } from "../../shared/widgets";
+import { getWidgets, getWidgetSource, renderWidget } from "../../shared/widgets";
 import { initLog, logMemory, logInfo, time } from "../../shared/log";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -28,8 +27,6 @@ void (async () => {
   let manifests = await getWidgets();
   let filter = "";
 
-  // The manager "holds" arrange mode so bar clicks/focus don't deactivate it
-  // while the manager window is open.
   void initArrangeSync();
   holdArrange();
   window.addEventListener("beforeunload", () => releaseArrangeHold());
@@ -66,10 +63,9 @@ void (async () => {
     card.className = "widget-card";
     card.dataset.widgetId = m.id;
 
-    const icon = document.createElement("span");
-    icon.className = "widget-card__icon";
-    setIcon(icon, m.icon || m.id, { size: 22 });
-    card.append(icon);
+    const preview = document.createElement("div");
+    preview.className = "widget-card__preview";
+    card.append(preview);
 
     const body = document.createElement("div");
     body.className = "widget-card__body";
@@ -88,7 +84,20 @@ void (async () => {
         void op;
       }),
     );
+
+    // Load real widget HTML into preview area (async — renders live preview)
+    void loadPreview(preview, m.id);
+
     return card;
+  }
+
+  async function loadPreview(container: HTMLElement, id: string): Promise<void> {
+    const source = await getWidgetSource(id);
+    if (!source) {
+      container.textContent = id;
+      return;
+    }
+    renderWidget(container, source, id);
   }
 
   search?.addEventListener("input", () => {
@@ -96,7 +105,6 @@ void (async () => {
     render();
   });
 
-  // Re-render when config changes (button flips add ↔ remove after a click).
   listen<Config>(EVENT.configUpdated, (e) => {
     cfg = e.payload;
     render();

@@ -1,36 +1,8 @@
 /* ============================================================================
-   Widget arrange mode — sway animation, action buttons, drop-zone indicators.
+   Widget arrange mode — action buttons, drag visual feedback.
    Shared by the bar window (widget-slot) and the widget manager (widget-card).
    Imported from both bar-globals.css and globals.css.
    ========================================================================== */
-
-@keyframes zen-widget-sway {
-  0%,
-  100% {
-    transform: translateX(0) rotate(0deg);
-  }
-  25% {
-    transform: translateX(1.5px) rotate(0.5deg);
-  }
-  75% {
-    transform: translateX(-1.5px) rotate(-0.5deg);
-  }
-}
-
-/* Slow, gentle sway — 2.4s so it reads as "wobbling in place", not jiggling. */
-.is-arranging .widget-slot,
-.is-arranging .widget-card {
-  animation: zen-widget-sway 2.4s ease-in-out infinite;
-  transform-origin: 50% 100%;
-}
-.is-arranging .widget-slot:nth-child(2n),
-.is-arranging .widget-card:nth-child(2n) {
-  animation-delay: -0.8s;
-}
-.is-arranging .widget-slot:nth-child(3n),
-.is-arranging .widget-card:nth-child(3n) {
-  animation-delay: -1.6s;
-}
 
 /* Action buttons need a positioned host */
 .is-arranging .widget-slot,
@@ -135,27 +107,30 @@ body.zen-dragging.is-arranging .widget-slot:not(.is-dragging) {
 
 .widget-card {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.5rem;
   padding: 0.875rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: color-mix(in oklch, var(--card) 75%, transparent);
   transition: border-color 120ms ease, background 120ms ease;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .widget-card:hover {
   border-color: var(--ring);
 }
-.widget-card__icon {
-  flex: 0 0 auto;
+.widget-card__preview {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
   height: 2.5rem;
   border-radius: calc(var(--radius) - 0.25rem);
-  background: color-mix(in oklch, var(--accent) 50%, transparent);
-  color: var(--foreground);
+  background: color-mix(in oklch, var(--accent) 20%, transparent);
+  overflow: hidden;
+}
+.widget-card__preview > * {
+  max-height: 100%;
 }
 .widget-card__body {
   flex: 1 1 auto;

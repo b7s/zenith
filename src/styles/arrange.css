@@ -125,7 +125,7 @@ body.zen-dragging.is-arranging .widget-slot:not(.is-dragging) {
   align-items: center;
   justify-content: center;
   height: 2.5rem;
-  border-radius: calc(var(--big-radius) - 0.25rem);
+  border-radius: var(--radius);
   background: color-mix(in oklch, var(--accent) 20%, transparent);
   overflow: hidden;
 }

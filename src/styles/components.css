@@ -61,9 +61,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: calc(var(--radius) - 0.125rem);
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 100%;
   border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
   background: color-mix(in oklch, var(--accent) 30%, transparent);
   color: var(--muted-foreground);
@@ -352,7 +352,7 @@
   border: 1px solid transparent;
   border-bottom: none;
   background: transparent;
-  color: var(--muted-foreground);
+  color: var(--foreground);
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 500;

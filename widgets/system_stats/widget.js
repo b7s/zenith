@@ -13,7 +13,7 @@
     format: "percent",
     show_cpu: true,
     show_ram: true,
-    refresh_seconds: 1,
+    refresh_seconds: 3,
     history_size: 20,
   };
 

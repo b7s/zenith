@@ -29,7 +29,7 @@
 .sys-label {
   width: 1.6em;
   font-weight: 600;
-  color: var(--muted-foreground);
+  color: var(--foreground);
   text-transform: uppercase;
   font-size: 0.5625rem;
   letter-spacing: 0.06em;
@@ -52,22 +52,10 @@
   width: 0%;
   border-radius: 999px;
   background: linear-gradient(90deg,
-    color-mix(in oklch, var(--primary) 70%, transparent),
-    var(--primary));
+    color-mix(in oklch, var(--foreground) 70%, transparent),
+    var(--foreground));
   transition: width 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
   will-change: width;
-}
-
-.sys-fill.is-warn {
-  background: linear-gradient(90deg,
-    color-mix(in oklch, var(--warning, oklch(0.78 0.16 70)) 70%, transparent),
-    var(--warning, oklch(0.78 0.16 70)));
-}
-
-.sys-fill.is-hot {
-  background: linear-gradient(90deg,
-    color-mix(in oklch, var(--destructive) 70%, transparent),
-    var(--destructive));
 }
 
 .sys-dots {
@@ -90,15 +78,7 @@
 }
 
 .sys-dot.is-on {
-  background: var(--primary);
-}
-
-.sys-dot.is-on.is-warn {
-  background: var(--warning, oklch(0.78 0.16 70));
-}
-
-.sys-dot.is-on.is-hot {
-  background: var(--destructive);
+  background: var(--foreground);
 }
 
 .sys-graph {
@@ -111,7 +91,7 @@
 
 .sys-graph path {
   fill: none;
-  stroke: var(--primary);
+  stroke: var(--foreground);
   stroke-width: 1.25;
   stroke-linecap: round;
   stroke-linejoin: round;

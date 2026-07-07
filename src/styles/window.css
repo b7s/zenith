@@ -8,6 +8,7 @@
 .zen-window__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.625rem;
   height: 2.75rem;
   padding: 0 0.5rem 0 0.875rem;
@@ -51,7 +52,6 @@
 
 .zen-window__close {
   flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .zen-window__content {

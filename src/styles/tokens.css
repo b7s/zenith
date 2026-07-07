@@ -1,5 +1,6 @@
 :root {
-  --radius: 0.625rem;
+  --radius: 0.7rem;
+  --big-radius: 1rem;
 
   --background: oklch(100% 0.00011 271.152 / 0.8);
   --foreground: oklch(0.145 0 0);

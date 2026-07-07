@@ -96,12 +96,12 @@ export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
   titleWrap.append(title);
 
   let titleBadge: HTMLElement | null = null;
+  titleBadge = document.createElement("span");
+  titleBadge.className = "zen-window__title-badge";
   if (opts.titleBadge != null) {
-    titleBadge = document.createElement("span");
-    titleBadge.className = "zen-window__title-badge";
     titleBadge.textContent = opts.titleBadge;
-    titleWrap.append(titleBadge);
   }
+  titleWrap.append(titleBadge);
 
   header.append(titleWrap);
 

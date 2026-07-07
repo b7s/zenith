@@ -48,6 +48,9 @@
   background: color-mix(in oklch, var(--muted) 70%, transparent);
   color: var(--muted-foreground);
 }
+.zen-window__title-badge:empty {
+  display: none;
+}
 
 .zen-window__search {
   position: relative;

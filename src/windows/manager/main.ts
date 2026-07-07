@@ -97,7 +97,8 @@ void (async () => {
       container.textContent = id;
       return;
     }
-    renderWidget(container, source, id);
+    renderWidget(container, source, id, true);
+    container.style.pointerEvents = "none";
   }
 
   search?.addEventListener("input", () => {

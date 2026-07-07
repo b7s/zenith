@@ -42,13 +42,14 @@ export function renderWidget(
   container: HTMLElement,
   source: WidgetSource,
   id: string,
+  skipJs = false,
 ): void {
   injectWidgetCss(id, source.css);
 
   container.innerHTML = source.html;
   container.dataset.widget = id;
 
-  if (source.js) {
+  if (!skipJs && source.js) {
     const script = document.createElement("script");
     script.textContent = source.js;
     container.appendChild(script);

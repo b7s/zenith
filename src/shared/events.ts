@@ -11,6 +11,7 @@ export const EVENT = {
   workspaceMoveTo: "zenith:workspace-move-to",
   workspaceTogglePin: "zenith:workspace-toggle-pin",
   crossDragStart: "zenith:cross-drag-start",
+  crossDragMove: "zenith:cross-drag-move",
   crossDragEnd: "zenith:cross-drag-end",
 } as const;
 
@@ -18,4 +19,6 @@ export type EventName = (typeof EVENT)[keyof typeof EVENT];
 
 export interface CrossDragPayload {
   id: string;
+  x?: number;
+  y?: number;
 }

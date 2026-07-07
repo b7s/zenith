@@ -7,6 +7,7 @@
  * manipulation logic should be duplicated in either window's main.ts.
  */
 import { emit, listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { saveConfig } from "./config";
 import { EVENT } from "./events";
 import type { CrossDragPayload } from "./events";
@@ -368,16 +369,36 @@ export function setupBarDropZones(bar: HTMLElement, cfg: Config): () => void {
 const DRAG_THRESHOLD = 6;
 let _crossActive = false;
 
+interface WinGeom {
+  ox: number;
+  oy: number;
+  scale: number;
+}
+
+async function winGeom(): Promise<WinGeom> {
+  const w = getCurrentWindow();
+  const pos = await w.outerPosition();
+  const scale = await w.scaleFactor();
+  return { ox: pos.x / scale, oy: pos.y / scale, scale };
+}
+
 /** Manager side: make a widget card draggable toward the bar.
- *  A "faked" ghost chip follows the cursor inside the manager window while
- *  the bar (synced via `zenith:cross-drag-start` / `-end`) shows zone drop
- *  indicators. On `pointerup` over the bar, the bar adds the real widget.
- *  Only attach to cards for widgets NOT already enabled on the bar. */
+ *  `setPointerCapture` guarantees we get `pointerup` even if the cursor leaves
+ *  the manager window. Screen coordinates are sent via Tauri events so the bar
+ *  can highlight zones and commit the drop — no reliance on the bar's own
+ *  pointer events (which mouse-capture by another window can swallow). */
 export function attachCrossDragSender(card: HTMLElement, id: string): () => void {
   let startX = 0;
   let startY = 0;
   let ghost: HTMLElement | null = null;
   let pid = -1;
+  let geom: WinGeom | null = null;
+  let pendingGeom: Promise<WinGeom> | null = null;
+
+  const screenAt = (e: PointerEvent): { x: number; y: number } => {
+    if (!geom) return { x: e.screenX, y: e.screenY };
+    return { x: geom.ox + e.clientX, y: geom.oy + e.clientY };
+  };
 
   const cleanup = () => {
     if (ghost) {
@@ -386,7 +407,12 @@ export function attachCrossDragSender(card: HTMLElement, id: string): () => void
     }
     _crossActive = false;
     document.body.classList.remove("zen-cross-dragging");
-    void emit(EVENT.crossDragEnd, { id } satisfies CrossDragPayload);
+  };
+
+  const finish = (e: PointerEvent) => {
+    const { x, y } = screenAt(e);
+    void emit(EVENT.crossDragEnd, { id, x, y } satisfies CrossDragPayload);
+    cleanup();
   };
 
   const onDown = (e: PointerEvent) => {
@@ -396,6 +422,8 @@ export function attachCrossDragSender(card: HTMLElement, id: string): () => void
     pid = e.pointerId;
     startX = e.clientX;
     startY = e.clientY;
+    try { card.setPointerCapture(pid); } catch { /* noop */ }
+    pendingGeom = winGeom();
   };
 
   const onMove = (e: PointerEvent) => {
@@ -413,16 +441,24 @@ export function attachCrossDragSender(card: HTMLElement, id: string): () => void
       document.body.append(ghost);
       void emit(EVENT.crossDragStart, { id } satisfies CrossDragPayload);
     }
+    if (!geom && pendingGeom) {
+      void pendingGeom.then((g) => { geom = g; });
+    }
     if (ghost) {
       ghost.style.left = `${e.clientX}px`;
       ghost.style.top = `${e.clientY}px`;
     }
+    const { x, y } = screenAt(e);
+    void emit(EVENT.crossDragMove, { id, x, y } satisfies CrossDragPayload);
   };
 
   const onUp = (e: PointerEvent) => {
     if (pid !== e.pointerId) return;
     pid = -1;
-    if (_crossActive) cleanup();
+    if (_crossActive) finish(e);
+    else cleanup();
+    geom = null;
+    pendingGeom = null;
   };
 
   card.addEventListener("pointerdown", onDown);
@@ -439,10 +475,13 @@ export function attachCrossDragSender(card: HTMLElement, id: string): () => void
   };
 }
 
-/** Bar side: listen for cross-window drag and show zone drop indicators.
- *  On `pointerup` over a zone, add the dragged widget to that zone. */
+/** Bar side: listen for cross-window drag events and show zone indicators.
+ *  Converts the manager's screen coordinates to bar-local coordinates to
+ *  determine which zone the cursor is over. On `cross-drag-end` over a zone,
+ *  adds the widget. */
 export function setupBarReceiveDrop(bar: HTMLElement, cfg: Config): () => void {
   let dragId: string | null = null;
+  let barGeom: WinGeom | null = null;
 
   const clearZones = () => {
     for (const z of bar.querySelectorAll<HTMLElement>(".bar-zone")) {
@@ -457,10 +496,10 @@ export function setupBarReceiveDrop(bar: HTMLElement, cfg: Config): () => void {
     clearZones();
   };
 
-  const zoneAtX = (x: number): HTMLElement | null => {
+  const zoneAtLocalX = (localX: number): HTMLElement | null => {
     for (const z of bar.querySelectorAll<HTMLElement>(".bar-zone")) {
       const r = z.getBoundingClientRect();
-      if (x >= r.left && x <= r.right) return z;
+      if (localX >= r.left && localX <= r.right) return z;
     }
     return null;
   };
@@ -468,13 +507,13 @@ export function setupBarReceiveDrop(bar: HTMLElement, cfg: Config): () => void {
   const onMove = (e: PointerEvent) => {
     if (dragId === null) return;
     clearZones();
-    const z = zoneAtX(e.clientX);
+    const z = zoneAtLocalX(e.clientX);
     if (z) z.classList.add("is-drop-target");
   };
 
   const onUp = (e: PointerEvent) => {
     if (dragId === null) return;
-    const z = zoneAtX(e.clientX);
+    const z = zoneAtLocalX(e.clientX);
     const id = dragId;
     endReceiving();
     if (z && z.dataset.barZone) {
@@ -485,19 +524,37 @@ export function setupBarReceiveDrop(bar: HTMLElement, cfg: Config): () => void {
   bar.addEventListener("pointermove", onMove);
   bar.addEventListener("pointerup", onUp);
 
-  const unlistenStart = listen<CrossDragPayload>(EVENT.crossDragStart, (e) => {
+  const unlistenStart = listen<CrossDragPayload>(EVENT.crossDragStart, async (e) => {
     if (dragId !== null) return;
     dragId = e.payload.id;
     bar.classList.add("is-receiving");
+    barGeom = await winGeom();
   });
-  const unlistenEnd = listen(EVENT.crossDragEnd, () => {
+  const unlistenMove = listen<CrossDragPayload>(EVENT.crossDragMove, (e) => {
+    if (dragId === null || !barGeom || e.payload.x == null) return;
+    const localX = e.payload.x - barGeom.ox;
+    clearZones();
+    const z = zoneAtLocalX(localX);
+    if (z) z.classList.add("is-drop-target");
+  });
+  const unlistenEnd = listen<CrossDragPayload>(EVENT.crossDragEnd, (e) => {
+    if (dragId === null) { endReceiving(); return; }
+    const id = dragId;
+    let zone: WidgetZone | null = null;
+    if (barGeom && e.payload.x != null) {
+      const localX = e.payload.x - barGeom.ox;
+      const z = zoneAtLocalX(localX);
+      if (z?.dataset.barZone) zone = z.dataset.barZone as WidgetZone;
+    }
     endReceiving();
+    if (zone) void addWidget(cfg, id, zone);
   });
 
   return () => {
     bar.removeEventListener("pointermove", onMove);
     bar.removeEventListener("pointerup", onUp);
     void unlistenStart.then((f) => f());
+    void unlistenMove.then((f) => f());
     void unlistenEnd.then((f) => f());
   };
 }

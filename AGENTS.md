@@ -836,9 +836,21 @@ Rules:
    bar listens and re-lays-out. Never emit a separate "widget added" event.
 5. **Sway + drop-zone styling is in `src/styles/arrange.css`**, imported by BOTH
    `bar-globals.css` and `globals.css`. Keep it transform-only (no width/height/top/left).
-6. **Cross-window HTML5 drag-and-drop is impossible** in Tauri (each webview is isolated). The
-   manager uses click-to-add (`addWidget` with default zone); the user then drags within the
-   bar to reposition. Do not attempt OS-level cross-window drag.
+6. **Cross-window drag-and-drop (manager → bar) uses pointer events + Tauri
+   event sync**, NOT HTML5 DnD (which is impossible across isolated webviews).
+   - Manager side: `attachCrossDragSender(card, id)` arms a card (only if the
+     widget is NOT already on the bar). After a 6px movement threshold a
+     "faked" ghost (`.zen-cross-ghost`) follows the cursor inside the manager
+     window and emits `zenith:cross-drag-start { id }`. On `pointerup` it
+     emits `zenith:cross-drag-end`.
+   - Bar side: `setupBarReceiveDrop(bar, cfg)` listens for `cross-drag-start`
+     → adds `.is-receiving` to the bar (zone drop indicators appear) → on
+     `pointermove` highlights the zone under the cursor (`.is-drop-target`)
+     → on `pointerup` over a zone calls `addWidget(cfg, id, zone)` (the real
+     widget loads). `cross-drag-end` clears the receiving state if the drop
+     landed outside the bar.
+   - Enabled widgets are NOT draggable from the manager (the sender is only
+     attached to not-enabled cards, marked `.widget-card.is-draggable`).
 
 ---
 

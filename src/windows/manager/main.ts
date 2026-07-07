@@ -11,6 +11,7 @@ import {
   addWidget,
   removeWidget,
   createWidgetActionBtn,
+  attachCrossDragSender,
 } from "../../shared/widget-arrange";
 import { EVENT } from "../../shared/events";
 import type { Config, WidgetManifest } from "../../shared/types";
@@ -62,6 +63,7 @@ void (async () => {
   function buildCard(m: WidgetManifest, enabled: boolean): HTMLElement {
     const card = document.createElement("div");
     card.className = "widget-card";
+    if (!enabled) card.classList.add("is-draggable");
     card.dataset.widgetId = m.id;
 
     const preview = document.createElement("div");
@@ -88,6 +90,8 @@ void (async () => {
 
     // Load real widget HTML into preview area (async — renders live preview)
     void loadPreview(preview, m);
+
+    if (!enabled) attachCrossDragSender(card, m.id);
 
     return card;
   }

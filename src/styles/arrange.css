@@ -110,7 +110,7 @@ body.zen-dragging.is-arranging .widget-slot:not(.is-dragging) {
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.875rem;
-  border-radius: var(--big-radius);
+  border-radius: var(--radius-xl);
   border: 2px solid var(--border);
   background: color-mix(in oklch, var(--card) 25%, transparent);
   transition: border-color 120ms ease, background 120ms ease;
@@ -146,4 +146,48 @@ body.zen-dragging.is-arranging .widget-slot:not(.is-dragging) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ---- Card draggable state (cross-window drag source) --------------------- */
+.widget-card.is-draggable {
+  cursor: grab;
+}
+.widget-card.is-draggable:active {
+  cursor: grabbing;
+}
+
+/* ---- Faked drag ghost (follows cursor inside the manager window) --------- */
+.zen-cross-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 9999;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklch, var(--primary) 60%, transparent);
+  background: color-mix(in oklch, var(--primary) 25%, transparent);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+body.zen-cross-dragging {
+  cursor: grabbing;
+}
+
+/* ---- Bar drop indicators during cross-window receive ---------------------- */
+.bar.is-receiving .bar-zone {
+  border: 2px dashed color-mix(in oklch, var(--primary) 55%, transparent);
+  border-radius: var(--radius);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.bar.is-receiving .bar-zone.is-drop-target {
+  border-color: color-mix(in oklch, var(--primary) 95%, transparent);
+  background: color-mix(in oklch, var(--primary) 18%, transparent);
+}
+.bar.is-receiving {
+  cursor: copy;
 }

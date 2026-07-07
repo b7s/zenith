@@ -9,6 +9,7 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { saveConfig } from "./config";
 import { EVENT } from "./events";
+import type { CrossDragPayload } from "./events";
 import type { Config, WidgetZone } from "./types";
 
 /* --------------------------- arrange-mode state --------------------------- */
@@ -359,5 +360,144 @@ export function setupBarDropZones(bar: HTMLElement, cfg: Config): () => void {
     document.removeEventListener("pointermove", onPointerMove);
     document.removeEventListener("pointerup", onPointerUp);
     document.removeEventListener("pointercancel", onPointerUp);
+  };
+}
+
+/* ----------------- cross-window drag: manager → bar ----------------------- */
+
+const DRAG_THRESHOLD = 6;
+let _crossActive = false;
+
+/** Manager side: make a widget card draggable toward the bar.
+ *  A "faked" ghost chip follows the cursor inside the manager window while
+ *  the bar (synced via `zenith:cross-drag-start` / `-end`) shows zone drop
+ *  indicators. On `pointerup` over the bar, the bar adds the real widget.
+ *  Only attach to cards for widgets NOT already enabled on the bar. */
+export function attachCrossDragSender(card: HTMLElement, id: string): () => void {
+  let startX = 0;
+  let startY = 0;
+  let ghost: HTMLElement | null = null;
+  let pid = -1;
+
+  const cleanup = () => {
+    if (ghost) {
+      ghost.remove();
+      ghost = null;
+    }
+    _crossActive = false;
+    document.body.classList.remove("zen-cross-dragging");
+    void emit(EVENT.crossDragEnd, { id } satisfies CrossDragPayload);
+  };
+
+  const onDown = (e: PointerEvent) => {
+    if (_crossActive) return;
+    const t = e.target as HTMLElement | null;
+    if (t?.closest(".zen-widget-btn")) return;
+    pid = e.pointerId;
+    startX = e.clientX;
+    startY = e.clientY;
+  };
+
+  const onMove = (e: PointerEvent) => {
+    if (pid !== e.pointerId) return;
+    if (!_crossActive) {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+      _crossActive = true;
+      document.body.classList.add("zen-cross-dragging");
+      ghost = document.createElement("div");
+      ghost.className = "zen-cross-ghost";
+      const label = card.querySelector(".widget-card__name")?.textContent || id;
+      ghost.textContent = label;
+      document.body.append(ghost);
+      void emit(EVENT.crossDragStart, { id } satisfies CrossDragPayload);
+    }
+    if (ghost) {
+      ghost.style.left = `${e.clientX}px`;
+      ghost.style.top = `${e.clientY}px`;
+    }
+  };
+
+  const onUp = (e: PointerEvent) => {
+    if (pid !== e.pointerId) return;
+    pid = -1;
+    if (_crossActive) cleanup();
+  };
+
+  card.addEventListener("pointerdown", onDown);
+  document.addEventListener("pointermove", onMove);
+  document.addEventListener("pointerup", onUp);
+  document.addEventListener("pointercancel", onUp);
+
+  return () => {
+    card.removeEventListener("pointerdown", onDown);
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    document.removeEventListener("pointercancel", onUp);
+    if (_crossActive) cleanup();
+  };
+}
+
+/** Bar side: listen for cross-window drag and show zone drop indicators.
+ *  On `pointerup` over a zone, add the dragged widget to that zone. */
+export function setupBarReceiveDrop(bar: HTMLElement, cfg: Config): () => void {
+  let dragId: string | null = null;
+
+  const clearZones = () => {
+    for (const z of bar.querySelectorAll<HTMLElement>(".bar-zone")) {
+      z.classList.remove("is-drop-target");
+    }
+  };
+
+  const endReceiving = () => {
+    if (dragId === null) return;
+    dragId = null;
+    bar.classList.remove("is-receiving");
+    clearZones();
+  };
+
+  const zoneAtX = (x: number): HTMLElement | null => {
+    for (const z of bar.querySelectorAll<HTMLElement>(".bar-zone")) {
+      const r = z.getBoundingClientRect();
+      if (x >= r.left && x <= r.right) return z;
+    }
+    return null;
+  };
+
+  const onMove = (e: PointerEvent) => {
+    if (dragId === null) return;
+    clearZones();
+    const z = zoneAtX(e.clientX);
+    if (z) z.classList.add("is-drop-target");
+  };
+
+  const onUp = (e: PointerEvent) => {
+    if (dragId === null) return;
+    const z = zoneAtX(e.clientX);
+    const id = dragId;
+    endReceiving();
+    if (z && z.dataset.barZone) {
+      void addWidget(cfg, id, z.dataset.barZone as WidgetZone);
+    }
+  };
+
+  bar.addEventListener("pointermove", onMove);
+  bar.addEventListener("pointerup", onUp);
+
+  const unlistenStart = listen<CrossDragPayload>(EVENT.crossDragStart, (e) => {
+    if (dragId !== null) return;
+    dragId = e.payload.id;
+    bar.classList.add("is-receiving");
+  });
+  const unlistenEnd = listen(EVENT.crossDragEnd, () => {
+    endReceiving();
+  });
+
+  return () => {
+    bar.removeEventListener("pointermove", onMove);
+    bar.removeEventListener("pointerup", onUp);
+    void unlistenStart.then((f) => f());
+    void unlistenEnd.then((f) => f());
   };
 }

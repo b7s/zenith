@@ -15,6 +15,7 @@ import {
   attachLongPress,
   applyArrangeUI,
   setupBarDropZones,
+  setupBarReceiveDrop,
   attachOutsideClickDeactivate,
 } from "../../shared/widget-arrange";
 import type { Config } from "../../shared/types";
@@ -62,6 +63,7 @@ void (async () => {
   await time("layoutBar", () => layoutBar(bar, cfg));
   applyArrangeUI(bar, cfg);
   setupBarDropZones(bar, cfg);
+  setupBarReceiveDrop(bar, cfg);
   logMemory("after layout");
   logInfo("bar ready");
 

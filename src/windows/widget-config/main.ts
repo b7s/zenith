@@ -40,7 +40,7 @@ void (async () => {
   const form = document.createElement("div");
   form.className = "zen-section";
 
-  const inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
+  const inputs: Record<string, HTMLElement> = {};
   const switchStates: Record<string, boolean> = {};
 
   for (const [key, field] of Object.entries(configDef)) {
@@ -92,11 +92,19 @@ void (async () => {
       if (field.type === "bool") {
         newValues[key] = switchStates[key] ?? false;
       } else if (field.type === "int") {
-        newValues[key] = parseInt(inputs[key]?.value ?? "0", 10) || 0;
+        const el = inputs[key];
+        const val = el instanceof HTMLInputElement ? el.value : "0";
+        newValues[key] = parseInt(val, 10) || 0;
       } else if (field.type === "select") {
-        newValues[key] = inputs[key]?.value ?? field.value;
+        const el = inputs[key];
+        if (field.options && field.options.length <= 3) {
+          const checked = el?.querySelector?.("input:checked") as HTMLInputElement | null;
+          newValues[key] = checked?.value ?? field.value;
+        } else {
+          newValues[key] = (el as HTMLSelectElement | null)?.value ?? field.value;
+        }
       } else {
-        newValues[key] = inputs[key]?.value ?? field.value;
+        newValues[key] = (inputs[key] as HTMLInputElement | null)?.value ?? field.value;
       }
     }
     if (!cfg.widgets.config) cfg.widgets.config = {};
@@ -120,23 +128,49 @@ function buildControl(
   key: string,
   field: WidgetConfigField,
   currentValue: unknown,
-  inputs: Record<string, HTMLInputElement | HTMLSelectElement>,
+  inputs: Record<string, HTMLElement>,
 ): void {
   if (field.type === "select" && field.options) {
-    const select = document.createElement("select");
-    select.className = "zen-select";
-    for (const opt of field.options) {
-      const option = document.createElement("option");
-      option.value = String(opt);
-      option.textContent = String(opt);
-      if (String(opt) === String(currentValue)) option.selected = true;
-      select.append(option);
+    if (field.options.length <= 3) {
+      const group = document.createElement("div");
+      group.className = "zen-radio-group";
+      for (const opt of field.options) {
+        const label = document.createElement("label");
+        label.className = "zen-radio-card";
+        if (String(opt) === String(currentValue)) label.classList.add("is-selected");
+        const radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = `config-${key}`;
+        radio.value = String(opt);
+        if (String(opt) === String(currentValue)) radio.checked = true;
+        radio.addEventListener("change", () => {
+          group.querySelectorAll(".zen-radio-card").forEach((c) => c.classList.remove("is-selected"));
+          label.classList.add("is-selected");
+        });
+        label.append(radio);
+        const span = document.createElement("span");
+        span.textContent = String(opt);
+        label.append(span);
+        group.append(label);
+      }
+      inputs[key] = group;
+      wrapper.append(group);
+    } else {
+      const select = document.createElement("select");
+      select.className = "zen-select";
+      for (const opt of field.options) {
+        const option = document.createElement("option");
+        option.value = String(opt);
+        option.textContent = String(opt);
+        if (String(opt) === String(currentValue)) option.selected = true;
+        select.append(option);
+      }
+      inputs[key] = select;
+      const selectWrapper = document.createElement("div");
+      selectWrapper.className = "zen-select-wrapper";
+      selectWrapper.append(select);
+      wrapper.append(selectWrapper);
     }
-    inputs[key] = select;
-    const selectWrapper = document.createElement("div");
-    selectWrapper.className = "zen-select-wrapper";
-    selectWrapper.append(select);
-    wrapper.append(selectWrapper);
   } else if (field.type === "int") {
     const input = document.createElement("input");
     input.type = "number";

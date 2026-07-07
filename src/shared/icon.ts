@@ -7,6 +7,8 @@ import {
   BatteryLow,
   BatteryMedium,
   BatteryWarning,
+  ChevronDown,
+  ChevronUp,
   Clock,
   CloudSun,
   ExternalLink,
@@ -56,6 +58,8 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   "cloud-sun": CloudSun,
   "monitor-smartphone": MonitorSmartphone,
   "external-link": ExternalLink,
+  "chevron-up": ChevronUp,
+  "chevron-down": ChevronDown,
 };
 
 const ALIASES: Record<string, string> = {

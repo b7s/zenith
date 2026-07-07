@@ -14,9 +14,10 @@
 
 .sys-wrap {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-template-rows: auto auto;
+  grid-auto-columns: max-content;
   gap: 2px 0.75rem;
-  min-width: 140px;
 }
 
 .sys-row {
@@ -27,7 +28,7 @@
 }
 
 .sys-label {
-  width: 1.6em;
+  width: 1.65em;
   font-weight: 600;
   color: var(--foreground);
   text-transform: uppercase;
@@ -44,6 +45,7 @@
   background: color-mix(in oklch, var(--border) 80%, transparent);
   overflow: hidden;
   min-width: 24px;
+  margin-left: 0.25rem;
 }
 
 .sys-fill {
@@ -114,6 +116,67 @@
   font-weight: 400;
 }
 
+.sys-net-row .sys-label {
+  display: none;
+}
+
 .sys-row.is-hidden {
   display: none;
+}
+
+.sys-net-row {
+  cursor: help;
+}
+
+.sys-net {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+
+.sys-net-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.sys-net-sep {
+  width: 1px;
+  height: 0.625rem;
+  background: var(--muted-foreground);
+  opacity: 0.35;
+  flex: 0 0 auto;
+}
+
+.sys-net-icon {
+  --zen-icon-size: 10px;
+  width: var(--zen-icon-size);
+  height: var(--zen-icon-size);
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.sys-net-send .sys-net-icon {
+  color: color-mix(in oklch, var(--foreground) 80%, transparent);
+}
+
+.sys-net-recv .sys-net-icon {
+  color: color-mix(in oklch, var(--foreground) 60%, transparent);
+}
+
+.sys-net-val {
+  font-size: 0.625rem;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.75em;
+  text-align: left;
 }

@@ -35,6 +35,8 @@ windows = { version = "0.61", features = [
     "Win32_Media_Audio",
     "Win32_Media_Audio_Endpoints",
     "Win32_System_Power",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_Ndis",
 ] }
 windows_058 = { package = "windows", version = "0.58", features = ["Win32_Foundation"] }
 winvd = "0.0.49"

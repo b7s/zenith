@@ -23,7 +23,21 @@ void (async () => {
   const manifests = await invoke<WidgetManifest[]>("get_widgets");
   const manifest = manifests.find((m) => m.id === widgetId);
 
-  if (!manifest || !manifest.config || Object.keys(manifest.config).length === 0) {
+  if (!manifest) {
+    logInfo(`manifest not found for widget id: ${widgetId}`);
+    const { content } = await mountWindow({ title: "Widget Settings" });
+    const hint = document.createElement("p");
+    hint.className = "zen-hint";
+    hint.style.padding = "1rem";
+    hint.textContent = "Widget not found.";
+    content.append(hint);
+    return;
+  }
+
+  const configKeys = manifest.config ? Object.keys(manifest.config) : [];
+  logInfo(`widget=${widgetId} config keys=[${configKeys.join(", ")}]`);
+
+  if (!manifest.config || configKeys.length === 0) {
     const { content } = await mountWindow({ title: "Widget Settings" });
     const hint = document.createElement("p");
     hint.className = "zen-hint";
@@ -42,6 +56,11 @@ void (async () => {
 
   const inputs: Record<string, HTMLElement> = {};
   const switchStates: Record<string, boolean> = {};
+
+  // Dynamic hardware selection state (for system_stats)
+  let selectedGpus: string[] = [];
+  let selectedHds: string[] = [];
+  let selectedNetworks: string[] = [];
 
   for (const [key, field] of Object.entries(configDef)) {
     const wrapper = document.createElement("div");
@@ -66,6 +85,111 @@ void (async () => {
     }
 
     form.append(wrapper);
+  }
+
+  // For system_stats widget: show per-GPU and per-drive checkboxes
+  if (widgetId === "system_stats") {
+    try {
+      const stats = await invoke<{
+        gpu: { name: string; percent: number }[];
+        hd: { mount: string; used: number; total: number; percent: number }[];
+        network: { name: string; recv_bps: number; send_bps: number }[];
+      }>("get_system_stats");
+
+      const prevSelected = (savedValues.selected_gpus as string[] | undefined);
+      const prevSelectedHd = (savedValues.selected_hds as string[] | undefined);
+      const prevSelectedNet = (savedValues.selected_networks as string[] | undefined);
+      const isFirstTime = !prevSelected && !prevSelectedHd && !prevSelectedNet;
+
+      if (stats.gpu.length > 0) {
+        const gpuSection = document.createElement("div");
+        gpuSection.className = "zen-field";
+        gpuSection.style.marginTop = "0.5rem";
+
+        const gpuLabel = document.createElement("label");
+        gpuLabel.className = "zen-label";
+        gpuLabel.textContent = "GPUs to show";
+        gpuSection.append(gpuLabel);
+
+        for (let gi = 0; gi < stats.gpu.length; gi++) {
+          const g = stats.gpu[gi];
+          const checked = isFirstTime
+            ? gi === 0
+            : prevSelected
+              ? prevSelected.includes(g.name)
+              : true;
+          if (checked) selectedGpus.push(g.name);
+          buildHwCheckbox(gpuSection, g.name, checked, (isChecked) => {
+            if (isChecked && !selectedGpus.includes(g.name)) selectedGpus.push(g.name);
+            if (!isChecked) selectedGpus = selectedGpus.filter((x) => x !== g.name);
+          });
+        }
+
+        form.append(gpuSection);
+      }
+
+      if (stats.hd.length > 0) {
+        const hdSection = document.createElement("div");
+        hdSection.className = "zen-field";
+        hdSection.style.marginTop = "0.5rem";
+
+        const hdLabel = document.createElement("label");
+        hdLabel.className = "zen-label";
+        hdLabel.textContent = "Drives to show";
+        hdSection.append(hdLabel);
+
+        const sysDrive = "C:";
+        for (let hi = 0; hi < stats.hd.length; hi++) {
+          const h = stats.hd[hi];
+          const checked = isFirstTime
+            ? h.mount === sysDrive
+            : prevSelectedHd
+              ? prevSelectedHd.includes(h.mount)
+              : true;
+          if (checked) selectedHds.push(h.mount);
+          buildHwCheckbox(hdSection, h.mount, checked, (isChecked) => {
+            if (isChecked && !selectedHds.includes(h.mount)) selectedHds.push(h.mount);
+            if (!isChecked) selectedHds = selectedHds.filter((x) => x !== h.mount);
+          });
+        }
+
+        form.append(hdSection);
+      }
+
+      if (stats.network && stats.network.length > 0) {
+        const netSection = document.createElement("details");
+        netSection.className = "zen-collapse";
+        netSection.style.marginTop = "0.5rem";
+
+        const netSummary = document.createElement("summary");
+        netSummary.textContent = `Adapters to show (${stats.network.length})`;
+        netSection.append(netSummary);
+
+        const netBody = document.createElement("div");
+        netBody.style.marginTop = "0.25rem";
+        netBody.style.display = "grid";
+        netBody.style.gap = "0.5rem";
+
+        for (let ni = 0; ni < stats.network.length; ni++) {
+          const n = stats.network[ni];
+          const checked = isFirstTime
+            ? ni === 0
+            : prevSelectedNet
+              ? prevSelectedNet.includes(n.name)
+              : true;
+          if (checked) selectedNetworks.push(n.name);
+          buildHwCheckbox(netBody, n.name, checked, (isChecked) => {
+            if (isChecked && !selectedNetworks.includes(n.name)) selectedNetworks.push(n.name);
+            if (!isChecked) selectedNetworks = selectedNetworks.filter((x) => x !== n.name);
+          });
+        }
+
+        netSection.append(netBody);
+        form.append(netSection);
+      }
+    } catch {
+      // ignore — hardware checkboxes won't show
+    }
   }
 
   // Footer actions
@@ -109,6 +233,11 @@ void (async () => {
     }
     if (!cfg.widgets.config) cfg.widgets.config = {};
     cfg.widgets.config[widgetId] = newValues;
+    if (widgetId === "system_stats") {
+      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_gpus = selectedGpus;
+      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_hds = selectedHds;
+      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_networks = selectedNetworks;
+    }
     await invoke("save_config", { config: cfg });
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().close().catch(() => {});
@@ -224,6 +353,47 @@ function buildBoolControl(
   switchStates[key] = input.checked;
   input.addEventListener("change", () => {
     switchStates[key] = input.checked;
+  });
+  switchEl.append(input);
+
+  const track = document.createElement("span");
+  track.className = "zen-checkbox__track";
+  const thumb = document.createElement("span");
+  thumb.className = "zen-checkbox__thumb";
+  track.append(thumb);
+  switchEl.append(track);
+
+  checkbox.append(switchEl);
+  wrapper.append(checkbox);
+}
+
+function buildHwCheckbox(
+  wrapper: HTMLElement,
+  name: string,
+  checked: boolean,
+  onChange: (isChecked: boolean) => void,
+): void {
+  const checkbox = document.createElement("label");
+  checkbox.className = "zen-checkbox";
+
+  const text = document.createElement("span");
+  text.className = "zen-checkbox__text";
+
+  const label = document.createElement("span");
+  label.className = "zen-checkbox__label";
+  label.textContent = name;
+  text.append(label);
+
+  checkbox.append(text);
+
+  const switchEl = document.createElement("span");
+  switchEl.className = "zen-checkbox__switch";
+
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = checked;
+  input.addEventListener("change", () => {
+    onChange(input.checked);
   });
   switchEl.append(input);
 

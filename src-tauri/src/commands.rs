@@ -391,7 +391,7 @@ pub async fn open_widget_config(app: tauri::AppHandle, widget_id: String) -> Res
         )
         .title("Widget Settings")
         .inner_size(400.0, 500.0)
-        .min_inner_size(300.0, 200.0)
+        .min_inner_size(400.0, 200.0)
         .max_inner_size(600.0, 700.0)
         .resizable(true)
         .decorations(false)

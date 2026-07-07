@@ -2,7 +2,7 @@ import "../../styles/globals.css";
 import { mountWindow } from "../../shared/window";
 import { loadConfig } from "../../shared/config";
 import { getWidgets, getWidgetSource, renderWidget } from "../../shared/widgets";
-import { applyIcons } from "../../shared/icon";
+import { applyIcons, setIcon } from "../../shared/icon";
 import { invoke } from "@tauri-apps/api/core";
 import { initLog, logMemory, logInfo, time } from "../../shared/log";
 import { listen } from "@tauri-apps/api/event";
@@ -36,7 +36,10 @@ void (async () => {
   window.addEventListener("beforeunload", () => releaseArrangeHold());
 
   function render(): void {
-    content.replaceChildren(buildGrid());
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "flex:1;overflow-y:auto;padding:1rem;";
+    wrapper.append(buildGrid());
+    content.replaceChildren(wrapper);
   }
 
   function buildGrid(): HTMLElement {
@@ -93,21 +96,13 @@ void (async () => {
     if (m.config && Object.keys(m.config).length > 0) {
       const gearBtn = document.createElement("button");
       gearBtn.type = "button";
-      gearBtn.className = "widget-config-btn";
-      gearBtn.style.cssText =
-        "position:absolute;bottom:6px;right:6px;width:22px;height:22px;" +
-        "border-radius:50%;border:none;cursor:pointer;display:flex;" +
-        "align-items:center;justify-content:center;color:var(--muted-foreground);" +
-        "background:color-mix(in oklch,var(--card) 80%,transparent);";
+      gearBtn.className = "zen-widget-btn is-config";
       gearBtn.title = "Configure";
-      gearBtn.dataset.icon = "settings";
-      gearBtn.dataset.size = "12";
       gearBtn.addEventListener("click", () => {
         void invoke("open_widget_config", { widgetId: m.id });
       });
-      card.style.position = "relative";
+      setIcon(gearBtn, "config", { size: 12 });
       card.append(gearBtn);
-      applyIcons(gearBtn);
     }
 
     // Load real widget HTML into preview area (async — renders live preview)

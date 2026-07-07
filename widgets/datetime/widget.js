@@ -32,11 +32,11 @@
       var dateOpts = { weekday: "short", month: "short", day: "numeric" };
       if (timezone) dateOpts.timeZone = timezone;
       try {
-        dateEl.textContent = now.toLocaleDateString("en-US", dateOpts);
+        dateEl.querySelector('span').textContent = now.toLocaleDateString("en-US", dateOpts);
         dateEl.style.display = "";
       } catch (e) {
         dateOpts.timeZone = undefined;
-        dateEl.textContent = now.toLocaleDateString("en-US", dateOpts);
+        dateEl.querySelector('span').textContent = now.toLocaleDateString("en-US", dateOpts);
         dateEl.style.display = "";
       }
     } else if (dateEl) {

@@ -6,7 +6,7 @@
   "default_zone": "center",
   "icon": "clock",
   "min_width": 120,
-  "preview": "<span class=\"dt-wrap\"><span class=\"dt-time\">14:30</span><span class=\"dt-date\">Mon, Jan 15</span></span>",
+  "preview": "<span class=\"dt-wrap\"><span class=\"dt-time\">14:30</span>&middot;<span class=\"dt-date\">Mon, Jan 15</span></span>",
   "config": {
     "timezone": {
       "type": "string",

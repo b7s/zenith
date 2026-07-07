@@ -1,5 +1,5 @@
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WidgetManifest {
@@ -20,7 +20,7 @@ pub struct WidgetManifest {
     #[serde(default)]
     pub preview: String,
     #[serde(default)]
-    pub config: HashMap<String, WidgetConfigField>,
+    pub config: IndexMap<String, WidgetConfigField>,
     #[serde(skip)]
     pub widget_dir: String,
 }
@@ -44,7 +44,7 @@ impl Default for WidgetManifest {
             icon: String::new(),
             min_width: default_min_width(),
             preview: String::new(),
-            config: HashMap::new(),
+            config: IndexMap::new(),
             widget_dir: String::new(),
         }
     }

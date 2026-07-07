@@ -34,6 +34,7 @@
         currentVolume = info.level;
         currentMuted = info.muted;
         updateIcon();
+        el.title = "Volume: " + Math.round(currentVolume * 100) + "%";
       })
       .catch(function () {});
   }

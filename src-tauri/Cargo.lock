@@ -5025,6 +5025,7 @@ dependencies = [
 name = "zenith"
 version = "0.1.0"
 dependencies = [
+ "indexmap 2.14.0",
  "serde",
  "serde_json",
  "tauri",

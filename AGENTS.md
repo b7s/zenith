@@ -516,7 +516,7 @@ Reusable classes:
 | `.zen-select` + `.zen-select-wrapper` | styled native select |
 | `.zen-slider` (+ `__track __range __thumb`) | range slider |
 | `.zen-switch` | toggle switch |
-| `.zen-checkbox` | checkbox |
+| `.zen-checkbox` (+ `__text __label __desc __switch __track __thumb`) | Apple-style toggle switch — label + optional description on the left, toggle on the right |
 | `.zen-radio-group` + `.zen-radio-card` | card-style radio group (shadcn radio-cards) |
 | `.zen-tabs` + `.zen-tab` (`.is-active`) | tabs |
 | `.zen-color-field` | swatch + hex (launches native Windows color picker) |

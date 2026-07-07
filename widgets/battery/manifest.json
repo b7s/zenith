@@ -1,0 +1,10 @@
+{
+  "id": "battery",
+  "name": "Battery",
+  "version": "1.0.0",
+  "description": "Battery level and charging status",
+  "default_zone": "right",
+  "icon": "battery",
+  "min_width": 20,
+  "preview": "<span class=\"bat-icon\" data-icon=\"battery-full\" data-size=\"16\"></span>"
+}

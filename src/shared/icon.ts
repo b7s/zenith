@@ -2,6 +2,11 @@ import { createElement, type IconNode } from "lucide";
 import {
   Activity,
   Battery,
+  BatteryCharging,
+  BatteryFull,
+  BatteryLow,
+  BatteryMedium,
+  BatteryWarning,
   Clock,
   CloudSun,
   ExternalLink,
@@ -21,6 +26,12 @@ import {
 
 import { DEFAULT_WIN_GLYPH, WIN_GLYPHS } from "./win-icons";
 
+const OCTAGON_NODE: IconNode = [
+  "svg",
+  { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" },
+  [["polygon", { points: "20.3,15.4 15.4,20.3 8.6,20.3 3.7,15.4 3.7,8.6 8.6,3.7 15.4,3.7 20.3,8.6" }], ["circle", { cx: "12", cy: "12", r: "3" }]],
+];
+
 const ICON_REGISTRY: Record<string, IconNode> = {
   settings: Settings,
   "layout-grid": LayoutGrid,
@@ -30,6 +41,12 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   power: Power,
   clock: Clock,
   battery: Battery,
+  "battery-charging": BatteryCharging,
+  "battery-full": BatteryFull,
+  "battery-low": BatteryLow,
+  "battery-medium": BatteryMedium,
+  "battery-warning": BatteryWarning,
+  "settings-octa": OCTAGON_NODE,
   volume: Volume,
   "volume-1": Volume1,
   "volume-2": Volume2,
@@ -52,6 +69,7 @@ const ALIASES: Record<string, string> = {
   "system-stats": "activity",
   weather: "cloud-sun",
   workspace: "monitor-smartphone",
+  config: "settings-octa",
 };
 
 export function registerIcons(map: Record<string, IconNode>): void {

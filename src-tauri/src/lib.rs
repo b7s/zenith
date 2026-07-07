@@ -1,4 +1,5 @@
 mod commands;
+mod battery;
 mod config;
 mod log;
 mod shared;
@@ -38,6 +39,7 @@ pub fn run() {
             volume::commands::set_volume,
             volume::commands::set_muted,
             volume::commands::open_volume_popup,
+            battery::commands::get_battery_status,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)

@@ -20,6 +20,7 @@ export const CMD = {
   setMuted: "set_muted",
   openVolumePopup: "open_volume_popup",
   openWidgetConfig: "open_widget_config",
+  getBatteryStatus: "get_battery_status",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

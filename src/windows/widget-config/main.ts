@@ -19,17 +19,15 @@ void (async () => {
     return;
   }
 
-  const { content } = await mountWindow({ title: "Widget Settings" });
-
   const cfg = await invoke<Config>("get_config");
   const manifests = await invoke<WidgetManifest[]>("get_widgets");
   const manifest = manifests.find((m) => m.id === widgetId);
 
   if (!manifest || !manifest.config || Object.keys(manifest.config).length === 0) {
+    const { content } = await mountWindow({ title: "Widget Settings" });
     const hint = document.createElement("p");
     hint.className = "zen-hint";
     hint.style.padding = "1rem";
-    hint.textContent = "This widget has no configurable settings.";
     content.append(hint);
     return;
   }
@@ -41,7 +39,6 @@ void (async () => {
 
   const form = document.createElement("div");
   form.className = "zen-section";
-  content.append(form);
 
   const inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
   const switchStates: Record<string, boolean> = {};
@@ -50,29 +47,30 @@ void (async () => {
     const wrapper = document.createElement("div");
     wrapper.className = "zen-field";
 
-    const label = document.createElement("label");
-    label.className = "zen-label";
-    label.textContent = field.label || key;
-    wrapper.append(label);
-
     const currentValue = key in savedValues ? savedValues[key] : field.value;
 
-    buildControl(wrapper, key, field, currentValue, inputs, switchStates);
-
-    if (field.hint) {
-      const hint = document.createElement("p");
-      hint.className = "zen-hint";
-      hint.textContent = field.hint;
-      wrapper.append(hint);
+    if (field.type === "bool") {
+      buildBoolControl(wrapper, key, field, currentValue, switchStates);
+    } else {
+      const label = document.createElement("label");
+      label.className = "zen-label";
+      label.textContent = field.label || key;
+      wrapper.append(label);
+      buildControl(wrapper, key, field, currentValue, inputs);
+      if (field.hint) {
+        const hint = document.createElement("p");
+        hint.className = "zen-hint";
+        hint.textContent = field.hint;
+        wrapper.append(hint);
+      }
     }
 
     form.append(wrapper);
   }
 
-  const actions = document.createElement("div");
-  actions.style.cssText =
-    "display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;";
-  form.append(actions);
+  // Footer actions
+  const footer = document.createElement("div");
+  footer.style.cssText = "display:flex;gap:0.5rem;justify-content:flex-end;";
 
   const cancelBtn = document.createElement("button");
   cancelBtn.type = "button";
@@ -82,7 +80,7 @@ void (async () => {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().close().catch(() => {});
   });
-  actions.append(cancelBtn);
+  footer.append(cancelBtn);
 
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
@@ -107,7 +105,14 @@ void (async () => {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().close().catch(() => {});
   });
-  actions.append(saveBtn);
+  footer.append(saveBtn);
+
+  const { content } = await mountWindow({ title: "Widget Settings", footer });
+
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = "flex:1;overflow-y:auto;overflow-x:hidden;padding:1rem;";
+  content.append(wrapper);
+  wrapper.append(form);
 })();
 
 function buildControl(
@@ -116,7 +121,6 @@ function buildControl(
   field: WidgetConfigField,
   currentValue: unknown,
   inputs: Record<string, HTMLInputElement | HTMLSelectElement>,
-  switchStates: Record<string, boolean>,
 ): void {
   if (field.type === "select" && field.options) {
     const select = document.createElement("select");
@@ -133,16 +137,6 @@ function buildControl(
     selectWrapper.className = "zen-select-wrapper";
     selectWrapper.append(select);
     wrapper.append(selectWrapper);
-  } else if (field.type === "bool") {
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "zen-checkbox";
-    checkbox.checked = Boolean(currentValue);
-    switchStates[key] = checkbox.checked;
-    checkbox.addEventListener("change", () => {
-      switchStates[key] = checkbox.checked;
-    });
-    wrapper.append(checkbox);
   } else if (field.type === "int") {
     const input = document.createElement("input");
     input.type = "number";
@@ -158,4 +152,54 @@ function buildControl(
     inputs[key] = input;
     wrapper.append(input);
   }
+}
+
+function buildBoolControl(
+  wrapper: HTMLElement,
+  key: string,
+  field: WidgetConfigField,
+  currentValue: unknown,
+  switchStates: Record<string, boolean>,
+): void {
+  const checkbox = document.createElement("label");
+  checkbox.className = "zen-checkbox";
+
+  const text = document.createElement("span");
+  text.className = "zen-checkbox__text";
+
+  const label = document.createElement("span");
+  label.className = "zen-checkbox__label";
+  label.textContent = field.label || key;
+  text.append(label);
+
+  if (field.hint) {
+    const desc = document.createElement("span");
+    desc.className = "zen-checkbox__desc";
+    desc.textContent = field.hint;
+    text.append(desc);
+  }
+
+  checkbox.append(text);
+
+  const switchEl = document.createElement("span");
+  switchEl.className = "zen-checkbox__switch";
+
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = Boolean(currentValue);
+  switchStates[key] = input.checked;
+  input.addEventListener("change", () => {
+    switchStates[key] = input.checked;
+  });
+  switchEl.append(input);
+
+  const track = document.createElement("span");
+  track.className = "zen-checkbox__track";
+  const thumb = document.createElement("span");
+  thumb.className = "zen-checkbox__thumb";
+  track.append(thumb);
+  switchEl.append(track);
+
+  checkbox.append(switchEl);
+  wrapper.append(checkbox);
 }

@@ -70,7 +70,7 @@ Goal: `npm run tauri dev` shows a real top bar with a working clock widget.
 - [x] `.zen-select` + `.zen-select-wrapper` — new: styled native select with chevron
 - [x] `.zen-slider` — new: custom range slider with themed thumb
 - [x] `.zen-switch` — new: toggle switch with animated thumb
-- [x] `.zen-checkbox` — new: styled checkbox with checkmark clip-path
+- [x] `.zen-checkbox` — Apple-style toggle switch: label + optional description on the left, switch knob on the right
 - [x] `.zen-radio-group` + `.zen-radio-card` — new: card-style radio buttons
 - [x] `.zen-tabs` + `.zen-tab` (`.is-active`) — new: horizontal tab strip
 - [x] `.zen-color-field` — new: swatch + hex display
@@ -114,8 +114,8 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 
 ## Phase 4 — Core Widgets
 
-- [ ] **Battery** — % + charging state + icon
-- [x] **Volume** — system audio endpoint via `IAudioEndpointVolume` (Win32 API); icon changes with level/mute; scroll to adjust; right-click mute/unmute context menu; click opens acrylic popup with `.zen-slider` for fine control
+- [x] **Battery** — Win32 `GetSystemPowerStatus`, icon variants (warning/low/medium/full/charging), hover tooltip shows percent + charging state
+- [x] **Volume** — system audio endpoint via `IAudioEndpointVolume` (Win32 API); icon changes with level/mute; scroll to adjust; right-click mute/unmute; click opens acrylic popup with `.zen-slider`; hover tooltip shows percent
 - [x] **Workspace** — virtual desktop dots (filled = active), click to switch; auto-hide if only 1 desktop; rename, delete, create via unified dialog; move/pin gated off (pending foreground HWND fix)
 - [x] **Date & Time** — configurable timezone (IANA), 12/24h format, show/hide date; generic widget-config window with gear button in Widget Manager
 - [ ] **System stats** — CPU/RAM mini graphs

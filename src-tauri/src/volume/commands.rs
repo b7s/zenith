@@ -112,6 +112,7 @@ fn create_volume_popup_window(app: &tauri::AppHandle, x: f64, y: f64) -> Result<
     .skip_taskbar(true)
     .visible(false)
     .focused(true)
+    .always_on_top(true)
     .additional_browser_args("--default-background-color=00000000")
     .build()
     .map_err(|e| e.to_string())?;

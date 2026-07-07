@@ -59,12 +59,29 @@ void (async () => {
   }
 
   // Live slider
+  let isDragging = false;
+  slider.addEventListener("pointerdown", () => { isDragging = true; });
+  slider.addEventListener("pointerup", () => { isDragging = false; });
+  slider.addEventListener("pointerleave", () => { isDragging = false; });
+
   slider.addEventListener("input", () => {
     const level = Number(slider.value) / 100;
     updateIcon(level, false);
     updateLabel(level);
     invoke("set_volume", { level }).catch(() => {});
   });
+
+  // Poll for external volume changes (media keys, etc.)
+  const pollTimer = setInterval(async () => {
+    if (isDragging) return;
+    try {
+      const info = await invoke<{ level: number; muted: boolean }>("get_volume");
+      const level = info.level;
+      slider.value = String(Math.round(level * 100));
+      updateIcon(level, info.muted);
+      updateLabel(level);
+    } catch { /* ignore */ }
+  }, 1000);
 
   // Scroll over slider to change volume
   slider.addEventListener("wheel", (e) => {
@@ -83,6 +100,7 @@ void (async () => {
   const win = getCurrentWindow();
   win.onFocusChanged(({ payload }) => {
     if (!payload) {
+      clearInterval(pollTimer);
       win.close().catch(() => {});
     }
   });
@@ -90,6 +108,7 @@ void (async () => {
   // Also close on Escape
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      clearInterval(pollTimer);
       win.close().catch(() => {});
     }
   });

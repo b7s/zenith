@@ -1,19 +1,17 @@
 .dt-wrap {
   display: inline-flex;
   align-items: baseline;
+  font-size: 0.8125rem;
+  font-weight: 600;
   gap: 0.35em;
+  white-space: nowrap;
 }
 
 .dt-time {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 0.8125rem;
   color: var(--foreground);
-  white-space: nowrap;
 }
 
 .dt-date {
-  font-size: 0.8125rem;
-  color: var(--muted-foreground);
-  white-space: nowrap;
+  opacity: .8;
 }

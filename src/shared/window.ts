@@ -41,6 +41,7 @@ export function watchSystemTheme(onChange: (dark: boolean) => void): () => void 
 
 export interface MountOptions {
   title: string;
+  subtitle?: string;
   searchable?: boolean;
   searchPlaceholder?: string;
   /** Optional footer element(s) appended below the content. The footer is
@@ -85,6 +86,13 @@ export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
   title.className = "zen-window__title";
   title.textContent = opts.title;
   header.append(title);
+
+  if (opts.subtitle) {
+    const sub = document.createElement("span");
+    sub.className = "zen-window__subtitle";
+    sub.textContent = opts.subtitle;
+    header.append(sub);
+  }
 
   let search: HTMLInputElement | null = null;
   if (opts.searchable) {

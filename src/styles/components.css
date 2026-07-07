@@ -63,15 +63,15 @@
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border-radius: calc(var(--radius) - 0.125rem);
-  border: 1px solid transparent;
-  background: transparent;
+  border-radius: 50%;
+  border: none;
+  background: color-mix(in oklch, var(--accent) 25%, transparent);
   color: var(--muted-foreground);
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
 .zen-icon-button:hover {
-  background: color-mix(in oklch, var(--accent) 50%, transparent);
+  background: color-mix(in oklch, var(--accent) 80%, transparent);
   color: var(--foreground);
 }
 

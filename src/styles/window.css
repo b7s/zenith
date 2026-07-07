@@ -28,6 +28,16 @@
   text-overflow: ellipsis;
 }
 
+.zen-window__subtitle {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  white-space: nowrap;
+}
+
 .zen-window__search {
   position: relative;
   flex: 1 1 auto;

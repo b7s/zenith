@@ -12,7 +12,7 @@
       "type": "string",
       "value": "",
       "label": "Timezone",
-      "hint": "IANA timezone (e.g. America/New_York). Leave empty for system default."
+      "hint": "IANA timezone (e.g. Europe/Lisbon, America/New_York). Leave empty for system default."
     },
     "format": {
       "type": "select",
@@ -26,6 +26,12 @@
       "value": true,
       "label": "Show date",
       "hint": "Display the date next to the time"
+    },
+    "show_year": {
+      "type": "bool",
+      "value": false,
+      "label": "Show year",
+      "hint": "Display the year in the date"
     }
   }
 }

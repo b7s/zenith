@@ -12,6 +12,7 @@
   var timezone = "";
   var format = "24h";
   var showDate = true;
+  var showYear = false;
 
   function update() {
     var now = new Date();
@@ -30,6 +31,7 @@
 
     if (showDate && dateEl) {
       var dateOpts = { weekday: "short", month: "short", day: "numeric" };
+      if (showYear) dateOpts.year = "numeric";
       if (timezone) dateOpts.timeZone = timezone;
       try {
         dateEl.querySelector('span').textContent = now.toLocaleDateString("en-US", dateOpts);
@@ -51,6 +53,7 @@
       timezone = widgetCfg.timezone || "";
       format = widgetCfg.format || "24h";
       showDate = widgetCfg.show_date !== undefined ? widgetCfg.show_date : true;
+      showYear = widgetCfg.show_year !== undefined ? widgetCfg.show_year : false;
       update();
     }).catch(function () {
       update();

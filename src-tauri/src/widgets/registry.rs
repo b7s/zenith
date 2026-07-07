@@ -62,13 +62,29 @@ pub struct WidgetSource {
 }
 
 pub fn widget_source(id: &str) -> Option<WidgetSource> {
-    let dir = widgets_dir().join(id);
-    if !dir.is_dir() {
-        return None;
-    }
-
+    let dir = widget_dir_for_id(id)?;
     let html = std::fs::read_to_string(dir.join("widget.html")).ok().unwrap_or_default();
     let css = std::fs::read_to_string(dir.join("widget.css")).ok().unwrap_or_default();
     let js = std::fs::read_to_string(dir.join("widget.js")).ok().unwrap_or_default();
     Some(WidgetSource { html, css, js })
+}
+
+/// Resolve the widget directory for a given `id`. First tries `widgets/<id>/`,
+/// then falls back to scanning manifests to map `id` → `widget_dir`.
+fn widget_dir_for_id(id: &str) -> Option<PathBuf> {
+    let base = widgets_dir();
+    let direct = base.join(id);
+    if direct.is_dir() {
+        return Some(direct);
+    }
+    // Fallback: scan manifests to find a widget with matching id and use its widget_dir
+    for m in scan_widgets() {
+        if m.id == id {
+            let dir = base.join(&m.widget_dir);
+            if dir.is_dir() {
+                return Some(dir);
+            }
+        }
+    }
+    None
 }

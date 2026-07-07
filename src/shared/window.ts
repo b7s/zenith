@@ -41,9 +41,12 @@ export function watchSystemTheme(onChange: (dark: boolean) => void): () => void 
 
 export interface MountOptions {
   title: string;
-  subtitle?: string;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /** Optional badge text beside the title (e.g. widget count). Pass a
+   *  string to set an initial badge, or the caller can use the returned
+   *  `titleBadge` element to update it later. */
+  titleBadge?: string | null;
   /** Optional footer element(s) appended below the content. The footer is
    *  rendered as a fixed band outside `<main>`, so action buttons stay
    *  visible when the content scrolls. */
@@ -55,6 +58,8 @@ export interface MountedWindow {
   content: HTMLElement;
   search: HTMLInputElement | null;
   footer: HTMLElement | null;
+  /** Span element for the badge text. Set `textContent` to update. */
+  titleBadge: HTMLElement | null;
 }
 
 /**
@@ -82,17 +87,23 @@ export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
   const header = document.createElement("header");
   header.className = "zen-window__header";
 
-  const title = document.createElement("div");
+  const titleWrap = document.createElement("div");
+  titleWrap.className = "zen-window__title-wrap";
+
+  const title = document.createElement("span");
   title.className = "zen-window__title";
   title.textContent = opts.title;
-  header.append(title);
+  titleWrap.append(title);
 
-  if (opts.subtitle) {
-    const sub = document.createElement("span");
-    sub.className = "zen-window__subtitle";
-    sub.textContent = opts.subtitle;
-    header.append(sub);
+  let titleBadge: HTMLElement | null = null;
+  if (opts.titleBadge != null) {
+    titleBadge = document.createElement("span");
+    titleBadge.className = "zen-window__title-badge";
+    titleBadge.textContent = opts.titleBadge;
+    titleWrap.append(titleBadge);
   }
+
+  header.append(titleWrap);
 
   let search: HTMLInputElement | null = null;
   if (opts.searchable) {
@@ -145,7 +156,7 @@ export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
   applyIcons(root);
   logInfo(`mountWindow: DOM build + icons ${Math.round(performance.now() - t1)}ms`);
 
-  return { root, content, search, footer };
+  return { root, content, search, footer, titleBadge };
 }
 
 function ensureRoot(): HTMLElement {

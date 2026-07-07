@@ -19,18 +19,14 @@ void (async () => {
   await initLog();
   logMemory("startup");
 
+  const { content, search, titleBadge } = await time("mountWindow", () =>
+    mountWindow({ title: "Widgets", searchable: true, searchPlaceholder: "Search widgets" }),
+  );
+
   let cfg = await loadConfig();
   let manifests = await getWidgets();
+  if (titleBadge) titleBadge.textContent = String(manifests.length);
   let filter = "";
-
-  const { content, search } = await time("mountWindow", () =>
-    mountWindow({
-      title: "Widgets",
-      subtitle: `(${manifests.length})`,
-      searchable: true,
-      searchPlaceholder: "Search widgets",
-    }),
-  );
 
   void initArrangeSync();
   holdArrange();

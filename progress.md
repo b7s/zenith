@@ -119,7 +119,7 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 - [x] **Workspace** — virtual desktop dots (filled = active), click to switch; auto-hide if only 1 desktop; rename, delete, create via unified dialog; move/pin gated off (pending foreground HWND fix)
 - [x] **Date & Time** — configurable timezone (IANA), 12/24h format, show/hide date; generic widget-config window with gear button in Widget Manager; click widget → opens Apple-style acrylic calendar popup (transparent, click-outside-to-close, prev/next month, year `<select>` last 30 years, expands as user navigates)
 - [x] **Shutdown** — power action popup (shutdown/restart/sleep/hibernate/lock/logout) with two-step confirmation, translucent buttons, header close button via `mountWindow`; Lock (`LockWorkStation`), Logout (`EWX_LOGOFF`); uses `set_disable_transitions` + inline theme sync for instant open
-- [ ] **System stats** — CPU/RAM mini graphs
+- [x] **System stats** — CPU%, GHz, RAM, GPU, HD, network throughput; three visual styles (bar/dots/graph); configurable via widget-config window
 
 ---
 

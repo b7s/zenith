@@ -3,6 +3,7 @@ mod battery;
 mod calendar;
 mod config;
 mod log;
+mod quick_toggle;
 mod shared;
 mod shutdown;
 mod system_stats;
@@ -52,6 +53,13 @@ pub fn run() {
             shutdown::commands::open_shutdown_popup,
             battery::commands::get_battery_status,
             system_stats::commands::get_system_stats,
+            quick_toggle::commands::toggle_wifi,
+            quick_toggle::commands::toggle_bluetooth,
+            quick_toggle::commands::toggle_dark_mode,
+            quick_toggle::commands::toggle_focus_assist,
+            quick_toggle::commands::toggle_airplane,
+            quick_toggle::commands::toggle_night_light,
+            quick_toggle::commands::get_quick_toggle_status,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)

@@ -120,6 +120,7 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 - [x] **Date & Time** — configurable timezone (IANA), 12/24h format, show/hide date; generic widget-config window with gear button in Widget Manager; click widget → opens Apple-style acrylic calendar popup (transparent, click-outside-to-close, prev/next month, year `<select>` last 30 years, expands as user navigates)
 - [x] **Shutdown** — power action popup (shutdown/restart/sleep/hibernate/lock/logout) with two-step confirmation, translucent buttons, header close button via `mountWindow`; Lock (`LockWorkStation`), Logout (`EWX_LOGOFF`); uses `set_disable_transitions` + inline theme sync for instant open
 - [x] **System stats** — CPU%, GHz, RAM, GPU, HD, network throughput; three visual styles (bar/dots/graph); configurable via widget-config window
+- [x] **Quick Toggle** — direct bar toggle chips (WiFi, Bluetooth, Dark Mode, Focus Assist, Airplane, Night Light); inactive = transparent + pointer cursor; click toggles live; unavailable items auto-hidden; which chips show + compact mode via widget-config window
 
 ---
 
@@ -133,6 +134,12 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 - [ ] Motion domain (model/config exists in `MotionConfig`; runtime domain not yet wired)
 - [ ] Auto-start on login
 - [ ] Installer (NSIS bundle)
+
+---
+
+## Planned Widgets (not started)
+
+- [ ] **Media Control** — play/pause, next, previous, album art image, and a progress/seek bar (when media is available); live now-playing info via Windows `SystemMediaTransportControls` / `GlobalSystemMediaTransportControlsSessionManager`
 
 ---
 

@@ -24,6 +24,13 @@ export const CMD = {
   getBatteryStatus: "get_battery_status",
   getSystemStats: "get_system_stats",
   openShutdownPopup: "open_shutdown_popup",
+  toggleWifi: "toggle_wifi",
+  toggleBluetooth: "toggle_bluetooth",
+  toggleDarkMode: "toggle_dark_mode",
+  toggleFocusAssist: "toggle_focus_assist",
+  toggleAirplane: "toggle_airplane",
+  toggleNightLight: "toggle_night_light",
+  getQuickToggleStatus: "get_quick_toggle_status",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

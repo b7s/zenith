@@ -1,0 +1,19 @@
+{
+  "id": "quick_toggle",
+  "name": "Quick Toggle",
+  "version": "1.0.0",
+  "description": "Toggle WiFi, Bluetooth, Dark Mode, Focus Assist, Airplane Mode, Night Light",
+  "default_zone": "right",
+  "icon": "toggle-right",
+  "min_width": 0,
+  "preview": "<span class=\"qt-preview\"><span class=\"qt-chip is-on\"><i class=\"qt-chip-ic\" data-icon=\"wifi\" data-size=\"12\"></i></span><span class=\"qt-chip\"><i class=\"qt-chip-ic\" data-icon=\"bluetooth\" data-size=\"12\"></i></span><span class=\"qt-chip is-on\"><i class=\"qt-chip-ic\" data-icon=\"moon\" data-size=\"12\"></i></span></span>",
+  "config": {
+    "compact": { "type": "bool", "value": true, "label": "Compact (icon-only)", "hint": "Off = icon + label" },
+    "show_wifi": { "type": "bool", "value": true, "label": "Show WiFi" },
+    "show_bluetooth": { "type": "bool", "value": true, "label": "Show Bluetooth" },
+    "show_dark_mode": { "type": "bool", "value": true, "label": "Show Dark Mode" },
+    "show_focus_assist": { "type": "bool", "value": true, "label": "Show Focus Assist" },
+    "show_airplane": { "type": "bool", "value": false, "label": "Show Airplane Mode" },
+    "show_night_light": { "type": "bool", "value": false, "label": "Show Night Light" }
+  }
+}

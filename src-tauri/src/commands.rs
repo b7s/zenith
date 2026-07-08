@@ -33,6 +33,7 @@ const MI_SETTINGS: &str = "ctx-settings";
 const MI_WIDGETS: &str = "ctx-widgets";
 const MI_RESTART: &str = "ctx-restart";
 const MI_CLOSE: &str = "ctx-close";
+#[cfg(debug_assertions)]
 const MI_INSPECT: &str = "ctx-inspect";
 
 // Workspace context menu IDs

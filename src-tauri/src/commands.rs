@@ -212,6 +212,7 @@ fn create_dialog_window(app: &tauri::AppHandle, spec: &DialogSpec) -> Result<(),
     let label = format!("dialog-{}", spec.kind);
     if let Some(win) = app.get_webview_window(&label) {
         win.show().map_err(|e| e.to_string())?;
+        std::thread::sleep(std::time::Duration::from_millis(500));
         win.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
@@ -254,12 +255,16 @@ Object.freeze(window.__ZENITH_DIALOG_KIND);"#,
 
     let _ = window::apply_fixed_acrylic(app, &label);
     let _ = window::set_rounded_corners(&win);
+    let _ = window::set_disable_transitions(&win);
 
     // Show AFTER the materials are applied so DWM blur is ready before pixels hit
-    // the screen. This eliminates the white-flash race.
-    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOMOVE};
+    // the screen. Dropping NOACTIVATE ensures the new window is actually
+    // foregrounded — set_focus() alone races the Windows foreground rules and
+    // often loses (popup appears but is not focused).
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOSIZE, SWP_NOMOVE};
     let hwnd = win.hwnd().map_err(|e| e.to_string())?;
-    let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE) };
+    let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE) };
+    std::thread::sleep(std::time::Duration::from_millis(500));
     let _ = win.set_focus();
     Ok(())
 }
@@ -301,11 +306,13 @@ fn create_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
 
         let _ = window::apply_fixed_acrylic(app, "settings");
         let _ = window::set_rounded_corners(&win);
+        let _ = window::set_disable_transitions(&win);
         // Show *after* the material is applied, so DWM blur is ready before
-        // any pixels hit the screen — eliminates the white-flash race.
-        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOMOVE};
+        // any pixels hit the screen — eliminates the white-flash race. Drop
+        // NOACTIVATE so the window actually takes foreground on open.
+        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOSIZE, SWP_NOMOVE};
         let hwnd = win.hwnd().map_err(|e| e.to_string())?;
-        let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE) };
+        let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE) };
         let _ = win.set_focus();
         eprintln!("[zenith] create_settings: done");
     }
@@ -340,11 +347,13 @@ fn create_widgets_window(app: &tauri::AppHandle) -> Result<(), String> {
         let _ = window::apply_fixed_acrylic(app, "widgets");
         eprintln!("[zenith] create_widgets: material applied");
         let _ = window::set_rounded_corners(&win);
+        let _ = window::set_disable_transitions(&win);
         // Show *after* the material is applied, so DWM blur is ready before
-        // any pixels hit the screen — eliminates the white-flash race.
-        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOMOVE};
+        // any pixels hit the screen — eliminates the white-flash race. Drop
+        // NOACTIVATE so the window actually takes foreground on open.
+        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOSIZE, SWP_NOMOVE};
         let hwnd = win.hwnd().map_err(|e| e.to_string())?;
-        let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE) };
+        let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE) };
         let _ = win.set_focus();
         eprintln!("[zenith] create_widgets: done");
     }
@@ -406,9 +415,13 @@ pub async fn open_widget_config(app: tauri::AppHandle, widget_id: String) -> Res
 
         let _ = window::apply_fixed_acrylic(&app, &label);
         let _ = window::set_rounded_corners(&win);
+        let _ = window::set_disable_transitions(&win);
 
+        // Drop NOACTIVATE so the new window actually takes foreground —
+        // otherwise the trailing set_focus() races Windows' foreground rules
+        // and the window stays unfocused on open.
         use windows::Win32::UI::WindowsAndMessaging::{
-            SetWindowPos, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
+            SetWindowPos, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
         };
         let hwnd = win.hwnd().map_err(|e| e.to_string())?;
         let _ = unsafe {
@@ -419,9 +432,10 @@ pub async fn open_widget_config(app: tauri::AppHandle, widget_id: String) -> Res
                 0,
                 0,
                 0,
-                SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE,
+                SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE,
             )
         };
+        std::thread::sleep(std::time::Duration::from_millis(500));
         let _ = win.set_focus();
         Ok(())
     })

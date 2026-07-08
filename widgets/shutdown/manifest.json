@@ -1,0 +1,10 @@
+{
+  "id": "shutdown",
+  "name": "Shutdown",
+  "version": "1.0.0",
+  "description": "Shutdown, restart, sleep, hibernate",
+  "default_zone": "right",
+  "icon": "power",
+  "min_width": 20,
+  "preview": "<span class=\"sd-icon\" data-icon=\"power\" data-size=\"16\"></span>"
+}

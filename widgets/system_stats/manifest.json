@@ -44,7 +44,7 @@
     },
     "show_network": {
       "type": "bool",
-      "value": true,
+      "value": false,
       "label": "Show Network"
     },
     "refresh_seconds": {

@@ -1,6 +1,6 @@
 use tauri::Manager;
 use windows::Win32::Foundation::HWND;
-use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWM_WINDOW_CORNER_PREFERENCE};
+use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED, DWMWA_WINDOW_CORNER_PREFERENCE, DWM_WINDOW_CORNER_PREFERENCE};
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 use windows::Win32::System::Registry::{RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, REG_VALUE_TYPE};
 use windows::core::{s, w};
@@ -117,6 +117,28 @@ pub fn set_rounded_corners(window: &tauri::WebviewWindow) -> Result<(), String> 
             DWMWA_WINDOW_CORNER_PREFERENCE,
             &pref as *const _ as *const std::ffi::c_void,
             std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
+        );
+    }
+    Ok(())
+}
+
+/// Disable the OS open/close animation (fade+zoom) on a window.
+///
+/// Tauri builds windows with `visible(false)` and reveals them via
+/// `SetWindowPos(SWP_SHOWWINDOW)`. DWM still animates that visibility
+/// transition, which on a transparent acrylic window looks like a
+/// "style change" — the bar briefly shows with no blur, then acrylic
+/// settles in. Setting `DWMWA_TRANSITIONS_FORCEDISABLED` on the HWND
+/// turns off that animation so the window appears in its final state.
+pub fn set_disable_transitions(window: &tauri::WebviewWindow) -> Result<(), String> {
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?;
+    let val: i32 = 1;
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            &val as *const _ as *const std::ffi::c_void,
+            std::mem::size_of::<i32>() as u32,
         );
     }
     Ok(())

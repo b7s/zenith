@@ -1,0 +1,13 @@
+{
+  "identifier": "calendar",
+  "description": "Capability for the datetime widget's calendar popup window",
+  "windows": ["calendar"],
+  "webviews": ["calendar"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-effects"
+  ]
+}

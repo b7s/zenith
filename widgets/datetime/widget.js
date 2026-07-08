@@ -14,6 +14,18 @@
   var showDate = true;
   var showYear = false;
 
+  // Open the calendar popup on left-click. We pipe through the shared
+  // helper exposed at window.__zenith_openCalendar when present (the bar
+  // sets it in main.ts). Falls back to the raw IPC command otherwise.
+  el.addEventListener("click", function () {
+    // Respect the right-click context menu — don't open on contextmenu.
+    if (document.body.classList.contains("is-arranging")) return;
+    var open = window.__zenith_openCalendar || function (e) {
+      invoke("open_calendar", { x: 0, y: 0 });
+    };
+    try { open(el); } catch (err) { /* swallow — UI never blocks the bar */ }
+  });
+
   function update() {
     var now = new Date();
     var timeOpts =

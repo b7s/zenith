@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="/zenith-icon.png" type="image/png" />
-    <title>Zenith - WinBar</title>
+    <style>.zen-window__content{animation:zf 300ms ease-out}@keyframes zf{from{opacity:0}to{opacity:1}}</style>
+    <title>Calendar</title>
     <script>document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";</script>
   </head>
-  <body data-window="bar">
-    <div id="bar-wrapper"><div id="bar"></div></div>
-    <script type="module" src="/src/windows/bar/main.ts"></script>
+  <body data-window="calendar">
+    <div id="root"></div>
+    <script type="module" src="/src/windows/calendar/main.ts"></script>
   </body>
 </html>

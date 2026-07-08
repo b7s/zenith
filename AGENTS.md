@@ -172,19 +172,24 @@ command name, search the repo for an existing one.** The rules below are mandato
 | Config load/save | `src/shared/config.ts` (TS) + `config/repository.rs` (Rust) | `loadConfig()`, `saveConfig()` |
 | Window material (Mica/Acrylic) | `window/transparency.rs` | `apply_material`, `apply_fixed_acrylic` |
 | AppBar | `window/appbar.rs` | `register_appbar`, `unregister_appbar` |
+| Monitor lookup + popup clamping | `window/monitor.rs` | `clamp_to_monitor`, `clamp_rect_to_monitor` (§13.14) |
 | Custom header + drag | `src/shared/window.ts` | `mountWindow()`, `enableDrag()` |
 | Icon rendering | `src/shared/icon.ts` | `setIcon()`, `applyIcons()` |
 | Per-window logging | `src/shared/log.ts` | `logInfo()`, `initLog()` |
 | Widget loading/layout | `src/shared/widgets.ts` | `layoutBar()`, `getWidgets()` |
 | Widget arrange / add / remove / move / drag-drop | `src/shared/widget-arrange.ts` | `addWidget()`, `applyArrangeUI()`, `setupBarDropZones()` |
-| `.zen-*` CSS components | `src/styles/components.css` | `.zen-button`, `.zen-input` |
+| `.zen-*` CSS components | `src/styles/components.css` | `.zen-button`, `.zen-input`, `.zen-icon-button` (see §6.1a) |
 | Arrange-mode CSS (sway, +/− buttons, drop-zones) | `src/styles/arrange.css` | `.zen-widget-btn`, `.is-drop-over` |
+| Per-window CSS overrides | `src/styles/<window-name>.css` (e.g. `calendar.css`) | **size/color modifiers ONLY** — must compose with `.zen-*` (see §6.1a) |
 | Rust `SetWindowPos` show pattern | `src-tauri/src/commands.rs::create_*_window` | the one `SWP_NOSIZE\|SWP_NOMOVE` call shape |
 
 #### Anti-patterns that are forbidden
 
 - **Inline-styling a control** (`style="..."`) when a `.zen-*` class exists for it. Add to
   `components.css` once instead.
+- **Re-implementing the close button** with a `.clothes-shop-window__close` carrying its own
+  `border`/`background`/`color`/`:hover` rules — inherit from `.zen-icon-button` +
+  `.zen-window__close` and override only `width`/`height`. See §6.1a.
 - **Re-implementing drag-and-drop / arrange logic** in a window's `main.ts`. It lives in
   `widget-arrange.ts`; import it.
 - **Calling `invoke("get_config")` directly.** Go through `shared/config.ts`.
@@ -521,8 +526,10 @@ Reusable classes:
 | `.zen-tabs` + `.zen-tab` (`.is-active`) | tabs |
 | `.zen-color-field` | swatch + hex (launches native Windows color picker) |
 | `.zen-button` (`.is-primary .is-outline .is-ghost .is-destructive`, sizes `.is-sm .is-lg`) | buttons |
+| `.zen-icon-button` | round ring-style icon button (used for nav chevrons, window close ×, popup close) |
 | `.zen-card` (+ `__header __title __content __footer`) | cards |
 | `.zen-section` / `.zen-divider` | layout grouping |
+| `.zen-window` (+ `__header __title-wrap __title __title-badge __search __search-icon __search-input __close __content __footer`) | frameless window chrome — header / search / content / footer layout, drag region via `enableDrag()` |
 
 Example (Settings field — correct):
 ```html
@@ -533,6 +540,47 @@ Example (Settings field — correct):
 </div>
 ```
 **Wrong** (do not do this): `<input style="appearance:none;background:#fff;border-radius:6px;...">`
+
+### 6.1a `.zen-*` lookup decision tree (use before writing ANY new CSS)
+
+Before adding a new class to `components.css` or any window/popup CSS, **walk this tree in order**:
+
+1. **Is there already a `.zen-*` class that does this?** Grep `src/styles/*.css` for the
+   concept (not just the name). Examples of common matches people miss:
+   - *Icon button*: `.zen-icon-button` — covers the ring-style background, hover, border, color.
+     **Use it for every `×` close, every nav chevron, every icon-only button.** Per-window CSS
+     then adds ONLY a size modifier (e.g. a popup's smaller `.cal-window__close { width: 1.5rem…
+     }`).
+   - *Window chrome*: `.zen-window` + `.zen-window__*` — header / close / content / footer.
+     Popups compose these instead of building fresh `.cal-window__*` classes.
+   - *Native select*: `.zen-select` + `.zen-select-wrapper`. Only deviate when the visual
+     contract is intentionally different (e.g. the calendar's tinted year picker).
+   - *Form layout*: `.zen-field` + `.zen-label` + `.zen-hint` are the canonical
+     label / control / helper stack; never nest a custom `.field-*` div with its own padding.
+2. **Is the existing class the wrong SIZE only?** Add a tiny size modifier class (e.g.
+   `.cal-nav { width: 1.5rem; height: 1.5rem }`) that inherits everything else. Do **not**
+   duplicate the background / border / color / hover rules.
+3. **Is the existing class the wrong VISUAL CONCEPT?** (e.g. the year picker is a tinted
+   primary button, not a `.zen-select`-style dropdown.) Use it, but document the deviation
+   with a comment that names the shared class you considered.
+4. **Nothing exists?** Add to `src/styles/components.css` as a `.zen-*` primitive and link
+   from the table above. Don't ship a window-only class as a substitute.
+
+**Forbidden duplication examples** (caught in review before, listed so reviewers can spot
+them instantly):
+- Defining `.cal-window__close` with `border`/`background`/`color`/`:hover` again —
+  inherit from `.zen-icon-button` + `.zen-window__close`, override only `width`/`height`.
+- Defining `.cal-window__content` with the full flex-stack — inherit from
+  `.zen-window__content`, override only `padding`/`gap`.
+- Defining `.cal-nav` from scratch — start from `.zen-icon-button`, override only the
+  size.
+- Building a custom popup `<header>` with `display:flex; justify-content:flex-end…` —
+  `.zen-window__header` already provides the flex layout; popups just override
+  `justify-content` / `padding` / `height`.
+
+**The mirror test.** If your new class shares three or more properties with an existing
+`.zen-*` class, you are duplicating — extract the common properties into the shared class
+or use composition (`class="zen-icon-button cal-window__close"`).
 
 ---
 
@@ -1119,33 +1167,43 @@ Fix is two-layered:
 This pattern must be used for **every** transparent window: bar,
 settings, widgets, dialog. See `commands.rs::create_*_window`.
 
-### 13.10b `SetWindowPos` show flags: ALWAYS include SWP_NOSIZE | SWP_NOMOVE
+### 13.10b `SetWindowPos` show flags: drop `SWP_NOACTIVATE` and keep `SWP_NOSIZE | SWP_NOMOVE`
 
-`SetWindowPos` interprets the `cx`/`cy` parameters as the new window
-size **only when `SWP_NOSIZE` is absent**, and `x`/`y` as the new
-position **only when `SWP_NOMOVE` is absent**. The common "show
-window, don't touch geometry" call passes `0, 0, 0, 0` for the
-position/size args — so without `SWP_NOSIZE | SWP_NOMOVE` the window
-is silently **resized to 0×0 and moved to (0,0)**.
+Two hard-won bugs live in the `SetWindowPos(...)` call every transparent
+window uses to reveal itself after the material has been applied:
 
-This bug caused the settings and widgets windows to open blank /
-appear frozen (JS ran to completion and logged `settings ready`, but
-the window had zero area so nothing was visible). The dialog window
-*appeared* to work because `mountDialog` → `fitWindow()` calls
-`getCurrentWindow().setSize()` after two `requestAnimationFrame`s,
-which recovered the 0×0 size — but that two-frame + IPC round-trip
-was exactly the content-show delay users saw.
+1. **Geometry bug.** `SetWindowPos` interprets the `cx`/`cy` parameters as
+   the new window size **only when `SWP_NOSIZE` is absent**, and `x`/`y`
+   as the new position **only when `SWP_NOMOVE` is absent**. The common
+   "show window, don't touch geometry" call passes `0, 0, 0, 0` for the
+   position/size args — so without `SWP_NOSIZE | SWP_NOMOVE` the window is
+   silently **resized to 0×0 and moved to (0,0)**. This bug caused the
+   settings and widgets windows to open blank / appear frozen (JS ran to
+   completion and logged `settings ready`, but the window had zero area so
+   nothing was visible). The dialog window *appeared* to work because
+   `mountDialog` → `fitWindow()` calls `getCurrentWindow().setSize()` after
+   two `requestAnimationFrame`s, which recovered the 0×0 size — but that
+   two-frame + IPC round-trip was exactly the content-show delay users saw.
 
-**Correct (every transparent window show):**
+2. **Focus bug.** `SWP_NOACTIVATE` tells `SetWindowPos` "show without
+   activating". Combined with the trailing `win.set_focus()` this RACES
+   Windows' foreground-window restriction rules: `SetForegroundWindow`
+   can be silently rejected if our process didn't recently have
+   foreground. Result: the popup window appears but is **not focused** —
+   keyboard input goes nowhere. Drop `SWP_NOACTIVATE` so the window is
+   properly activated on show. `set_focus()` then acts as a safety net,
+   not a race.
+
+**Correct (every transparent window show, bar/popup/settings/widgets/dialog/widget-config):**
 ```rust
 use windows::Win32::UI::WindowsAndMessaging::{
-    SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOACTIVATE,
+    SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER,
     SWP_NOSIZE, SWP_NOMOVE,
 };
 let hwnd = win.hwnd().map_err(|e| e.to_string())?;
 let _ = unsafe {
     SetWindowPos(hwnd, None, 0, 0, 0, 0,
-        SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE)
+        SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE)
 };
 let _ = win.set_focus();
 ```
@@ -1153,17 +1211,20 @@ let _ = win.set_focus();
 **Wrong** (resizes to 0×0, moves to top-left):
 ```rust
 SetWindowPos(hwnd, None, 0, 0, 0, 0,
-    SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE)  // missing SWP_NOSIZE | SWP_NOMOVE
+    SWP_SHOWWINDOW | SWP_NOZORDER)  // missing SWP_NOSIZE | SWP_NOMOVE
 ```
 
-Rule: any `SetWindowPos` call that only wants to change visibility
-or Z-order MUST pass `SWP_NOSIZE | SWP_NOMOVE` whenever the
-x/y/cx/cy args are zero/unused. Alternatively call
-`win.show().ok()` then `win.set_focus()` — Tauri wraps the same
-Win32 show without the geometry footgun, at the cost of losing the
-exact ordering guarantee against `apply_fixed_acrylic`. Prefer the
-`SetWindowPos` form for transparent windows so the
-material-then-show ordering in §13.10a is preserved.
+**Wrong** (appears but doesn't take foreground):
+```rust
+SetWindowPos(hwnd, None, 0, 0, 0, 0,
+    SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE)
+```
+
+Rule: any `SetWindowPos` call that only wants to change visibility or
+Z-order MUST pass `SWP_NOSIZE | SWP_NOMOVE` whenever the x/y/cx/cy args
+are zero/unused. And it MUST NOT pass `SWP_NOACTIVATE` if the window is
+expected to receive input immediately on open (which is every popup in
+this app — volume, calendar, settings, widgets, dialog, widget-config).
 
 ### 13.10 Unified dialog window for user input / confirmation
 
@@ -1279,6 +1340,56 @@ maximized windows cover the bar.
   safe to issue again; the shell treats it as a refresh).
 - Without this, killing explorer (or letting it crash) leaves the bar visible but no longer
   reserving space, so maximized windows cover it.
+
+### 13.14 Popup positioning must clamp to the target monitor
+
+Any popup-style window anchored to a bar widget — volume slider, calendar, future tooltips,
+menus, etc. — **must** clamp its final position to the monitor that contains the
+widget before calling `WebviewWindowBuilder::position(...)`. The single
+implementation lives in `src-tauri/src/window/monitor.rs::clamp_to_monitor`
+(re-exported as `window::monitor::clamp_to_monitor` / `window::clamp_to_monitor`).
+
+**Why:** `position()` does no clamping. On a multi-monitor setup (or any single
+monitor whose origin is not `(0, 0)` and any DPI scale ≠ 100%), naive
+positioning can place the popup partially off-screen — the user clicks a widget
+and sees a half-window.
+
+**Contract — every popup builder must do this:**
+
+```rust
+use crate::window;
+
+// Inside `create_*_window`:
+let win_w: i32 = 260;
+let win_h: i32 = 60;
+let (x, y, w, h) = window::clamp_to_monitor(
+    proposed_x, proposed_y, win_w, win_h,
+);
+
+tauri::WebviewWindowBuilder::new(app, label, url)
+    .inner_size(w as f64, h as f64)
+    .position(x as f64, y as f64)
+    .build()?;
+// then continue with the §13.10a material-after-build sequence
+```
+
+- `(proposed_x, proposed_y)` is the **bar-widget anchor** (the absolute OS-pixel
+  top-left of the widget that triggered the popup — usually computed by the
+  frontend and passed to the IPC command). `clamp_to_monitor` looks up the
+  monitor that contains that point, then snaps the popup's `(x, y)` so the
+  window is fully inside that monitor's `rcWork`.
+- The function preserves the requested `w`/`h`; if the size itself doesn't
+  fit a tiny work area, the work-area size is returned (callers should set a
+  `max_inner_size` that matches).
+- The helper works at the **(x, y) level**, not at the `HWND` level — it
+  resolves the owning monitor before any window is created, so it suits the
+  pre-builder position flow. There is also a convenience
+  `clamp_rect_to_monitor(RECT) -> RECT`.
+- **`appbar.rs::monitor_of`** stays private to the AppBar domain. Do NOT
+  reuse it for popups — AppBar placement intentionally covers the full
+  monitor width without clamping.
+- Already-applied: volume popup (`src-tauri/src/volume/commands.rs::create_volume_popup_window`).
+  New: calendar popup, see `src-tauri/src/calendar/commands.rs::create_calendar_window`.
 
 ---
 

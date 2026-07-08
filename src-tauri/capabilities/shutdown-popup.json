@@ -1,0 +1,13 @@
+{
+  "identifier": "shutdown-popup",
+  "description": "Capability for the shutdown popup window",
+  "windows": ["shutdown-popup"],
+  "webviews": ["shutdown-popup"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-effects"
+  ]
+}

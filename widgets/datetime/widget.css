@@ -5,6 +5,14 @@
   font-weight: 600;
   gap: 0.35em;
   white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  padding: 0 .25rem;
+  border-radius: .35rem;
+  transition: background 120ms ease;
+}
+.dt-wrap:hover {
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
 }
 
 .dt-time {

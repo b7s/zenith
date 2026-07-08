@@ -252,6 +252,14 @@ void (async () => {
   wrapper.append(form);
 })();
 
+// Close on Escape.
+document.addEventListener("keydown", async (e) => {
+  if (e.key === "Escape") {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().close().catch(() => {});
+  }
+});
+
 function buildControl(
   wrapper: HTMLElement,
   key: string,

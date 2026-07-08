@@ -28,6 +28,16 @@ void (async () => {
   (window as any).__zenith_listen = listen;
   (window as any).__zenith_applyIcons = applyIcons;
 
+  // Helper exposed to widget JS: opens the calendar popup anchored under
+  // the requesting widget element. Widgets call (e.g. the datetime widget)
+  // `window.__zenith_openCalendar(el)` from their IIFE; we forward through
+  // the shared positional helper in `widget-popup.ts`.
+  void import("../../shared/widget-popup").then((m) => {
+    (window as any).__zenith_openCalendar = (el: HTMLElement) => {
+      void m.openCalendarFromWidget(el);
+    };
+  });
+
   await time("applyTheme", () => applyTheme());
   watchSystemTheme(() => void applyTheme());
   applyIcons();

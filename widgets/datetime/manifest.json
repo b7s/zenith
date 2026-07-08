@@ -32,6 +32,12 @@
       "value": false,
       "label": "Show year",
       "hint": "Display the year in the date"
+    },
+    "show_next_month": {
+      "type": "bool",
+      "value": false,
+      "label": "Show next month in popup",
+      "hint": "Open the calendar with the current month and the next one side by side"
     }
   }
 }

@@ -1,8 +1,10 @@
 mod commands;
 mod battery;
+mod calendar;
 mod config;
 mod log;
 mod shared;
+mod shutdown;
 mod system_stats;
 mod tray;
 mod volume;
@@ -40,6 +42,14 @@ pub fn run() {
             volume::commands::set_volume,
             volume::commands::set_muted,
             volume::commands::open_volume_popup,
+            calendar::commands::open_calendar,
+            shutdown::commands::system_shutdown,
+            shutdown::commands::system_restart,
+            shutdown::commands::system_sleep,
+            shutdown::commands::system_hibernate,
+            shutdown::commands::system_lock,
+            shutdown::commands::system_logout,
+            shutdown::commands::open_shutdown_popup,
             battery::commands::get_battery_status,
             system_stats::commands::get_system_stats,
         ])

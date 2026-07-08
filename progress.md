@@ -23,7 +23,7 @@
 | Dialog system | ✅ | Unified dialog window (`dialog.html` + `mountDialog` + builder registry); no `prompt`/`confirm`/`alert` |
 | AppBar explorer-restart monitor | ✅ | Message-only window detects `TaskbarCreated`, re-registers AppBar automatically |
 | Workspace domain | ✅ | `winvd`-based virtual desktop management; rename, delete, create, switch via unified dialog; move/pin gated off |
-| Window creation pattern | ✅ | `visible(false)` → apply material → `SetWindowPos` with `SWP_NOSIZE\|SWP_NOMOVE` → `set_focus()` (white-flash fix) |
+| Window creation pattern | ✅ | `visible(false)` → apply material → `set_disable_transitions(DWMWA_TRANSITIONS_FORCEDISABLED)` → `SetWindowPos` with `SWP_NOSIZE\|SWP_NOMOVE` → `set_focus()` (white-flash + OS animation fix); synchronous `data-theme` via inline `<script>` (no theme flash) |
 
 ---
 
@@ -117,7 +117,8 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 - [x] **Battery** — Win32 `GetSystemPowerStatus`, icon variants (warning/low/medium/full/charging), hover tooltip shows percent + charging state
 - [x] **Volume** — system audio endpoint via `IAudioEndpointVolume` (Win32 API); icon changes with level/mute; scroll to adjust; right-click mute/unmute; click opens acrylic popup with `.zen-slider`; hover tooltip shows percent
 - [x] **Workspace** — virtual desktop dots (filled = active), click to switch; auto-hide if only 1 desktop; rename, delete, create via unified dialog; move/pin gated off (pending foreground HWND fix)
-- [x] **Date & Time** — configurable timezone (IANA), 12/24h format, show/hide date; generic widget-config window with gear button in Widget Manager
+- [x] **Date & Time** — configurable timezone (IANA), 12/24h format, show/hide date; generic widget-config window with gear button in Widget Manager; click widget → opens Apple-style acrylic calendar popup (transparent, click-outside-to-close, prev/next month, year `<select>` last 30 years, expands as user navigates)
+- [x] **Shutdown** — power action popup (shutdown/restart/sleep/hibernate/lock/logout) with two-step confirmation, translucent buttons, header close button via `mountWindow`; Lock (`LockWorkStation`), Logout (`EWX_LOGOFF`); uses `set_disable_transitions` + inline theme sync for instant open
 - [ ] **System stats** — CPU/RAM mini graphs
 
 ---
@@ -125,6 +126,8 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 ## Phase 5 — Polish
 
 - [x] Native right-click context menu on bar (Win32 `popup_menu` API, `show_context_menu` / `show_workspace_context_menu` commands)
+- [x] Popup focus fix — 500ms delay before `set_focus()` on all popup windows to beat Windows foreground rules
+- [x] Instant popup open — `DWMWA_TRANSITIONS_FORCEDISABLED` disables OS fade animation; `.zen-window__content` CSS fade-in (120ms) provides smooth entry without lag
 - [ ] Custom CSS injection (`%APPDATA%\zenith\custom.css`, hot-reload)
 - [ ] Multi-monitor support (config schema supports `MonitorsSelection`, AppBar handles monitor-of; frontend UI missing)
 - [ ] Motion domain (model/config exists in `MotionConfig`; runtime domain not yet wired)

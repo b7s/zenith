@@ -35,7 +35,7 @@ body[data-window="bar"] {
 .bar-zone {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
   flex: 1 1 0;
   min-width: 0;
   height: 100%;

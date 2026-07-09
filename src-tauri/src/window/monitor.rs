@@ -50,6 +50,7 @@
 use windows::Win32::Foundation::{POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    MONITOR_DEFAULTTOPRIMARY,
 };
 
 /// Look up the work-area rectangle of the monitor that contains the given
@@ -125,6 +126,50 @@ pub fn clamp_rect_to_monitor(rect: RECT) -> RECT {
         top: y,
         right: x + w,
         bottom: y + h,
+    }
+}
+
+/// Convenience: return the OS-pixel `(x, y)` for a window of size `w × h` so
+/// the window sits dead-center in the **primary monitor's work area**. The
+/// primary monitor is selected with `MONITOR_DEFAULTTOPRIMARY`, so this
+/// works even when no other window is currently found anywhere.
+///
+/// Kept as a library helper for call-sites that don't have a natural anchor
+/// point (e.g. one-shot confirmations). The dialog window currently uses
+/// [`center_on_monitor_at`] with an anchor instead; this fallback is
+/// here so future popups don't have to reinvent it.
+#[allow(dead_code)]
+pub fn center_on_primary_monitor(w: i32, h: i32) -> (i32, i32) {
+    center_on_monitor_at(None, w, h)
+}
+
+/// Same as [`center_on_primary_monitor`] but lets the caller pick the
+/// monitoring point. `anchor` is a `(x, y)` in virtual-screen OS pixels;
+/// the dialog centers on the work area of the monitor containing that
+/// point. Pass `None` (or anything outside any monitor) to fall back
+/// to the primary monitor explicitly via `MONITOR_DEFAULTTOPRIMARY`.
+pub fn center_on_monitor_at(anchor: Option<(i32, i32)>, w: i32, h: i32) -> (i32, i32) {
+    unsafe {
+        let flag = match anchor {
+            Some(_) => MONITOR_DEFAULTTONEAREST,
+            None => MONITOR_DEFAULTTOPRIMARY,
+        };
+        let (ax, ay) = anchor.unwrap_or((0, 0));
+        let pt = POINT { x: ax, y: ay };
+        let hmon = MonitorFromPoint(pt, flag);
+        #[allow(function_casts_as_integer)]
+        let mut mi = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO> as u32,
+            ..Default::default()
+        };
+        if GetMonitorInfoW(hmon, &mut mi).as_bool() {
+            let work = mi.rcWork;
+            let x = work.left + ((work.right - work.left) - w) / 2;
+            let y = work.top + ((work.bottom - work.top) - h) / 2;
+            (x.max(work.left), y.max(work.top))
+        } else {
+            (0, 0)
+        }
     }
 }
 

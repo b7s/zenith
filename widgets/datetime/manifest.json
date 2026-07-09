@@ -38,6 +38,24 @@
       "value": false,
       "label": "Show next month in popup",
       "hint": "Open the calendar with the current month and the next one side by side"
+    },
+    "show_events": {
+      "type": "bool",
+      "value": true,
+      "label": "Show event dots",
+      "hint": "Show dots on days with alarms or events in the calendar popup"
+    },
+    "delete_old_events_days": {
+      "type": "int",
+      "value": 90,
+      "label": "Delete past events after (days)",
+      "hint": "One-shot events older than this are removed automatically"
+    },
+    "onedrive_sync_enabled": {
+      "type": "bool",
+      "value": false,
+      "label": "Sync events to OneDrive",
+      "hint": "Back up your events to <OneDrive>/Zenith/calendar-events.json"
     }
   }
 }

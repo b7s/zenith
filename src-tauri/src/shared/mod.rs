@@ -38,3 +38,13 @@ pub const EVENT_APPEARANCE_CHANGED: &str = "zenith:appearance-changed";
 pub const EVENT_WIDGETS_CHANGED: &str = "zenith:widgets-changed";
 #[allow(dead_code)]
 pub const EVENT_WORKSPACE_CHANGED: &str = "zenith:workspace-changed";
+pub const EVENT_EVENTS_UPDATED: &str = "zenith:events-updated";
+/// Emitted to the calendar popup window to switch its view mode
+/// (`"calendar"` | `"events"`) when the window is reused across
+/// callers (e.g. datetime widget → 2-month grid, then alarms widget →
+/// events list). On a fresh open the view is seeded via the
+/// `__ZENITH_CALENDAR_VIEW` init script; this event handles the
+/// reuse case where the init script does not re-run.
+pub const EVENT_CALENDAR_VIEW: &str = "zenith:calendar-view";
+
+pub mod known_folders;

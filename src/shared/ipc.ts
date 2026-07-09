@@ -31,6 +31,11 @@ export const CMD = {
   toggleAirplane: "toggle_airplane",
   toggleNightLight: "toggle_night_light",
   getQuickToggleStatus: "get_quick_toggle_status",
+  getEvents: "get_events",
+  addEvent: "add_event",
+  updateEvent: "update_event",
+  deleteEvent: "delete_event",
+  syncEvents: "sync_events",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

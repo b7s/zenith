@@ -615,6 +615,7 @@ component must use `.zen-*` CSS classes exclusively.
 |---|---|---|
 | `window.ts` | `mountWindow(opts)` | Builds header + content; returns `{ root, content, search }` |
 | `tabs.ts` | `mountTabs(parent, TabDef[], initialId?)` | Builds tab bar + panes; returns `{ container, panes, switchTo, activeId }` |
+| `filter-pills.ts` | `mountFilterPills(parent, PillDef[], initialId?)` | Segmented pill toggle (All / X / Y); returns `{ container, switchTo, activeId }` |
 | `icon.ts` | `setIcon(el, name, opts?)`, `applyIcons(root?)` | Renders Lucide SVG sprite or Win32 glyph |
 | `config.ts` | `loadConfig()`, `saveConfig(cfg)`, `getConfigValue()` | Typed config client |
 | `log.ts` | `initLog()`, `logInfo/Warn/Error()`, `logMemory()`, `time()` | Per-window file logging |
@@ -645,6 +646,81 @@ Rules:
 4. **Event delegation over binding.** Attach one listener to the component root
    instead of one per child element. This avoids memory churn from closure allocation.
 5. **Use `.zen-*` classes exclusively.** Never inline styles or hardcode colors in TS.
+
+#### Segmented filter pills (`src/shared/filter-pills.ts`)
+
+Use `mountFilterPills` when a window needs a small horizontal segmented control
+above a list/grid where **exactly one** option is active at a time — typically
+2–6 mutually-exclusive "view modes" of the same dataset.
+
+**Use this when:**
+
+- Filtering a single list by a facet: `All / Event / Alarm`, `Active / Done`,
+  `Today / Week / Month`, `Logs / Errors / Warns / Info`.
+- Switching the visualization of one dataset without leaving the page
+  (`List / Grid`, `Compact / Detailed`).
+- You need the active state to live across re-renders (the mount is
+  idempotent — mount once, then call `switchTo` on every render to sync the
+  active class).
+
+**Do NOT use this when:**
+
+- You need **multi-select** (independent toggles stacked horizontally) — that's a
+  checkbox group, not a filter pill.
+- You need **navigation between distinct pages** (e.g. switching "Settings" → "About")
+  — that's `mountTabs`, which pairs buttons with panels (`zen-tab-pane`).
+- You need >6 options — a `zen-select` is more compact.
+- The choice is **destructive or one-shot** (Save / Delete / Confirm) — use
+  `.zen-button` variants instead.
+
+**How it works:**
+
+```ts
+import { mountFilterPills, type FilterPillsMount } from "@/shared/filter-pills";
+
+type Mode = "all" | "event" | "alarm";
+let mode: Mode = "all";
+const wrap = document.createElement("div");
+const pills = mountFilterPills<Mode>(wrap, [
+  { id: "all",   label: "All" },
+  { id: "event", label: "Event" },
+  { id: "alarm", label: "Alarm" },
+], mode);
+
+// Controlled state — `mountFilterPills` toggles `is-active` for you, but the
+// caller decides what to do with the id. Listen via event delegation on the
+// returned container (or override the click listener entirely).
+pills.container.addEventListener("click", (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-pill-id]");
+  if (!btn) return;
+  const next = btn.dataset.pillId as Mode;
+  if (next === mode) return;
+  mode = next;
+  render(); // your list/grid rebuilds with the new filter
+});
+
+// To re-sync class state without changing the id (e.g. after config reload):
+pills.switchTo(mode);
+```
+
+**Visual contract** (lives in `src/styles/components.css`):
+
+- `.zen-filter-pills` — pill-rounded container, transparent fill so the window's
+  Acrylic/Mica shows through (`color-mix(in oklch, var(--card) 35%, transparent)`).
+- `.zen-filter-pill` — 1.5rem tall, `1.5rem`-rounded. Hover = soft accent bg;
+  active = primary fill + primary-tinted border.
+- All animations are `transition` on `background`, `color`, and `border-color`
+  only — compositor-only properties per §8.
+- The container takes its size from its parent (it's `display: inline-flex`).
+
+**Mirrors the `mountTabs` API exactly** so swapping between the two is a one-line
+change if you realize mid-build that you wanted the wrong one. The key visual
+difference: tabs are anchored to a bottom border (page chrome), pills float
+(pure filter).
+
+**Reference consumer:** `src/windows/calendar/main.ts::renderEventsView` — the
+shared module is mounted once outside the render loop, `switchTo` is called on
+every re-render to keep the active class in sync without rebuilding the DOM.
 
 ## 7. Transparency contract (Windows Acrylic/Mica)
 

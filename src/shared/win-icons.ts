@@ -21,6 +21,19 @@ export const WIN_GLYPHS: Record<string, string> = {
   "now-playing": "\uE8D6",
   weather: "\uE9FC",
   activity: "\uECAF",
+  "alarm-clock": "\uE823",
+  plus: "\uE710",
+  "plus-circle": "\uE710",
+  pencil: "\uE70F",
+  edit: "\uE70F",
+  trash: "\uE74D",
+  "trash-2": "\uE74D",
+  delete: "\uE74D",
+  list: "\uE8FD",
+  "list-bullet": "\uE8FD",
+  events: "\uE787",
+  calendar: "\uE787",
+  "calendar-search": "\uE787",
 };
 
 export const DEFAULT_WIN_GLYPH = "\u25A0";

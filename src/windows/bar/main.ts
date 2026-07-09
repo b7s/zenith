@@ -1,6 +1,6 @@
 import "../../styles/bar-globals.css";
 import { applyTheme, watchSystemTheme } from "../../shared/window";
-import { applyIcons } from "../../shared/icon";
+import { applyIcons, setIcon } from "../../shared/icon";
 import { loadConfig } from "../../shared/config";
 import { layoutBar } from "../../shared/widgets";
 import { invoke } from "@tauri-apps/api/core";
@@ -27,6 +27,7 @@ void (async () => {
   (window as any).__zenith_invoke = invoke;
   (window as any).__zenith_listen = listen;
   (window as any).__zenith_applyIcons = applyIcons;
+  (window as any).__zenith_setIcon = setIcon;
 
   // Helper exposed to widget JS: opens the calendar popup anchored under
   // the requesting widget element. Widgets call (e.g. the datetime widget)

@@ -25,6 +25,7 @@ export default defineConfig({
         "widget-config": resolve(__dirname, "widget-config.html"),
         calendar: resolve(__dirname, "calendar.html"),
         "shutdown-popup": resolve(__dirname, "shutdown-popup.html"),
+        "alarm-popup": resolve(__dirname, "alarms/alarm-popup.html"),
       },
     },
   },

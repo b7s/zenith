@@ -1,5 +1,12 @@
 import type { DialogOptions, DialogContext, DialogAction } from "./base";
+import type { CalendarEvent } from "../../shared/types";
 import { registerDialog } from "./registry";
+import { buildEventForm, type BuiltEventForm } from "../calendar/event-form";
+// The event_edit builder renders calendar-specific controls (`.cal-event-form`,
+// `.cal-weekday-btn`, …) whose styles live in `calendar.css`. The dialog
+// window only loads `globals.css` by default, so we import the calendar
+// styles here — the only dialog builder that needs them.
+import "../calendar/calendar.css";
 
 function action(
   label: string,
@@ -102,9 +109,51 @@ function deleteBuilder(data: unknown): DialogOptions {
   };
 }
 
+function eventEditBuilder(data: unknown): DialogOptions {
+  const payload = (data as { event?: CalendarEvent | null } | null) ?? null;
+  const existing = payload?.event ?? null;
+
+  let form: BuiltEventForm | null = null;
+
+  const body = (): HTMLElement => {
+    form = buildEventForm(existing);
+    return form.root;
+  };
+
+  const actions: DialogAction[] = [
+    action("Cancel", "outline", (ctx) => ctx.close()),
+    action(existing ? "Save" : "Add", "primary", async (ctx: DialogContext) => {
+      if (!form) return false;
+      const values = form.read();
+      if (!values) return false; // title empty — keep dialog open
+      try {
+        if (existing) {
+          await ctx.invoke("update_event", { event: { ...existing, ...values } });
+        } else {
+          await ctx.invoke("add_event", { event: values });
+        }
+        return true;
+      } catch (e) {
+        console.error("[event_edit] IPC failed:", e);
+        return false;
+      }
+    }, { autofocus: true }),
+  ];
+
+  return {
+    title: existing ? "Edit Event" : "New Event",
+    data,
+    body,
+    actions,
+    disableContextMenu: true,
+    closeOnEscape: true,
+  };
+}
+
 export function registerBuiltins(): void {
   registerDialog("rename", renameBuilder);
   registerDialog("delete", deleteBuilder);
+  registerDialog("event_edit", eventEditBuilder);
 }
 
 registerBuiltins();

@@ -1,0 +1,145 @@
+.al-root {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  user-select: none;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.al-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  opacity: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition:
+    opacity 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    background 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 120ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.al-chip:hover {
+  opacity: 1;
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
+}
+.al-chip:active {
+  transform: scale(0.92);
+}
+
+.al-chip-ic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.al-info {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+  padding-left: 0.25rem;
+  white-space: nowrap;
+  min-width: 0;
+  width: 12rem;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* When the title is hidden (config `show_label: false` or no title set),
+ * shrink to the time content so the bar doesn't carry an empty slot. */
+.al-info.is-time-only {
+  width: auto;
+  max-width: none;
+}
+
+.al-next {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--foreground);
+  flex: 0 0 auto;
+  line-height: 1.2;
+}
+
+/* The label renders the alarm title with a leading "·" separator.
+ * The pseudo is hidden when the label itself is hidden (display:none)
+ * so we don't get an orphan bullet next to the time.
+ * `.al-info` owns the truncation — label flex-shrinks so the trailing
+ * chars ellipsis cleanly while still keeping the leading "·" bullet. */
+.al-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  font-weight: 600;
+}
+.al-label::before {
+  content: "·";
+  margin-right: 0.3em;
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+}
+
+/* Soon dot — small indicator anchored at `.al-next`'s top-left corner
+ * when the current alarm is within `SOON_WINDOW_MS` of `now`. 1px
+ * foreground border, danger fill. The parent `.al-next` gets
+ * `position: relative` so the dot sits neatly above the baseline. */
+.al-soon-dot {
+  position: absolute;
+  top: -0.25rem;
+  left: -0.15rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 70%, transparent);
+  background: var(--danger);
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  will-change: transform, opacity;
+  z-index: 1;
+}
+.al-soon-dot.is-on {
+  opacity: 1;
+  transform: scale(1);
+}
+.al-next {
+  position: relative;
+}
+
+/* Staggered entrance. Time animates with a subtle upward push-fade;
+ * the title follows 175ms later with a simple fade (no translate) so
+ * the label feels lighter. Both are opacity + transform only —
+ * compositor-friendly per §8. */
+@keyframes al-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes al-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.al-next--enter {
+  animation: al-rise-in 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.al-label--enter {
+  animation: al-fade-in 750ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-delay: 175ms;
+}

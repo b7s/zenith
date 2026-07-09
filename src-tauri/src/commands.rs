@@ -17,16 +17,49 @@ static DIALOG_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
 
 /// Unified dialog state passed to the dialog window via `get_dialog_data`.
 /// `kind` selects the body builder; `data` is opaque JSON for that builder.
+/// `width` and `height` request a fixed OS-pixel size (default 320×200),
+/// centered on the primary monitor. Specifying both `width` and `height`
+/// is encouraged for dialogs that have a known layout (e.g. event edit);
+/// callers can leave them out for the legacy auto-fit behaviour.
+///
+/// `anchor_x` / `anchor_y` optionally position the anchor (a point in
+/// virtual screen coordinates) used to select which monitor hosts the
+/// dialog. The dialog is centered on the *work area* of the monitor
+/// containing the anchor — so callers opening a dialog from a popup
+/// aligned under a bar widget can keep the dialog on that same monitor
+/// instead of jumping to the primary. Omit both to fall back to the
+/// primary monitor (default).
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
 pub struct DialogSpec {
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub data: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub height: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub anchor_x: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub anchor_y: Option<i32>,
+}
+
+impl DialogSpec {
+    fn size(&self) -> (u32, u32) {
+        (self.width.unwrap_or(320), self.height.unwrap_or(200))
+    }
 }
 
 static DIALOG_STATE: OnceLock<Mutex<DialogSpec>> = OnceLock::new();
 fn dialog_state() -> &'static Mutex<DialogSpec> {
-    DIALOG_STATE.get_or_init(|| Mutex::new(DialogSpec { kind: String::new(), data: None }))
+    DIALOG_STATE.get_or_init(|| Mutex::new(DialogSpec {
+        kind: String::new(),
+        data: None,
+        width: None,
+        height: None,
+        anchor_x: None,
+        anchor_y: None,
+    }))
 }
 
 const MI_SETTINGS: &str = "ctx-settings";
@@ -131,6 +164,10 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
             let spec = DialogSpec {
                 kind: "rename".into(),
                 data: Some(serde_json::json!([id, current_name])),
+                width: None,
+                height: None,
+                anchor_x: None,
+                anchor_y: None,
             };
             let app2 = app.clone();
             tauri::async_runtime::spawn(async move {
@@ -148,6 +185,10 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
             let spec = DialogSpec {
                 kind: "delete".into(),
                 data: Some(serde_json::json!(id)),
+                width: None,
+                height: None,
+                anchor_x: None,
+                anchor_y: None,
             };
             let app2 = app.clone();
             tauri::async_runtime::spawn(async move {
@@ -226,24 +267,43 @@ fn create_dialog_window(app: &tauri::AppHandle, spec: &DialogSpec) -> Result<(),
     // `window.__zenith_dialog_spec` BEFORE the page parse. The dialog's
     // `main.ts` reads it synchronously and renders on first paint — no IPC
     // roundtrip to `get_dialog_data`, no `await invoke(...)` latency.
+    // When the caller specifies a concrete width/height, skip the frontend
+    // `fitWindow()` resize and freeze the size — otherwise it would reflow
+    // the dialog back to content size and lose the requested 400×600 (etc.)
+    // centering.
+    let fixed = spec.width.is_some() || spec.height.is_some();
     let spec_json = serde_json::to_string(spec).unwrap_or_else(|_| r#"{"kind":"unknown","data":null}"#.into());
     let init_js = format!(
         r#"window.__zenith_dialog_spec = {spec_json};
 Object.freeze(window.__zenith_dialog_spec);
 window.__ZENITH_DIALOG_KIND = {kind_json};
-Object.freeze(window.__ZENITH_DIALOG_KIND);"#,
+Object.freeze(window.__ZENITH_DIALOG_KIND);
+window.__ZENITH_DIALOG_FIXED = {fixed_json};
+Object.freeze(window.__ZENITH_DIALOG_FIXED);"#,
         spec_json = spec_json,
         kind_json = serde_json::to_string(&spec.kind).unwrap_or_else(|_| "\"unknown\"".into()),
+        fixed_json = if fixed { "true" } else { "false" },
     );
+    let (w, h) = spec.size();
+    // Center on the monitor containing the anchor (typically the bar widget
+    // that triggered the dialog). Falls back to the primary monitor when
+    // no anchor was supplied.
+    let anchor = match (spec.anchor_x, spec.anchor_y) {
+        (Some(x), Some(y)) => Some((x, y)),
+        _ => None,
+    };
+    let (cx, cy) = window::monitor::center_on_monitor_at(anchor, w as i32, h as i32);
+
     let win = tauri::WebviewWindowBuilder::new(
         app,
         &label,
         tauri::WebviewUrl::App("dialog.html".into()),
     )
     .title(&spec.kind)
-    .inner_size(320.0, 200.0)
+    .inner_size(w as f64, h as f64)
     .min_inner_size(280.0, 120.0)
-    .max_inner_size(600.0, 600.0)
+    .max_inner_size(820.0, 800.0)
+    .position(cx as f64, cy as f64)
     .resizable(false)
     .decorations(false)
     .transparent(true)

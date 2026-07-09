@@ -1,3 +1,4 @@
+mod events;
 mod commands;
 mod battery;
 mod calendar;
@@ -44,6 +45,8 @@ pub fn run() {
             volume::commands::set_muted,
             volume::commands::open_volume_popup,
             calendar::commands::open_calendar,
+            calendar::commands::get_calendar_view,
+            calendar::commands::get_calendar_single,
             shutdown::commands::system_shutdown,
             shutdown::commands::system_restart,
             shutdown::commands::system_sleep,
@@ -60,6 +63,11 @@ pub fn run() {
             quick_toggle::commands::toggle_airplane,
             quick_toggle::commands::toggle_night_light,
             quick_toggle::commands::get_quick_toggle_status,
+            events::commands::get_events,
+            events::commands::add_event,
+            events::commands::update_event,
+            events::commands::delete_event,
+            events::commands::sync_events,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)
@@ -83,6 +91,13 @@ pub fn run() {
             }
 
             let _ = tray::create(&handle);
+
+            // Events domain — startup sync picks newer of local vs OneDrive,
+            // then spawn the alarm-firing thread (every 30s) and the cleanup
+            // thread (every 12h).
+            events::repository::startup_sync(&handle);
+            events::alarm_fire::spawn(handle.clone());
+            events::cleanup::spawn(handle.clone());
 
             let h = handle.clone();
             std::thread::spawn(move || {

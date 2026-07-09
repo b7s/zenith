@@ -78,3 +78,10 @@ export async function openCalendarFromWidget(widget: HTMLElement): Promise<void>
   const { x, y } = await popupAnchorUnderWidget(widget, popupW, 4);
   await invoke(CMD.openCalendar, { x, y, wide });
 }
+
+/** Open the calendar popup in events-only mode (no month grid, used by the
+ *  alarms widget). Centered under the trigger widget. */
+export async function openEventsPopupFromWidget(widget: HTMLElement, popupW = 320): Promise<void> {
+  const { x, y } = await popupAnchorUnderWidget(widget, popupW, 4);
+  await invoke(CMD.openCalendar, { x, y, wide: false, mode: "events" });
+}

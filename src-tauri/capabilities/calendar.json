@@ -8,6 +8,8 @@
     "core:window:default",
     "core:window:allow-close",
     "core:window:allow-set-focus",
-    "core:window:allow-set-effects"
+    "core:window:allow-set-effects",
+    "core:event:default",
+    "core:event:allow-listen"
   ]
 }

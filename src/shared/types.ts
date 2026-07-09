@@ -83,3 +83,26 @@ export interface WidgetSource {
   css: string;
   js: string;
 }
+
+export type EventKind = "event" | "alarm";
+export type Recurrence = "none" | "daily" | "weekly" | "monthly";
+
+/** Mirrored in `src-tauri/src/events/model.rs::CalendarEvent`. */
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  /** ISO-8601 "YYYY-MM-DD". */
+  date: string;
+  /** "HH:MM" or null for all-day. */
+  time: string | null;
+  kind: EventKind;
+  recurrence: Recurrence;
+  /** Weekly recurrence bitmask: bit0=Sun, bit1=Mon, ..., bit6=Sat. */
+  weekdays: number;
+  enabled: boolean;
+  /** Epoch seconds — used for sync conflict resolution. */
+  created_at: number;
+  updated_at: number;
+  /** Free-text notes. */
+  notes: string;
+}

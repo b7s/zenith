@@ -1,0 +1,42 @@
+{
+  "id": "alarms",
+  "name": "Alarms",
+  "version": "1.0.0",
+  "description": "Shows the next upcoming alarm",
+  "default_zone": "right",
+  "icon": "alarm-clock",
+  "min_width": 28,
+  "preview": "<span class=\"al-root\"><span class=\"al-chip\"><span class=\"al-chip-ic\" data-icon=\"alarm-clock\" data-size=\"12\"></span></span><span class=\"al-info\"><span class=\"al-next\">07:00</span></span></span>",
+  "config": {
+    "show_label": {
+      "type": "bool",
+      "value": true,
+      "label": "Show alarm label",
+      "hint": "Display the alarm name next to the time"
+    },
+    "show_when_no_alarms": {
+      "type": "bool",
+      "value": true,
+      "label": "Show when no alarms",
+      "hint": "Keep the widget visible even when no alarms are set"
+    },
+    "sound_enabled": {
+      "type": "bool",
+      "value": true,
+      "label": "Play sound on alarm",
+      "hint": "Play a system sound when an alarm fires"
+    },
+    "rotate_upcoming": {
+      "type": "bool",
+      "value": true,
+      "label": "Rotate upcoming alarms",
+      "hint": "When more than one alarm is queued, cycle through the next five on the bar"
+    },
+    "rotate_seconds": {
+      "type": "int",
+      "value": 15,
+      "label": "Rotation interval (seconds)",
+      "hint": "1 or more. Time between alarm swaps on the bar"
+    }
+  }
+}

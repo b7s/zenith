@@ -1,0 +1,13 @@
+{
+  "identifier": "alarm-popup",
+  "description": "Capability for the alarm-firing notification popup window",
+  "windows": ["alarm-popup-*"],
+  "webviews": ["alarm-popup-*"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-effects"
+  ]
+}

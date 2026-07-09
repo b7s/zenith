@@ -164,11 +164,13 @@ export async function mountDialog(opts: DialogOptions): Promise<void> {
 
   let sizing = false;
   let lastW = 0, lastH = 0;
+  const fixedSize =
+    (window as unknown as { __ZENITH_DIALOG_FIXED?: boolean }).__ZENITH_DIALOG_FIXED === true;
   function fitWindow() {
     void doFit();
   }
   async function doFit() {
-    if (sizing) return;
+    if (sizing || fixedSize) return;
     const maxW = 600, maxH = 600;
     const defaultW = 320, defaultH = 200;
     const headerH = 44;
@@ -188,6 +190,8 @@ export async function mountDialog(opts: DialogOptions): Promise<void> {
     } catch {}
     finally { sizing = false; }
   }
-  requestAnimationFrame(() => requestAnimationFrame(fitWindow));
-  window.addEventListener("resize", fitWindow);
+  if (!fixedSize) {
+    requestAnimationFrame(() => requestAnimationFrame(fitWindow));
+    window.addEventListener("resize", fitWindow);
+  }
 }

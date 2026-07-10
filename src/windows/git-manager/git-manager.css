@@ -79,6 +79,8 @@
 .gm-state-chip.is-github   { background: color-mix(in oklch, #6e40c9 70%, transparent); color: white; }
 .gm-state-chip.is-gitlab   { background: color-mix(in oklch, #fc6d26 70%, transparent); color: white; }
 .gm-state-chip.is-bitbucket { background: color-mix(in oklch, #0052cc 70%, transparent); color: white; }
+.gm-state-chip.is-forgejo  { background: color-mix(in oklch, #3853a3 70%, transparent); color: white; }
+.gm-state-chip.is-gitea    { background: color-mix(in oklch, #609926 70%, transparent); color: white; }
 
 .gm-draft {
   font-size: 0.625rem;

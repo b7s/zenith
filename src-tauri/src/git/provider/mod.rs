@@ -10,6 +10,7 @@ pub mod github;
 pub mod gitlab;
 pub mod bitbucket;
 pub mod bitbucket_server;
+pub mod forgejo;
 
 use crate::git::model::{AcctInventory, GitAccount};
 
@@ -25,6 +26,7 @@ pub fn inventory_for(account: &GitAccount, token: &str) -> InventoryResult {
     match provider {
         "github" => github::inventory(account, token),
         "gitlab" => gitlab::inventory(account, token),
+        "forgejo" | "gitea" => forgejo::inventory(account, token),
         "bitbucket" if has_host => bitbucket_server::inventory(account, token),
         "bitbucket" => bitbucket::inventory(account, token),
         other => Err(format!("unknown provider: {other}")),

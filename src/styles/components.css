@@ -25,6 +25,11 @@
 .zen-button:active {
   opacity: 0.8;
 }
+.zen-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 .zen-button.is-outline {
   background: color-mix(in oklch, var(--background) 30%, transparent);
   color: var(--foreground);

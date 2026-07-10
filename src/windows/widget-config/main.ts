@@ -473,7 +473,7 @@ function buildAccountsControl(
 
     const provider = document.createElement("select");
     provider.className = "zen-select";
-    for (const pv of ["github", "gitlab", "bitbucket"]) {
+    for (const pv of ["github", "gitlab", "forgejo", "gitea", "bitbucket"]) {
       const opt = document.createElement("option");
       opt.value = pv;
       opt.textContent = pv.charAt(0).toUpperCase() + pv.slice(1);
@@ -505,6 +505,8 @@ function buildAccountsControl(
       const hints: Record<string, string> = {
         github: "Fine-grained personal access token (read-only). Create at GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens. Needs Actions, Contents & Pull requests: read access.",
         gitlab: "Personal access token with read_api scope. Create at GitLab Settings → Access Tokens.",
+        forgejo: "Personal access token with repo read access. Create at Forgejo Settings → Applications → Manage Access Tokens. Also works for any Gitea instance.",
+        gitea: "Personal access token with repo read access. Create at Gitea Settings → Applications → Manage Access Tokens.",
         bitbucket: "App password, API token, or repository access token. Uses HTTP Basic auth. If using an access token, any username works — we try x-token-auth automatically on 401.",
       };
       tokenHint.textContent = hints[pv] ?? "Personal access token with read-only access.";
@@ -515,7 +517,9 @@ function buildAccountsControl(
     function updateHostHint(pv: string): void {
       hostHint.textContent = pv === "github" || pv === "gitlab"
         ? "Leave blank for cloud. For self-hosted, enter the base URL (e.g. https://gitlab.example.com)."
-        : "Leave blank for Bitbucket Cloud. For self-hosted Bitbucket Server, enter the base URL (e.g. https://bitbucket.example.com).";
+        : pv === "forgejo" || pv === "gitea"
+          ? "Required. Enter the instance base URL (e.g. https://codeberg.org or https://git.example.com)."
+          : "Leave blank for Bitbucket Cloud. For self-hosted Bitbucket Server, enter the base URL (e.g. https://bitbucket.example.com).";
     }
 
     const hostUrl = document.createElement("input");

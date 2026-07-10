@@ -410,6 +410,7 @@
  * `.cal-event-list` gap; no need for a margin on the container — the parent
  * sets the layout. */
 .zen-filter-pills {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -449,6 +450,34 @@
 .zen-filter-pill:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
+}
+
+/* Overflow "More" button + dropdown (auto-added by mountFilterPills when the
+ * pills exceed the available width — see §6.2 / filter-pills.ts). */
+.zen-filter-pill-more {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+.zen-filter-pills__menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.25rem;
+  min-width: 9rem;
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--popover, var(--card)) 95%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  box-shadow: 0 8px 24px color-mix(in oklch, var(--shadow, #000) 35%, transparent);
+  backdrop-filter: blur(10px) saturate(160%);
+}
+.zen-filter-pills__menu .zen-filter-pill {
+  width: 100%;
+  justify-content: flex-start;
+  flex-shrink: 0;
 }
 
 .zen-tabs {

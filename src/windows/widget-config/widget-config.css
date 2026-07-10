@@ -13,7 +13,10 @@
   color: var(--foreground);
 }
 
-/* Push the filter pills to the right, after the title. */
+/* Push the filter pills to the right, after the title, and let them shrink
+ * so mountFilterPills can collapse overflow into its "More" dropdown. */
 .wc-cred-pills {
   margin-left: auto;
+  flex: 1 1 auto;
+  min-width: 0;
 }

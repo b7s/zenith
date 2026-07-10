@@ -746,6 +746,34 @@ change if you realize mid-build that you wanted the wrong one. The key visual
 difference: tabs are anchored to a bottom border (page chrome), pills float
 (pure filter).
 
+**Overflow → "More" dropdown (automatic — no caller work):**
+
+When the pills exceed the width of their container, `mountFilterPills` keeps the
+**active** pill visible and collapses the rightmost non-active pills into a
+"More ▾" dropdown anchored to the pill bar (`.zen-filter-pills__menu`). Selecting
+an item — or resizing the window — re-distributes the pills so nothing is ever
+cut off or lost. The dropdown items are real `.zen-filter-pill` elements with
+`data-pill-id`, so the existing click delegation (and the consumer's own
+`container` click listener) keep working unchanged. This is global: the git-manager
+account filter and the git widget-config provider filter both stay usable with
+many options because they share this one implementation.
+
+For overflow to trigger, the pills' container must be **width-constrained** — it
+must have a bounded width to measure against. The component measures
+`parent.clientWidth` (the element passed to `mountFilterPills`). Give that parent
+`flex: 1 1 auto; min-width: 0;` and let it live in a bounded flex row. **Never set
+`overflow: hidden` on that parent** — it would clip the dropdown; the component
+collapses pills *instead* of clipping, so the dropdown always has room to show.
+Example (git widget-config Credentials header):
+
+```css
+.wc-cred-pills { margin-left: auto; flex: 1 1 auto; min-width: 0; }
+```
+
+The "More" button + menu styles live in `components.css`
+(`.zen-filter-pill-more`, `.zen-filter-pills__menu`) — never re-implement them,
+and never append your own overflow logic in a window's `main.ts`.
+
 **Reference consumer:** `src/windows/calendar/main.ts::renderEventsView` — the
 shared module is mounted once outside the render loop, `switchTo` is called on
 every re-render to keep the active class in sync without rebuilding the DOM.

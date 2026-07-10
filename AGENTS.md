@@ -602,8 +602,36 @@ All icons flow through **one** module: `src/shared/icon.ts`.
 - **Size** is honored for both SVG (`width`/`height`) and font glyphs (`font-size`). Default 16 px;
   pass `{ size }` or `data-size`.
 - **Do not** deep-import `lucide/dist/esm/icons/<name>.js` at runtime. Those files are not shipped to
-  `dist/`, so such imports 404 and silently fall back to the Windows glyph. Resolution must go
-   through the registry / `registerIcons` so it stays tree-shaken and reliable.
+   `dist/`, so such imports 404 and silently fall back to the Windows glyph. Resolution must go
+    through the registry / `registerIcons` so it stays tree-shaken and reliable.
+
+#### Widget icons: avoid duplicating SVG paths
+
+When a widget needs a custom SVG icon (not a Lucide icon):
+
+1. **Define the SVG in `widget.js`** using `document.createElementNS`. Build the SVG node tree
+   programmatically in the widget's IIFE and append it to the container. This keeps the SVG path
+   data in **one place** — the JS file.
+2. **Keep `widget.html` minimal** — just the structural wrapper elements. No inline SVG markup.
+3. **`manifest.json` preview** is exempt (it's a static inert fragment with no JS, per §9.1).
+   The preview string necessarily duplicates the SVG markup — this is the expected cost of a
+   JS-free preview.
+
+**Example** (from `widgets/git/widget.js`):
+```ts
+var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+svg.setAttribute("viewBox", "0 0 78 78");
+svg.setAttribute("fill", "currentColor");
+svg.classList.add("git-ic");
+var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+path.setAttribute("d", "…");
+svg.append(path);
+wrap.append(svg);
+```
+
+**Wrong**: inlining `<svg>…</svg>` in `widget.html` when the same path also appears in
+`manifest.json`'s preview — now the path lives in two files and a fix to one is forgotten
+in the other.
 
 ### 6.2 Reusable TS components (`src/shared/`)
 

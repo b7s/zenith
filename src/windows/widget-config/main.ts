@@ -2,6 +2,7 @@ import "../../styles/globals.css";
 import { invoke } from "@tauri-apps/api/core";
 import { mountWindow } from "../../shared/window";
 import { initLog, logInfo } from "../../shared/log";
+import { CMD } from "../../shared/ipc";
 import type { Config, WidgetManifest, WidgetConfigField } from "../../shared/types";
 
 interface WidgetConfigGlobals {
@@ -61,6 +62,8 @@ void (async () => {
   let selectedGpus: string[] = [];
   let selectedHds: string[] = [];
   let selectedNetworks: string[] = [];
+  // Dynamic accounts state (for git widget)
+  const accountStores: Record<string, AcctRow[]> = {};
 
   for (const [key, field] of Object.entries(configDef)) {
     const wrapper = document.createElement("div");
@@ -68,7 +71,9 @@ void (async () => {
 
     const currentValue = key in savedValues ? savedValues[key] : field.value;
 
-    if (field.type === "bool") {
+    if (field.type === "accounts") {
+      buildAccountsControl(wrapper, key, field, currentValue as Array<Record<string, unknown>> | undefined, accountStores);
+    } else if (field.type === "bool") {
       buildBoolControl(wrapper, key, field, currentValue, switchStates);
     } else {
       const label = document.createElement("label");
@@ -213,7 +218,9 @@ void (async () => {
   saveBtn.addEventListener("click", async () => {
     const newValues: Record<string, unknown> = {};
     for (const [key, field] of Object.entries(configDef)) {
-      if (field.type === "bool") {
+      if (field.type === "accounts") {
+        newValues[key] = await collectAndProtectAccounts(key, accountStores);
+      } else if (field.type === "bool") {
         newValues[key] = switchStates[key] ?? false;
       } else if (field.type === "int") {
         const el = inputs[key];
@@ -414,4 +421,169 @@ function buildHwCheckbox(
 
   checkbox.append(switchEl);
   wrapper.append(checkbox);
+}
+
+/* ── accounts type (git widget) ── */
+
+interface AcctRow {
+  key: string;
+  label: HTMLInputElement;
+  provider: HTMLSelectElement;
+  username: HTMLInputElement;
+  token: HTMLInputElement;
+  enabled: HTMLInputElement;
+  el: HTMLElement;
+}
+
+function buildAccountsControl(
+  wrapper: HTMLElement,
+  _key: string,
+  _field: WidgetConfigField,
+  currentValue: Array<Record<string, unknown>> | undefined,
+  stores: Record<string, AcctRow[]>,
+): void {
+  const rows: AcctRow[] = [];
+  stores[_key] = rows;
+
+  const container = document.createElement("div");
+  container.className = "zen-section";
+  container.dataset.acctsKey = _key;
+
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "zen-button is-outline is-sm";
+  addBtn.textContent = "+ Add Account";
+  addBtn.style.marginTop = "0.25rem";
+
+  function addRow(data?: Record<string, unknown>): void {
+    const rowKey = crypto.randomUUID();
+    const rowEl = document.createElement("div");
+    rowEl.className = "zen-field";
+    rowEl.style.cssText = "display:grid;grid-template-columns:1fr;gap:0.35rem;padding:0.5rem;border:1px solid color-mix(in oklch,var(--border) 50%,transparent);border-radius:var(--radius);";
+
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.className = "zen-input";
+    labelInput.placeholder = "Label (e.g. Work)";
+    labelInput.value = String(data?.label ?? "");
+
+    const provider = document.createElement("select");
+    provider.className = "zen-select";
+    for (const pv of ["github", "gitlab", "bitbucket"]) {
+      const opt = document.createElement("option");
+      opt.value = pv;
+      opt.textContent = pv.charAt(0).toUpperCase() + pv.slice(1);
+      if (pv === String(data?.provider ?? "github")) opt.selected = true;
+      provider.append(opt);
+    }
+
+    const username = document.createElement("input");
+    username.type = "text";
+    username.className = "zen-input";
+    username.placeholder = "Username";
+    username.value = String(data?.username ?? "");
+
+    const token = document.createElement("input");
+    token.type = "password";
+    token.className = "zen-input";
+    const savedTokenBlob = data?.token_blob as string | undefined;
+    const hasSavedToken = savedTokenBlob && savedTokenBlob.length > 0;
+    token.placeholder = hasSavedToken ? "Token (leave blank to keep existing)" : "Token (required)";
+    token.value = "";
+
+    const tokenHint = document.createElement("p");
+    tokenHint.className = "zen-hint";
+    tokenHint.style.marginTop = "0.15rem";
+    tokenHint.style.fontSize = "0.65rem";
+    tokenHint.style.lineHeight = "1.3";
+
+    function updateTokenHint(pv: string): void {
+      const hints: Record<string, string> = {
+        github: "Fine-grained personal access token (read-only). Create at GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens. Needs Actions, Contents & Pull requests: read access.",
+        gitlab: "Personal access token with read_api scope. Create at GitLab Settings → Access Tokens.",
+        bitbucket: "App password with repositories, pullrequests & pipelines read access. Create at Bitbucket Settings → App passwords.",
+      };
+      tokenHint.textContent = hints[pv] ?? "Personal access token with read-only access.";
+    }
+    updateTokenHint(provider.value);
+    provider.addEventListener("change", () => updateTokenHint(provider.value));
+
+    const enabledWrap = document.createElement("label");
+    enabledWrap.className = "zen-checkbox";
+    const enabledText = document.createElement("span");
+    enabledText.className = "zen-checkbox__text";
+    const enabledLabel = document.createElement("span");
+    enabledLabel.className = "zen-checkbox__label";
+    enabledLabel.textContent = "Enabled";
+    enabledText.append(enabledLabel);
+    enabledWrap.append(enabledText);
+    const enabledSwitch = document.createElement("span");
+    enabledSwitch.className = "zen-checkbox__switch";
+    const enabledInput = document.createElement("input");
+    enabledInput.type = "checkbox";
+    enabledInput.checked = data?.enabled !== false;
+    enabledSwitch.append(enabledInput);
+    const track = document.createElement("span");
+    track.className = "zen-checkbox__track";
+    const thumb = document.createElement("span");
+    thumb.className = "zen-checkbox__thumb";
+    track.append(thumb);
+    enabledSwitch.append(track);
+    enabledWrap.append(enabledSwitch);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "zen-button is-ghost is-sm";
+    removeBtn.textContent = "Remove";
+    removeBtn.style.marginLeft = "auto";
+    removeBtn.addEventListener("click", () => {
+      rowEl.remove();
+      const idx = rows.findIndex((r) => r.key === rowKey);
+      if (idx >= 0) rows.splice(idx, 1);
+    });
+
+    const rowFlex = document.createElement("div");
+    rowFlex.style.cssText = "display:flex;align-items:center;gap:0.5rem;";
+    rowFlex.append(enabledWrap, removeBtn);
+
+    rowEl.append(labelInput, provider, username, token, tokenHint, rowFlex);
+    container.insertBefore(rowEl, addBtn);
+
+    rows.push({ key: rowKey, label: labelInput, provider, username, token, enabled: enabledInput, el: rowEl });
+  }
+
+  addBtn.addEventListener("click", () => addRow());
+  container.append(addBtn);
+
+  if (Array.isArray(currentValue)) {
+    for (const acct of currentValue) addRow(acct);
+  }
+
+  wrapper.append(container);
+}
+
+async function collectAndProtectAccounts(key: string, stores: Record<string, AcctRow[]>): Promise<unknown[]> {
+  const rows = stores[key] ?? [];
+  const out: Record<string, unknown>[] = [];
+  for (const row of rows) {
+    const rawToken = row.token.value;
+    let tokenBlob = rawToken;
+    if (rawToken.length > 0) {
+      try {
+        tokenBlob = await invoke<string>(CMD.protectSecret, { plaintext: rawToken });
+      } catch {
+        // if protect fails, store empty (will be rejected at runtime)
+        tokenBlob = "";
+      }
+    }
+    out.push({
+      id: crypto.randomUUID(),
+      label: row.label.value,
+      provider: row.provider.value,
+      username: row.username.value,
+      token_blob: tokenBlob,
+      enabled: row.enabled.checked,
+    });
+  }
+  return out;
 }

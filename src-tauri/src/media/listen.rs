@@ -18,11 +18,6 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::commands::{capture_session, cache_set, resolve_current, MediaSnapshot};
-
-macro_rules! mlog {
-    ($($arg:tt)*) => {{ eprintln!("[media:poll] {}", format_args!($($arg)*)); }};
-}
-
 static LAST_KEY: Mutex<String> = Mutex::new(String::new());
 static RUNNING: AtomicBool = AtomicBool::new(false);
 
@@ -46,13 +41,11 @@ pub fn spawn(app: AppHandle) {
                 windows::Win32::System::Com::COINIT_APARTMENTTHREADED,
             );
         }
-        mlog!("thread start");
         loop {
             std::thread::sleep(Duration::from_millis(2000));
             if app.get_webview_window("bar").is_none() {
                 continue;
             }
-            let started = std::time::Instant::now();
             let snap = match resolve_current() {
                 Some(s) => {
                     let info = capture_session(&s);
@@ -60,8 +53,6 @@ pub fn spawn(app: AppHandle) {
                 }
                 None => MediaSnapshot { available: false, info: None },
             };
-            let elapsed = started.elapsed().as_millis();
-
             let key = match &snap.info {
                 Some(info) => format!(
                     "{}|{}|{}|{}|{}ms|{:.3}",
@@ -91,18 +82,7 @@ pub fn spawn(app: AppHandle) {
             cache_set(Some(snap.clone()));
 
             if changed {
-                mlog!(
-                    "changed emit ({}ms) available={} title={:?}",
-                    elapsed,
-                    snap.available,
-                    snap.info
-                        .as_ref()
-                        .map(|i| if i.title.len() > 32 { i.title[..32].to_string() } else { i.title.clone() })
-                        .unwrap_or_default(),
-                );
                 fire_changed(&app, &snap);
-            } else {
-                mlog!("no change ({}ms)", elapsed);
             }
         }
     });

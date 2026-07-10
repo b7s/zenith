@@ -43,6 +43,14 @@ export const CMD = {
   mediaNext: "media_next",
   mediaPrevious: "media_previous",
   mediaSeek: "media_seek",
+  openGitManager: "open_git_manager",
+  getGitState: "get_git_state",
+  gitRefresh: "git_refresh",
+  protectSecret: "protect_secret",
+  unprotectSecretSelftest: "unprotect_secret_for_selftest",
+  getGitSelectedAccount: "get_git_selected_account",
+  getGitWidgetConfig: "get_git_widget_config",
+  openUrl: "open_url",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

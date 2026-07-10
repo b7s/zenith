@@ -40,6 +40,11 @@ pub const EVENT_WIDGETS_CHANGED: &str = "zenith:widgets-changed";
 pub const EVENT_WORKSPACE_CHANGED: &str = "zenith:workspace-changed";
 pub const EVENT_EVENTS_UPDATED: &str = "zenith:events-updated";
 pub const EVENT_MEDIA_CHANGED: &str = "zenith:media-changed";
+/// Emitted by the git poll thread when total failed-CI / open-PR counts
+/// change across the user's configured GitHub/GitLab/Bitbucket accounts.
+/// Payload is the full `GitState` so the frontend doesn't need to
+/// round-trip back via `get_git_state`.
+pub const EVENT_GIT_CHANGED: &str = "zenith:git-changed";
 /// Emitted to the calendar popup window to switch its view mode
 /// (`"calendar"` | `"events"`) when the window is reused across
 /// callers (e.g. datetime widget → 2-month grid, then alarms widget →

@@ -1,0 +1,24 @@
+{
+  "id": "git",
+  "name": "Git Manager",
+  "version": "1.0.0",
+  "description": "Failed CI + open PRs across your GitHub, GitLab, and Bitbucket accounts",
+  "default_zone": "right",
+  "icon": "git-branch",
+  "min_width": 56,
+  "preview": "<span class=\"git-wrap is-clean\"><span class=\"git-chip\"><span class=\"git-ic\" data-icon=\"git-branch\" data-size=\"14\"></span></span><span class=\"git-dot\"></span></span>",
+  "config": {
+    "accounts": {
+      "type": "accounts",
+      "value": [],
+      "label": "Accounts",
+      "hint": "Personal access tokens are DPAPI-protected (per-Windows-user) before saving to config."
+    },
+    "poll_interval_mins": {
+      "type": "int",
+      "value": 5,
+      "label": "Global poll cadence (minutes)",
+      "hint": "Floor for how often the background thread re-checks each account. Per-account poll_mins overrides this when larger."
+    }
+  }
+}

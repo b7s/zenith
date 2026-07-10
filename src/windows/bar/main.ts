@@ -72,7 +72,11 @@ void (async () => {
   onArrangeChange(() => applyArrangeUI(bar, cfg));
 
   applyBarDom(wrapper, bar, cfg);
-  await time("layoutBar", () => layoutBar(bar, cfg));
+  try {
+    await time("layoutBar", () => layoutBar(bar, cfg));
+  } catch (err) {
+    logError("initial layoutBar: " + String(err));
+  }
   applyArrangeUI(bar, cfg);
   setupBarDropZones(bar, cfg);
   setupBarReceiveDrop(bar, cfg);
@@ -83,7 +87,11 @@ void (async () => {
     cfg = e.payload;
     applyTheme();
     applyBarDom(wrapper, bar, cfg);
-    await layoutBar(bar, cfg);
+    try {
+      await layoutBar(bar, cfg);
+    } catch (err) {
+      logError("re-layout: " + String(err));
+    }
     applyArrangeUI(bar, cfg);
     logInfo("bar re-applied config");
   });

@@ -15,11 +15,16 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Check,
   Clock,
   CloudMoon,
   CloudSun,
   ExternalLink,
   Focus,
+  GitBranch,
+  GitPullRequest,
+  GitPullRequestDraft,
+  Github,
   LayoutGrid,
   List,
   Lock,
@@ -127,6 +132,11 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   pause: SOLID_PAUSE,
   "skip-back": SkipBack,
   "skip-forward": SkipForward,
+  "git-branch": GitBranch,
+  "git-pull-request": GitPullRequest,
+  "git-pull-request-draft": GitPullRequestDraft,
+  github: Github,
+  check: Check,
 };
 
 const ALIASES: Record<string, string> = {
@@ -141,6 +151,7 @@ const ALIASES: Record<string, string> = {
   weather: "cloud-sun",
   workspace: "monitor-smartphone",
   config: "settings-octa",
+  git: "git-branch",
 };
 
 export function registerIcons(map: Record<string, IconNode>): void {

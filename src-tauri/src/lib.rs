@@ -3,6 +3,7 @@ mod commands;
 mod battery;
 mod calendar;
 mod config;
+mod git;
 mod log;
 mod media;
 mod quick_toggle;
@@ -76,6 +77,14 @@ pub fn run() {
             media::commands::media_next,
             media::commands::media_previous,
             media::commands::media_seek,
+            git::commands::open_git_manager,
+            git::commands::get_git_state,
+            git::commands::git_refresh,
+            git::commands::protect_secret,
+            git::commands::unprotect_secret_for_selftest,
+            git::commands::get_git_selected_account,
+            git::commands::get_git_widget_config,
+            git::commands::open_url,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)
@@ -110,6 +119,12 @@ pub fn run() {
             // Media widget — poll SMTC current-session state every 2s and
             // emit `zenith:media-changed` when it actually changes.
             media::listen::spawn(handle.clone());
+
+            // Git manager widget — sequential per-account HTTPS fan-out
+            // on a worker thread; emits `zenith:git-changed` on totals
+            // change. Sleeps 30s between cycles; per-account poll_mins
+            // governs which accounts actually fire on a given cycle.
+            git::listen::spawn(handle.clone());
 
             let h = handle.clone();
             std::thread::spawn(move || {

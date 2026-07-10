@@ -36,7 +36,7 @@ pub struct MediaSnapshot {
 /// filter the terminal. Kept off `log.rs` (file logger) on purpose — the
 /// poll thread is too chatty and would dwarf the per-window logs.
 macro_rules! mlog {
-    ($($arg:tt)*) => {{ eprintln!("[media] {}", format_args!($($arg)*)); }};
+    ($($arg:tt)*) => {{}};
 }
 
 // ---- cached snapshot --------------------------------------------------------
@@ -105,10 +105,7 @@ fn ensure_pump_window() -> HWND {
             // comes back as 0 with last error `ERROR_CLASS_ALREADY_EXISTS`
             // (1410) which we treat as success.
             if atom == 0 {
-                let last_err = windows::Win32::Foundation::GetLastError();
-                if last_err.0 != 1410 {
-                    eprintln!("[media] RegisterClassExW failed: {:?}", last_err);
-                }
+                let _last_err = windows::Win32::Foundation::GetLastError();
             }
             match CreateWindowExW(
                 WINDOW_EX_STYLE(0),
@@ -119,10 +116,7 @@ fn ensure_pump_window() -> HWND {
                 None, None, None, None,
             ) {
                 Ok(h) => h,
-                Err(e) => {
-                    eprintln!("[media] pump window CreateWindowExW err: {e}");
-                    HWND(std::ptr::null_mut())
-                }
+                Err(_e) => HWND(std::ptr::null_mut()),
             }
         };
         *slot = Some(h);
@@ -320,12 +314,10 @@ pub(crate) fn capture_session(session: &Session) -> Option<MediaInfo> {
             let album = m.AlbumTitle().map(|h| h.to_string()).unwrap_or_default();
             let thumb = read_thumbnail(&m);
             if thumb.is_none() && m.Thumbnail().is_ok() {
-                mlog!("thumbnail: Thumbnail() returned an object but read_thumbnail() returned None");
             }
             (title, artist, album, thumb)
         }
         None => {
-            mlog!("capture_session: TryGetMediaPropertiesAsync returned None");
             (String::new(), String::new(), String::new(), None)
         }
     };
@@ -354,50 +346,43 @@ pub(crate) fn capture_session(session: &Session) -> Option<MediaInfo> {
 /// left in the DataReader. Pre-allocating `size` upfront means a single
 /// reallocation in the common case.
 fn read_thumbnail(props: &MediaProperties) -> Option<String> {
-    mlog!("thumbnail: read start");
     let stream_ref = match props.Thumbnail() {
         Ok(r) => r,
-        Err(e) => { mlog!("thumbnail: Thumbnail() err: {e}"); return None; }
+        Err(_e) => { mlog!("thumbnail: Thumbnail() err: {e}"); return None; }
     };
     let stream = match stream_ref.OpenReadAsync() {
         Ok(op) => match wait_async_inner(op, std::time::Duration::from_secs(2)) {
             Ok(s) => s,
-            Err(e) => { mlog!("thumbnail: OpenReadAsync wait failed: {e}"); return None; }
+            Err(_e) => { mlog!("thumbnail: OpenReadAsync wait failed: {e}"); return None; }
         },
-        Err(e) => { mlog!("thumbnail: OpenReadAsync err: {e}"); return None; }
+        Err(_e) => { mlog!("thumbnail: OpenReadAsync err: {e}"); return None; }
     };
     let size = match stream.Size() {
         Ok(s) => s as u32,
-        Err(e) => { mlog!("thumbnail: Size() err: {e}"); return None; }
+        Err(_e) => { mlog!("thumbnail: Size() err: {e}"); return None; }
     };
-    mlog!("thumbnail: stream Size() = {size}");
     if size == 0 {
-        mlog!("thumbnail: stream Size() = 0; nothing to read");
         return None;
     }
     if size > 4 * 1024 * 1024 {
-        mlog!("thumbnail: oversized (size={size}); skipping");
         return None;
     }
     let reader = match DataReader::CreateDataReader(&stream) {
         Ok(r) => r,
-        Err(e) => { mlog!("thumbnail: CreateDataReader err: {e}"); return None; }
+        Err(_e) => { mlog!("thumbnail: CreateDataReader err: {e}"); return None; }
     };
-    if let Err(e) = wait_async_inner(match reader.LoadAsync(size) {
+    if let Err(_e) = wait_async_inner(match reader.LoadAsync(size) {
         Ok(op) => op,
-        Err(e) => { mlog!("thumbnail: LoadAsync call err: {e}"); return None; }
+        Err(_e) => { mlog!("thumbnail: LoadAsync call err: {e}"); return None; }
     }, std::time::Duration::from_secs(2)) {
-        mlog!("thumbnail: LoadAsync wait failed: {e}");
         return None;
     }
     let mut buf = vec![0u8; size as usize];
     let mut total: usize = 0;
     let first = reader.UnconsumedBufferLength().ok().unwrap_or(size);
-    mlog!("thumbnail: UnconsumedBufferLength={first} (claimed={size})");
     if first > 0 {
         let n = (first as usize).min(buf.len());
         if reader.ReadBytes(&mut buf[..n]).is_err() {
-            mlog!("thumbnail: ReadBytes failed at {n}/{} bytes", n);
             return None;
         }
         total = n;
@@ -411,13 +396,11 @@ fn read_thumbnail(props: &MediaProperties) -> Option<String> {
         let off = total;
         let end = off + n;
         if reader.ReadBytes(&mut buf[off..end]).is_err() {
-            mlog!("thumbnail: ReadBytes failed at {end}/{} bytes", n);
             break;
         }
         total = end;
     }
     if total == 0 {
-        mlog!("thumbnail: no bytes read (claimed size {})", size);
         return None;
     }
     buf.truncate(total);
@@ -425,7 +408,6 @@ fn read_thumbnail(props: &MediaProperties) -> Option<String> {
         Ok(h) if !h.is_empty() => h.to_string(),
         _ => "image/jpeg".to_string(),
     };
-    mlog!("thumbnail: ok ({} bytes, {}, {} iters)", buf.len(), mime, iters);
     Some(format!("data:{};base64,{}", mime, base64_encode(&buf)))
 }
 
@@ -479,15 +461,14 @@ async fn capture_fresh() -> MediaSnapshot {
     tauri::async_runtime::spawn_blocking(|| {
         let started = std::time::Instant::now();
         let Some(session) = resolve_current() else {
-            mlog!("capture: no session ({}ms)", started.elapsed().as_millis());
             let snap = MediaSnapshot { available: false, info: None };
             cache_set(Some(snap.clone()));
             return snap;
         };
         let info = capture_session(&session);
-        let elapsed = started.elapsed().as_millis();
+        let _elapsed = started.elapsed().as_millis();
         match &info {
-            Some(i) => mlog!(
+            Some(_i) => mlog!(
                 "capture: ok ({}ms) title={:?} status={}",
                 elapsed,
                 if i.title.len() > 32 { &i.title[..32] } else { i.title.as_str() },
@@ -513,20 +494,17 @@ async fn run_transport<F>(label: &str, f: F) -> Result<bool, String>
 where
     F: FnOnce(Session) -> windows::core::Result<IAsyncOperation<bool>> + Send + 'static,
 {
-    let label = label.to_string();
+    let _label = label.to_string();
     tauri::async_runtime::spawn_blocking(move || {
-        let started = std::time::Instant::now();
+        let _started = std::time::Instant::now();
         let Some(s) = resolve_current() else {
-            mlog!("{}: no session ({}ms)", label, started.elapsed().as_millis());
             return Err("no media session".into());
         };
         match run_bool(f(s)) {
             Ok(b) => {
-                mlog!("{}: ok={} ({}ms)", label, b, started.elapsed().as_millis());
                 Ok(b)
             }
             Err(e) => {
-                mlog!("{}: err {} ({}ms)", label, e, started.elapsed().as_millis());
                 Err(e)
             }
         }
@@ -548,11 +526,8 @@ pub async fn get_media() -> MediaSnapshot {
     // This avoids ANY SMTC call on the IPC round-trip when the poll thread
     // has already captured the current state — which is the normal case.
     if let Some(snap) = cache_get() {
-        mlog!("get_media: cache-hit title={:?}",
-              snap.info.as_ref().map(|i| i.title.clone()).unwrap_or_default());
         return snap;
     }
-    mlog!("get_media: cache-empty → cold capture");
     capture_fresh().await
 }
 

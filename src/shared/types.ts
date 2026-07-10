@@ -68,7 +68,7 @@ export interface WidgetManifest {
   config?: Record<string, WidgetConfigField>;
 }
 
-export type WidgetConfigType = "string" | "int" | "bool" | "select";
+export type WidgetConfigType = "string" | "int" | "bool" | "select" | "accounts";
 
 export interface WidgetConfigField {
   type: WidgetConfigType;
@@ -130,4 +130,88 @@ export interface MediaInfo {
 export interface MediaSnapshot {
   available: boolean;
   info: MediaInfo | null;
+}
+
+// ---- Git Manager widget (mirror of src-tauri/src/git/model.rs) -----------------
+
+export type ProviderKind = "github" | "gitlab" | "bitbucket";
+
+/** Mirrored in `src-tauri/src/git/model.rs::GitAccount`. */
+export interface GitAccount {
+  id: string;
+  label: string;
+  provider: ProviderKind | string;
+  username: string;
+  /** base64(DPAPI-protected token bytes) — never plaintext on disk.
+   *  Empty string when the token hasn't been entered yet. */
+  token_blob: string;
+  poll_mins: number;
+  enabled: boolean;
+}
+
+/** Mirrored in `src-tauri/src/git/model.rs::GitWidgetConfig`. */
+export interface GitWidgetConfig {
+  accounts: GitAccount[];
+  /** null = "All". */
+  selected_account_id: string | null;
+  poll_interval_mins: number;
+}
+
+/** Mirrored in `src-tauri/src/git/model.rs::RepoSummary`. */
+export interface RepoSummary {
+  full_name: string;
+  provider: string;
+  last_state: "failed" | "success" | "running" | "cancelled" | "unknown" | string;
+  open_prs: number;
+  default_branch_sha: string;
+  default_branch: string;
+  web_url: string;
+}
+
+/** Mirrored in `src-tauri/src/git/model.rs::FailRun`. */
+export interface FailRun {
+  provider: string;
+  full_name: string;
+  run_label: string;
+  branch: string;
+  short_sha: string;
+  ago: string;
+  finished_ms: number;
+  web_url: string;
+  account_id: string;
+  account_label: string;
+}
+
+/** Mirrored in `src-tauri/src/git/model.rs::OpenPull`. */
+export interface OpenPull {
+  provider: string;
+  full_name: string;
+  number: number;
+  title: string;
+  author_display: string;
+  is_draft: boolean;
+  branch: string;
+  web_url: string;
+  account_id: string;
+  account_label: string;
+}
+
+/** Mirrored in `src-tauri/src/git/model.rs::AcctInventory`. */
+export interface AcctInventory {
+  account_id: string;
+  account_label: string;
+  provider: string;
+  username: string;
+  repos: RepoSummary[];
+  failed_runs: FailRun[];
+  open_pulls: OpenPull[];
+  last_sync_ms: number;
+  last_error: string;
+}
+
+/** Mirrored in `src-tauri/src/git/model.rs::GitState`. */
+export interface GitState {
+  inventories: AcctInventory[];
+  total_failed: number;
+  total_open_prs: number;
 }

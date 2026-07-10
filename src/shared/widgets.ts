@@ -93,7 +93,11 @@ export async function layoutBar(barElement: HTMLElement, cfg: Config): Promise<v
     slot.style.minWidth = `${man.min_width}px`;
     slot.dataset.widgetId = id;
 
-    renderWidget(slot, source, id);
+    try {
+      renderWidget(slot, source, id);
+    } catch (err) {
+      console.error(`[layoutBar] renderWidget ${id} failed`, err);
+    }
     zoneEl.appendChild(slot);
   }
 }

@@ -4,14 +4,21 @@
 //! pipeline (`GET /projects/:id/pipelines?per_page=1`) + open MRs
 //! (`GET /merge_requests?state=opened&scope=all`). To stay under
 //! GitLab's per-minute budget we cap at top-50 repos by last activity.
+//! Self-hosted GitLab supported via `acct.host_url`.
 
 use crate::git::model::{AcctInventory, FailRun, GitAccount, OpenPull, RepoSummary};
 use crate::git::provider::auth_err;
 
-// Per-account host is configurable in v2 — here we default to gitlab.com.
-// Self-hosted GitLab would set a `host` field on the account; pending §9.4a
-// extension (the `accounts` widget-config row could later grow a host input).
-const GITLAB_API: &str = "https://gitlab.com/api/v4";
+const GITLAB_CLOUD_API: &str = "https://gitlab.com/api/v4";
+
+fn api_base(acct: &GitAccount) -> String {
+    let h = acct.host_url.trim_end_matches('/');
+    if h.is_empty() {
+        GITLAB_CLOUD_API.into()
+    } else {
+        format!("{h}/api/v4")
+    }
+}
 
 pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String> {
     let agent = ureq::AgentBuilder::new()
@@ -19,10 +26,10 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
         .build();
     let auth_header = format!("Bearer {token}");
     let auth = |req: ureq::Request| req.set("PRIVATE-TOKEN", token);
+    let api = api_base(acct);
 
-    // 1) list repos
     let repos_url = format!(
-        "{GITLAB_API}/projects?membership=true&per_page=50&order_by=last_activity_at"
+        "{api}/projects?membership=true&per_page=50&order_by=last_activity_at"
     );
     let resp = match auth(
         agent.get(&repos_url).set("Authorization", &auth_header)
@@ -47,12 +54,12 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
         let default_branch = str_or(repo, "/default_branch", "main").to_string();
         // 2) latest pipeline on default branch
         let pipeline_url = format!(
-            "{GITLAB_API}/projects/{id}/pipelines?per_page=5&ref={default_branch}"
+            "{api}/projects/{id}/pipelines?per_page=5&ref={default_branch}"
         );
         let pipe_state = fetch_pipes(&agent, &auth_header, &pipeline_url);
         // 3) open MRs for the project
         let mr_url = format!(
-            "{GITLAB_API}/projects/{id}/merge_requests?state=opened&per_page=20&scope=all"
+            "{api}/projects/{id}/merge_requests?state=opened&per_page=20&scope=all"
         );
         let open_mrs = fetch_mrs(&agent, &auth_header, &mr_url);
         let (last_state, last_sha, last_finished, ago) = summarize_pipes(&pipe_state);

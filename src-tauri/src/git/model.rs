@@ -3,33 +3,6 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum ProviderKind {
-    Github,
-    Gitlab,
-    Bitbucket,
-}
-
-impl ProviderKind {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Github => "github",
-            Self::Gitlab => "gitlab",
-            Self::Bitbucket => "bitbucket",
-        }
-    }
-
-    pub fn parse(s: &str) -> Option<Self> {
-        match s.to_ascii_lowercase().as_str() {
-            "github" => Some(Self::Github),
-            "gitlab" => Some(Self::Gitlab),
-            "bitbucket" => Some(Self::Bitbucket),
-            _ => None,
-        }
-    }
-}
-
 /// One configured account. Persisted under
 /// `widgets.config.git.accounts[]` in `config.json`. `token_blob` is a
 /// base64-encoded DPAPI-protected blob — never plaintext.
@@ -40,6 +13,11 @@ pub struct GitAccount {
     pub label: String,
     pub provider: String,
     pub username: String,
+    /// Optional self-hosted instance URL (e.g. `https://gitlab.example.com`
+    /// or `https://bitbucket.example.com`). Empty = use cloud default
+    /// (`api.bitbucket.org` / `gitlab.com` / `github.com`).
+    #[serde(default)]
+    pub host_url: String,
     /// base64(DPAPI-protected token bytes). Never plaintext on disk.
     /// `#[serde(alias = "token")]` migrates old configs that used the
     /// plaintext `token` key before DPAPI protection was implemented.
@@ -191,6 +169,33 @@ pub struct GitState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(rename_all = "lowercase")]
+    enum ProviderKind {
+        Github,
+        Gitlab,
+        Bitbucket,
+    }
+
+    impl ProviderKind {
+        fn as_str(&self) -> &'static str {
+            match self {
+                Self::Github => "github",
+                Self::Gitlab => "gitlab",
+                Self::Bitbucket => "bitbucket",
+            }
+        }
+
+        fn parse(s: &str) -> Option<Self> {
+            match s.to_ascii_lowercase().as_str() {
+                "github" => Some(Self::Github),
+                "gitlab" => Some(Self::Gitlab),
+                "bitbucket" => Some(Self::Bitbucket),
+                _ => None,
+            }
+        }
+    }
 
     #[test]
     fn provider_parse_roundtrip() {

@@ -1,7 +1,13 @@
 //! Bitbucket provider — REST 2.0 inventory.
 //!
-//! Bitbucket uses app passwords (Bearer auth). Limit: top-30 repos by
-//! recent push activity to stay under Bitbucket's 1000/hr rate limit.
+//! Bitbucket supports multiple auth methods:
+//! - Repository/workspace/project access tokens: Bearer token
+//! - App passwords: HTTP Basic with Bitbucket username
+//! - API tokens: HTTP Basic with Atlassian email
+//!
+//! We try Bearer first (access tokens), then fall back to Basic auth
+//! with the provided username (app passwords / API tokens).
+//! Limit: top-30 repos by recent push activity.
 
 use crate::git::model::{AcctInventory, FailRun, GitAccount, OpenPull, RepoSummary};
 use crate::git::provider::auth_err;
@@ -12,14 +18,27 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
     let agent = ureq::AgentBuilder::new()
         .timeout(std::time::Duration::from_secs(15))
         .build();
-    let auth = format!("Bearer {token}");
 
     let repos_url = format!(
-        "{BB_API}/repositories?role=member&pagelen=30&sort=-updated_on&fields=values.full_name,values.links.html.href,values.mainbranch.name,values.uuid,values.updated_on"
+        "{BB_API}/repositories?pagelen=30&sort=-updated_on&fields=values.full_name,values.links.html.href,values.mainbranch.name,values.uuid,values.updated_on"
     );
-    let resp = match agent.get(&repos_url).set("Authorization", &auth).call() {
-        Ok(r) => r,
-        Err(e) => return Ok(auth_err(acct, format!("bitbucket repos: {e}"))),
+
+    let bearer = format!("Bearer {token}");
+    let resp = agent.get(&repos_url).set("Authorization", &bearer).call();
+    let (resp, working_auth) = match resp {
+        Ok(r) => (r, bearer),
+        Err(e) => {
+            let is_401 = format!("{e}").contains("401");
+            if is_401 && !acct.username.is_empty() {
+                let basic = encode_basic(&acct.username, token);
+                match agent.get(&repos_url).set("Authorization", &basic).call() {
+                    Ok(r) => (r, basic),
+                    Err(e2) => return Ok(auth_err(acct, format!("bitbucket repos: {e2}"))),
+                }
+            } else {
+                return Ok(auth_err(acct, format!("bitbucket repos: {e}")));
+            }
+        }
     };
     let repos_v: serde_json::Value = match resp.into_json() {
         Ok(v) => v,
@@ -45,13 +64,13 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
         let pipe_url = format!(
             "{BB_API}/repositories/{full_name}/pipelines/?pagelen=10&sort=-created_on&fields=values.state.name,values.target.commit.hash,values.created_on,values.links.html.href"
         );
-        let (pipe_state, short_sha, finished_iso, pipe_url_out) = fetch_pipes(&agent, &auth, &pipe_url);
+        let (pipe_state, short_sha, finished_iso, pipe_url_out) = fetch_pipes(&agent, &working_auth, &pipe_url);
 
         // open PRs
         let pr_url = format!(
             "{BB_API}/repositories/{full_name}/pullrequests?state=OPEN&pagelen=20&fields=values.id,values.title,values.source.branch.name,values.author.display_name,values.links.html.href"
         );
-        let open_prs = fetch_items(&agent, &auth, &pr_url);
+        let open_prs = fetch_items(&agent, &working_auth, &pr_url);
         let open_pr_count = open_prs.len() as u32;
         for pr in &open_prs {
             let number = pr.pointer("/id").and_then(|n| n.as_u64()).unwrap_or(0);
@@ -181,4 +200,11 @@ fn now_ms() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
+}
+
+fn encode_basic(user: &str, token: &str) -> String {
+    use base64::Engine;
+    let raw = format!("{user}:{token}");
+    let encoded = base64::engine::general_purpose::STANDARD.encode(raw.as_bytes());
+    format!("Basic {encoded}")
 }

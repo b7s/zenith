@@ -6,6 +6,17 @@
   min-height: 1.5rem;
 }
 .gm-toolbar .zen-filter-pills { flex: 0 0 auto; }
+.gm-toolbar .zen-filter-pill { position: relative; }
+.gm-err-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--danger, #ef4444);
+  position: absolute;
+  top: -0.1rem;
+  right: -0.1rem;
+  pointer-events: none;
+}
 
 .gm-list {
   display: grid;

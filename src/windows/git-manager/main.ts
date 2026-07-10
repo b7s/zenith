@@ -104,6 +104,7 @@ void (async () => {
   // — the user doesn't need to click Refresh.
   listen<GitState>(EVENT.gitChanged, (e) => {
     state = e.payload;
+    rebuildAccountPills();
     render();
   });
   listen<GitState>("zenith:config-updated", async () => {
@@ -119,18 +120,27 @@ void (async () => {
   function refresh() {
     void invoke(CMD.getGitState, { accountId: null }).then((s) => {
       state = s as GitState;
+      rebuildAccountPills();
       render();
     });
   }
 
   function rebuildAccountPills() {
-    // Remove existing account pills, keep "All".
+    const errIds = new Set(
+      state.inventories
+        .filter((i) => i.last_error && i.last_error.length > 0)
+        .map((i) => i.account_id),
+    );
     const ids = new Set(cfg.accounts.map((a) => a.id));
     for (const btn of Array.from(
       pills.container.querySelectorAll<HTMLButtonElement>("[data-pill-id]"),
     )) {
       if (btn.dataset.pillId === "all") continue;
-      if (!ids.has(btn.dataset.pillId as string)) btn.remove();
+      if (!ids.has(btn.dataset.pillId as string)) {
+        btn.remove();
+        continue;
+      }
+      updateErrDot(btn, errIds.has(btn.dataset.pillId as string));
     }
     for (const a of cfg.accounts) {
       if (pills.container.querySelector(`[data-pill-id="${cssEscape(a.id)}"]`)) continue;
@@ -139,11 +149,23 @@ void (async () => {
       btn.className = "zen-filter-pill";
       btn.dataset.pillId = a.id;
       btn.textContent = a.label || a.username || a.provider;
+      updateErrDot(btn, errIds.has(a.id));
       pills.container.append(btn);
     }
     if (acctFilter !== "all" && !ids.has(acctFilter)) acctFilter = "all";
     for (const p of pills.container.querySelectorAll<HTMLButtonElement>("[data-pill-id]")) {
       p.classList.toggle("is-active", p.dataset.pillId === acctFilter);
+    }
+  }
+
+  function updateErrDot(btn: HTMLButtonElement, hasErr: boolean): void {
+    const existing = btn.querySelector(".gm-err-dot");
+    if (hasErr && !existing) {
+      const dot = document.createElement("span");
+      dot.className = "gm-err-dot";
+      btn.append(dot);
+    } else if (!hasErr && existing) {
+      existing.remove();
     }
   }
 

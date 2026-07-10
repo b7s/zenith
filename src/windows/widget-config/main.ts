@@ -246,6 +246,7 @@ void (async () => {
       (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_networks = selectedNetworks;
     }
     await invoke("save_config", { config: cfg });
+    try { await invoke(CMD.gitRefresh); } catch { /* poll thread may not be running */ }
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().close().catch(() => {});
   });
@@ -427,12 +428,15 @@ function buildHwCheckbox(
 
 interface AcctRow {
   key: string;
+  id: string;
   label: HTMLInputElement;
   provider: HTMLSelectElement;
   username: HTMLInputElement;
   token: HTMLInputElement;
+  hostUrl: HTMLInputElement;
   enabled: HTMLInputElement;
   el: HTMLElement;
+  existingTokenBlob: string;
 }
 
 function buildAccountsControl(
@@ -501,12 +505,32 @@ function buildAccountsControl(
       const hints: Record<string, string> = {
         github: "Fine-grained personal access token (read-only). Create at GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens. Needs Actions, Contents & Pull requests: read access.",
         gitlab: "Personal access token with read_api scope. Create at GitLab Settings → Access Tokens.",
-        bitbucket: "App password with repositories, pullrequests & pipelines read access. Create at Bitbucket Settings → App passwords.",
+        bitbucket: "App password, API token, or repository access token. Uses HTTP Basic auth. If using an access token, any username works — we try x-token-auth automatically on 401.",
       };
       tokenHint.textContent = hints[pv] ?? "Personal access token with read-only access.";
     }
     updateTokenHint(provider.value);
     provider.addEventListener("change", () => updateTokenHint(provider.value));
+
+    function updateHostHint(pv: string): void {
+      hostHint.textContent = pv === "github" || pv === "gitlab"
+        ? "Leave blank for cloud. For self-hosted, enter the base URL (e.g. https://gitlab.example.com)."
+        : "Leave blank for Bitbucket Cloud. For self-hosted Bitbucket Server, enter the base URL (e.g. https://bitbucket.example.com).";
+    }
+
+    const hostUrl = document.createElement("input");
+    hostUrl.type = "text";
+    hostUrl.className = "zen-input";
+    hostUrl.placeholder = "Base URL (leave blank for cloud)";
+    hostUrl.value = String(data?.host_url ?? "");
+
+    const hostHint = document.createElement("p");
+    hostHint.className = "zen-hint";
+    hostHint.style.marginTop = "0.15rem";
+    hostHint.style.fontSize = "0.65rem";
+    hostHint.style.lineHeight = "1.3";
+    updateHostHint(provider.value);
+    provider.addEventListener("change", () => updateHostHint(provider.value));
 
     const enabledWrap = document.createElement("label");
     enabledWrap.className = "zen-checkbox";
@@ -546,10 +570,10 @@ function buildAccountsControl(
     rowFlex.style.cssText = "display:flex;align-items:center;gap:0.5rem;";
     rowFlex.append(enabledWrap, removeBtn);
 
-    rowEl.append(labelInput, provider, username, token, tokenHint, rowFlex);
+    rowEl.append(labelInput, provider, hostUrl, hostHint, username, token, tokenHint, rowFlex);
     container.insertBefore(rowEl, addBtn);
 
-    rows.push({ key: rowKey, label: labelInput, provider, username, token, enabled: enabledInput, el: rowEl });
+    rows.push({ key: rowKey, id: String(data?.id ?? crypto.randomUUID()), label: labelInput, provider, username, token, hostUrl, enabled: enabledInput, el: rowEl, existingTokenBlob: String(data?.token_blob ?? "") });
   }
 
   addBtn.addEventListener("click", () => addRow());
@@ -567,20 +591,22 @@ async function collectAndProtectAccounts(key: string, stores: Record<string, Acc
   const out: Record<string, unknown>[] = [];
   for (const row of rows) {
     const rawToken = row.token.value;
-    let tokenBlob = rawToken;
+    let tokenBlob = "";
     if (rawToken.length > 0) {
       try {
         tokenBlob = await invoke<string>(CMD.protectSecret, { plaintext: rawToken });
       } catch {
-        // if protect fails, store empty (will be rejected at runtime)
         tokenBlob = "";
       }
+    } else if (row.existingTokenBlob.length > 0) {
+      tokenBlob = row.existingTokenBlob;
     }
     out.push({
-      id: crypto.randomUUID(),
+      id: row.id,
       label: row.label.value,
       provider: row.provider.value,
       username: row.username.value,
+      host_url: row.hostUrl.value,
       token_blob: tokenBlob,
       enabled: row.enabled.checked,
     });

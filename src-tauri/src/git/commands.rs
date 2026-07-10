@@ -40,12 +40,10 @@ pub async fn open_git_manager(
         *g = account_id.clone();
     }
 
-    // Reuse an already-open window: re-clamp position, side-show, focus.
+    // Reuse an already-open window: show, center, focus.
     if let Some(win) = app.get_webview_window(GIT_MANAGER_LABEL) {
-        let (cx, cy, cw, ch) =
-            window::clamp_to_monitor(x.round() as i32, y.round() as i32, GIT_MANAGER_W, GIT_MANAGER_H);
-        let _ = win.set_size(tauri::PhysicalSize::new(cw as f64, ch as f64));
-        let _ = win.set_position(tauri::PhysicalPosition::new(cx as f64, cy as f64));
+        let _ = win.set_size(tauri::LogicalSize::new(GIT_MANAGER_W as f64, GIT_MANAGER_H as f64));
+        let _ = win.center();
         let _ = win.show();
         std::thread::sleep(std::time::Duration::from_millis(500));
         let _ = win.set_focus();
@@ -131,10 +129,7 @@ pub fn get_git_widget_config() -> GitWidgetConfig {
         .unwrap_or_default()
 }
 
-fn create_git_manager(app: &tauri::AppHandle, x: f64, y: f64) -> Result<(), String> {
-    let (cx, cy, cw, ch) =
-        window::clamp_to_monitor(x.round() as i32, y.round() as i32, GIT_MANAGER_W, GIT_MANAGER_H);
-
+fn create_git_manager(app: &tauri::AppHandle, _x: f64, _y: f64) -> Result<(), String> {
     let acct_id = SELECTED_ACCT.lock().ok().and_then(|g| g.clone());
     let init_script = format!(
         "window.__ZENITH_GIT_ACCOUNT_ID = {};",
@@ -150,10 +145,9 @@ fn create_git_manager(app: &tauri::AppHandle, x: f64, y: f64) -> Result<(), Stri
         tauri::WebviewUrl::App("git-manager.html".into()),
     )
     .title("Git Manager")
-    .inner_size(cw as f64, ch as f64)
+    .inner_size(GIT_MANAGER_W as f64, GIT_MANAGER_H as f64)
     .min_inner_size(560.0, 380.0)
     .max_inner_size(1200.0, 800.0)
-    .position(cx as f64, cy as f64)
     .resizable(true)
     .decorations(false)
     .transparent(true)
@@ -161,6 +155,7 @@ fn create_git_manager(app: &tauri::AppHandle, x: f64, y: f64) -> Result<(), Stri
     .visible(false)
     .focused(true)
     .always_on_top(true)
+    .center()
     .additional_browser_args("--default-background-color=00000000")
     .initialization_script(&init_script)
     .build()

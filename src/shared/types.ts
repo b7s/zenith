@@ -142,6 +142,8 @@ export interface GitAccount {
   label: string;
   provider: ProviderKind | string;
   username: string;
+  /** Optional self-hosted instance URL. Empty = use cloud default. */
+  host_url: string;
   /** base64(DPAPI-protected token bytes) — never plaintext on disk.
    *  Empty string when the token hasn't been entered yet. */
   token_blob: string;

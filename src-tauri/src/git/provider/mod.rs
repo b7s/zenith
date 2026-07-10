@@ -9,6 +9,7 @@
 pub mod github;
 pub mod gitlab;
 pub mod bitbucket;
+pub mod bitbucket_server;
 
 use crate::git::model::{AcctInventory, GitAccount};
 
@@ -17,11 +18,14 @@ pub type InventoryResult = Result<AcctInventory, String>;
 
 /// Fan out to the correct provider. Always called from a worker thread
 /// (HTTP is blocking — never invoke from the Tauri main thread, §13.1).
+/// Bitbucket dispatches to cloud or server based on `host_url`.
 pub fn inventory_for(account: &GitAccount, token: &str) -> InventoryResult {
     let provider = account.provider.as_str();
+    let has_host = !account.host_url.trim().is_empty();
     match provider {
         "github" => github::inventory(account, token),
         "gitlab" => gitlab::inventory(account, token),
+        "bitbucket" if has_host => bitbucket_server::inventory(account, token),
         "bitbucket" => bitbucket::inventory(account, token),
         other => Err(format!("unknown provider: {other}")),
     }

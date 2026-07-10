@@ -29,7 +29,7 @@
 .gm-pr,
 .gm-repo {
   position: relative;
-  padding: 1.1rem 0.6rem 0.4rem;
+  padding: 0.6rem;
   cursor: pointer;
   outline: none;
   transition: transform 120ms cubic-bezier(0.22, 0.61, 0.36, 1),
@@ -50,8 +50,16 @@
 .gm-fail .zen-card__header,
 .gm-pr .zen-card__header,
 .gm-repo .zen-card__header {
-  gap: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 0.4rem;
+  padding: 0 0 0.25rem;
+}
+.gm-fail .zen-card__content,
+.gm-pr .zen-card__content,
+.gm-repo .zen-card__content {
+  padding: 0;
 }
 
 .gm-account {
@@ -71,10 +79,6 @@
   letter-spacing: 0.04em;
   color: var(--foreground);
   background: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
-  position: absolute;
-  top: 0.45rem;
-  left: 0.55rem;
-  z-index: 1;
 }
 .gm-state-chip.is-github   { background: color-mix(in oklch, #6e40c9 70%, transparent); color: white; }
 .gm-state-chip.is-gitlab   { background: color-mix(in oklch, #fc6d26 70%, transparent); color: white; }
@@ -99,10 +103,10 @@
 }
 
 .gm-detail {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 0.15rem 0.5rem;
-  padding-top: 0.25rem;
 }
 
 .gm-dl {
@@ -111,6 +115,12 @@
   gap: 0.25rem;
   font-size: 0.7rem;
   min-width: 0;
+  white-space: nowrap;
+}
+.gm-dl-sep {
+  color: var(--muted-foreground);
+  margin: 0 0.1rem;
+  flex: 0 0 auto;
 }
 .gm-dl-k {
   color: var(--muted-foreground);

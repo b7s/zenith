@@ -283,8 +283,12 @@ void (async () => {
     if (r.branch || r.short_sha || r.ago) {
       const body = document.createElement("div");
       body.className = "zen-card__content gm-detail";
-      if (r.branch) body.append(detailLine("branch", r.branch));
-      if (r.short_sha) body.append(detailLine("sha", r.short_sha));
+      if (r.branch && r.short_sha) {
+        body.append(detailLinePair("branch", r.branch, "sha", r.short_sha));
+      } else {
+        if (r.branch) body.append(detailLine("branch", r.branch));
+        if (r.short_sha) body.append(detailLine("sha", r.short_sha));
+      }
       if (r.ago) body.append(detailLine("when", r.ago));
       card.append(body);
     }
@@ -345,8 +349,12 @@ void (async () => {
     if (r.default_branch || r.default_branch_sha) {
       const body = document.createElement("div");
       body.className = "zen-card__content gm-detail";
-      if (r.default_branch) body.append(detailLine("branch", r.default_branch));
-      if (r.default_branch_sha) body.append(detailLine("sha", r.default_branch_sha));
+      if (r.default_branch && r.default_branch_sha) {
+        body.append(detailLinePair("branch", r.default_branch, "sha", r.default_branch_sha));
+      } else {
+        if (r.default_branch) body.append(detailLine("branch", r.default_branch));
+        if (r.default_branch_sha) body.append(detailLine("sha", r.default_branch_sha));
+      }
       card.append(body);
     }
     return card;
@@ -362,6 +370,28 @@ void (async () => {
     v.className = "gm-dl-v";
     v.textContent = value;
     wrap.append(k, v);
+    return wrap;
+  }
+
+  function detailLinePair(k1: string, v1: string, k2: string, v2: string): HTMLElement {
+    const wrap = document.createElement("div");
+    wrap.className = "gm-dl";
+    const a = document.createElement("span");
+    a.className = "gm-dl-k";
+    a.textContent = k1;
+    const b = document.createElement("span");
+    b.className = "gm-dl-v";
+    b.textContent = v1;
+    const sep = document.createElement("span");
+    sep.className = "gm-dl-sep";
+    sep.textContent = "\u00B7";
+    const c = document.createElement("span");
+    c.className = "gm-dl-k";
+    c.textContent = k2;
+    const d = document.createElement("span");
+    d.className = "gm-dl-v";
+    d.textContent = v2;
+    wrap.append(a, b, sep, c, d);
     return wrap;
   }
 

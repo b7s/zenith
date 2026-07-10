@@ -23,7 +23,7 @@ export default defineConfig({
         dialog: resolve(__dirname, "dialog.html"),
         "volume-popup": resolve(__dirname, "volume-popup.html"),
         "widget-config": resolve(__dirname, "widget-config.html"),
-        calendar: resolve(__dirname, "calendar.html"),
+        "calendar": resolve(__dirname, "calendar.html"),
         "shutdown-popup": resolve(__dirname, "shutdown-popup.html"),
         "alarm-popup": resolve(__dirname, "alarms/alarm-popup.html"),
       },

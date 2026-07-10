@@ -36,6 +36,8 @@ import {
   RotateCcw,
   Search,
   Settings,
+  SkipBack,
+  SkipForward,
   SlidersHorizontal,
   SunMoon,
   ToggleRight,
@@ -55,6 +57,21 @@ const OCTAGON_NODE: IconNode = [
   "svg",
   { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" },
   [["polygon", { points: "20.3,15.4 15.4,20.3 8.6,20.3 3.7,15.4 3.7,8.6 8.6,3.7 15.4,3.7 20.3,8.6" }], ["circle", { cx: "12", cy: "12", r: "3" }]],
+];
+
+const SOLID_PLAY: IconNode = [
+  "svg",
+  { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24" },
+  [["path", { d: "M5 3l16 9-16 9V3z", fill: "currentColor" }]],
+];
+
+const SOLID_PAUSE: IconNode = [
+  "svg",
+  { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24" },
+  [
+    ["rect", { x: "5", y: "3", width: "5.5", height: "18", rx: "1.25", fill: "currentColor" }],
+    ["rect", { x: "13.5", y: "3", width: "5.5", height: "18", rx: "1.25", fill: "currentColor" }],
+  ],
 ];
 
 const ICON_REGISTRY: Record<string, IconNode> = {
@@ -106,6 +123,10 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   "trash-2": Trash2,
   pencil: Pencil,
   list: List,
+  play: SOLID_PLAY,
+  pause: SOLID_PAUSE,
+  "skip-back": SkipBack,
+  "skip-forward": SkipForward,
 };
 
 const ALIASES: Record<string, string> = {

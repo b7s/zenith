@@ -36,6 +36,13 @@ export const CMD = {
   updateEvent: "update_event",
   deleteEvent: "delete_event",
   syncEvents: "sync_events",
+  getMedia: "get_media",
+  mediaPlay: "media_play",
+  mediaPause: "media_pause",
+  mediaTogglePlayPause: "media_toggle_play_pause",
+  mediaNext: "media_next",
+  mediaPrevious: "media_previous",
+  mediaSeek: "media_seek",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

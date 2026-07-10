@@ -19,6 +19,7 @@ export const EVENT = {
   crossDragMove: "zenith:cross-drag-move",
   crossDragEnd: "zenith:cross-drag-end",
   eventsUpdated: "zenith:events-updated",
+  mediaChanged: "zenith:media-changed",
   calendarView: "zenith:calendar-view",
 } as const;
 

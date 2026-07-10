@@ -1,0 +1,31 @@
+{
+  "id": "media",
+  "name": "Media Control",
+  "version": "1.0.0",
+  "description": "Now-playing info with play/pause, next/previous, and seek",
+  "default_zone": "right",
+  "icon": "music",
+  "min_width": 80,
+  "preview": "<span class=\"md-root\"><span class=\"md-thumb\" style=\"display:none\"></span><span class=\"md-chip\"><span class=\"md-chip-ic\" data-icon=\"play\" data-size=\"12\"></span></span><div class=\"md-info\"><div class=\"md-title-wrap\"><span class=\"md-title-text\">Some Track</span></div><div class=\"md-artist-wrap\"><span class=\"md-artist-text\">Artist</span></div></div></span>",
+  "config": {
+    "thumb_style": {
+      "type": "select",
+      "value": "background",
+      "options": ["cover", "background"],
+      "label": "Thumbnail display",
+      "hint": "Display as a small square cover or as the widget's blurred background."
+    },
+    "compact": {
+      "type": "bool",
+      "value": false,
+      "label": "Compact (icon only)",
+      "hint": "Hide title/artist on the bar \u2014 show only the play/pause chip"
+    },
+    "scroll_label": {
+      "type": "bool",
+      "value": true,
+      "label": "Scroll long labels",
+      "hint": "Animate long text to scroll so all of it is visible in the widget"
+    }
+  }
+}

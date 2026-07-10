@@ -106,3 +106,28 @@ export interface CalendarEvent {
   /** Free-text notes. */
   notes: string;
 }
+
+/** Mirrored in `src-tauri/src/media/mod.rs::MediaInfo`. */
+export interface MediaInfo {
+  title: string;
+  artist: string;
+  album: string;
+  /** `data:image/...;base64,...` URL or null. */
+  thumbnail: string | null;
+  /** "playing" | "paused" | "stopped" | "closed" | "opened" | "changing" | "unknown". */
+  status: string;
+  /** Current position in milliseconds. */
+  position_ms: number;
+  /** Total duration in milliseconds. */
+  duration_ms: number;
+  /** Playback rate multiplier (1.0 normal). */
+  rate: number;
+  /** Source app user model id (e.g. "spotify.exe" / app aumid). */
+  source: string;
+}
+
+/** Mirrored in `src-tauri/src/media/commands.rs::MediaSnapshot`. */
+export interface MediaSnapshot {
+  available: boolean;
+  info: MediaInfo | null;
+}

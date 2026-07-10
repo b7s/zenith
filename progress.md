@@ -121,6 +121,8 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 - [x] **Shutdown** — power action popup (shutdown/restart/sleep/hibernate/lock/logout) with two-step confirmation, translucent buttons, header close button via `mountWindow`; Lock (`LockWorkStation`), Logout (`EWX_LOGOFF`); uses `set_disable_transitions` + inline theme sync for instant open
 - [x] **System stats** — CPU%, GHz, RAM, GPU, HD, network throughput; three visual styles (bar/dots/graph); configurable via widget-config window
 - [x] **Quick Toggle** — direct bar toggle chips (WiFi, Bluetooth, Dark Mode, Focus Assist, Airplane, Night Light); inactive = transparent + pointer cursor; click toggles live; unavailable items auto-hidden; which chips show + compact mode via widget-config window
+- [x] **Alarms** — shows the next upcoming event alarm on the bar (chip + time + title, soon-dot within 6 min), rotates through the next 5 queued alarms, click opens calendar in events mode; powered by the events domain (local store + OneDrive sync + firing thread)
+- [x] **Media Control** — now-playing info on the bar (play/pause chip + title · artist, optional compact mode); click opens acrylic popup with album art, transport (prev/play-pause/next), seek slider + position/duration; backend driven by Windows `GlobalSystemMediaTransportControlsSessionManager` (SMTC) with a 2 s polling thread that emits `zenith:media-changed` only when the snapshot actually changes; widget-config controls for show_title, show_artist, scroll_seeks, compact; scroll on the bar chip seeks 5 s per notch, right-click toggles play/pause
 
 ---
 
@@ -139,7 +141,7 @@ Goal: browse/add/remove widgets with the arrange-mode UX.
 
 ## Planned Widgets (not started)
 
-- [ ] **Media Control** — play/pause, next, previous, album art image, and a progress/seek bar (when media is available); live now-playing info via Windows `SystemMediaTransportControls` / `GlobalSystemMediaTransportControlsSessionManager`
+(none — all planned core widgets shipped)
 
 ---
 

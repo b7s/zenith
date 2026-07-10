@@ -5034,6 +5034,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "windows 0.58.0",
  "windows 0.61.3",
+ "windows-future",
  "winvd",
 ]
 

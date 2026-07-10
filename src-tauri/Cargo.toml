@@ -40,6 +40,11 @@ windows = { version = "0.61", features = [
     "Win32_Security",
     "Win32_NetworkManagement_IpHelper",
     "Win32_NetworkManagement_Ndis",
+    "Foundation",
+    "Media",
+    "Media_Control",
+    "Storage_Streams",
 ] }
 windows_058 = { package = "windows", version = "0.58", features = ["Win32_Foundation"] }
+windows-future = "0.2"
 winvd = "0.0.49"

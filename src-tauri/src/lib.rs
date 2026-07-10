@@ -4,6 +4,7 @@ mod battery;
 mod calendar;
 mod config;
 mod log;
+mod media;
 mod quick_toggle;
 mod shared;
 mod shutdown;
@@ -68,6 +69,13 @@ pub fn run() {
             events::commands::update_event,
             events::commands::delete_event,
             events::commands::sync_events,
+            media::commands::get_media,
+            media::commands::media_play,
+            media::commands::media_pause,
+            media::commands::media_toggle_play_pause,
+            media::commands::media_next,
+            media::commands::media_previous,
+            media::commands::media_seek,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)
@@ -98,6 +106,10 @@ pub fn run() {
             events::repository::startup_sync(&handle);
             events::alarm_fire::spawn(handle.clone());
             events::cleanup::spawn(handle.clone());
+
+            // Media widget — poll SMTC current-session state every 2s and
+            // emit `zenith:media-changed` when it actually changes.
+            media::listen::spawn(handle.clone());
 
             let h = handle.clone();
             std::thread::spawn(move || {

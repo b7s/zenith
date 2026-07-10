@@ -2,7 +2,8 @@ use windows::Win32::Foundation::{LPARAM, RECT, HWND};
 use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST, MONITORINFO, GetMonitorInfoW};
 use windows::Win32::UI::Shell::{APPBARDATA, SHAppBarMessage, ABM_NEW, ABM_QUERYPOS, ABM_SETPOS, ABM_REMOVE};
 use windows::Win32::UI::WindowsAndMessaging::{
-    SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW,
+    GetWindowLongW, SetWindowLongW, SetWindowPos,
+    GWL_EXSTYLE, SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW,
 };
 
 fn monitor_of(hwnd: windows::Win32::Foundation::HWND) -> RECT {
@@ -67,6 +68,13 @@ pub fn register_appbar(window: &tauri::WebviewWindow) -> Result<(), String> {
             lParam: LPARAM(0),
         };
         SHAppBarMessage(ABM_NEW, &mut abd);
+
+        // AppBar registration can add WS_EX_APPWINDOW (0x00040000), which
+        // makes the bar appear on the taskbar and respond to Win+M minimize-all.
+        // Clear it and ensure WS_EX_TOOLWINDOW (0x00000080) is set instead.
+        let ex = GetWindowLongW(hwnd, GWL_EXSTYLE);
+        let new_ex = (ex & !0x00040000) | 0x00000080;
+        SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
 
         position_appbar(hwnd);
     }

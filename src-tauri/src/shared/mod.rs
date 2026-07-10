@@ -44,6 +44,7 @@ pub const EVENT_MEDIA_CHANGED: &str = "zenith:media-changed";
 /// change across the user's configured GitHub/GitLab/Bitbucket accounts.
 /// Payload is the full `GitState` so the frontend doesn't need to
 /// round-trip back via `get_git_state`.
+#[allow(dead_code)]
 pub const EVENT_GIT_CHANGED: &str = "zenith:git-changed";
 /// Emitted to the calendar popup window to switch its view mode
 /// (`"calendar"` | `"events"`) when the window is reused across

@@ -14,7 +14,7 @@
 use std::os::windows::process::CommandExt as _;
 use std::sync::Mutex;
 
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 use super::listen;
 use super::model::{GitState, GitWidgetConfig};
@@ -41,15 +41,10 @@ pub async fn open_git_manager(
         *g = account_id.clone();
     }
 
-    // Reuse an already-open window: unminimize, show, center, bring to front.
+    // Toggle: if the manager is already open, close it (clicking the bar
+    // widget again dismisses it). Account selection is honored on next open.
     if let Some(win) = app.get_webview_window(GIT_MANAGER_LABEL) {
-        let _ = win.unminimize();
-        let _ = win.set_size(tauri::LogicalSize::new(GIT_MANAGER_W as f64, GIT_MANAGER_H as f64));
-        let _ = win.center();
-        let _ = win.show();
-        bring_to_front(&win);
-        let _ = win.set_focus();
-        let _ = win.emit(crate::shared::EVENT_GIT_CHANGED, listen::snapshot());
+        let _ = win.close();
         return Ok(());
     }
 

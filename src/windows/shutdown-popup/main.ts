@@ -102,9 +102,4 @@ void (async () => {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { resetConfirm(); void getCurrentWindow().close().catch(() => {}); }
   });
-
-  const win = getCurrentWindow();
-  void win.onFocusChanged(({ payload }) => {
-    if (payload === false) { resetConfirm(); void win.close().catch(() => {}); }
-  });
 })();

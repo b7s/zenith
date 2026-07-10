@@ -358,8 +358,8 @@ pub async fn open_volume_popup(
     y: f64,
 ) -> Result<(), String> {
     if let Some(win) = app.get_webview_window(VOLUME_POPUP_LABEL) {
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let _ = win.set_focus();
+        // Toggle: clicking the bar button again dismisses the popup.
+        let _ = win.close();
         return Ok(());
     }
 

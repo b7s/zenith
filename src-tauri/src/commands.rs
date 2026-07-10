@@ -339,11 +339,14 @@ pub fn get_dialog_data() -> Result<(String, Option<serde_json::Value>), String> 
 }
 
 fn create_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
+    // Toggle: if the window is already open, close it (clicking the bar/context
+    // menu trigger again dismisses it).
     if let Some(win) = app.get_webview_window("settings") {
-        eprintln!("[zenith] create_settings: showing existing");
-        win.show().map_err(|e| e.to_string())?;
-        win.set_focus().map_err(|e| e.to_string())?;
-    } else {
+        eprintln!("[zenith] create_settings: toggling closed");
+        let _ = win.close();
+        return Ok(());
+    }
+    {
         eprintln!("[zenith] create_settings: building new window");
         let win = tauri::WebviewWindowBuilder::new(
             app,
@@ -381,11 +384,13 @@ fn create_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
 }
 
 fn create_widgets_window(app: &tauri::AppHandle) -> Result<(), String> {
+    // Toggle: if the window is already open, close it.
     if let Some(win) = app.get_webview_window("widgets") {
-        eprintln!("[zenith] create_widgets: showing existing");
-        win.show().map_err(|e| e.to_string())?;
-        win.set_focus().map_err(|e| e.to_string())?;
-    } else {
+        eprintln!("[zenith] create_widgets: toggling closed");
+        let _ = win.close();
+        return Ok(());
+    }
+    {
         eprintln!("[zenith] create_widgets: building new window");
         let win = tauri::WebviewWindowBuilder::new(
             app,

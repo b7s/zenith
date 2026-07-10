@@ -66,9 +66,10 @@ pub fn system_logout() -> Result<(), String> {
 
 #[tauri::command]
 pub async fn open_shutdown_popup(app: tauri::AppHandle, x: f64, y: f64) -> Result<(), String> {
+    // Toggle: if the popup is already open, close it (clicking the bar button
+    // again dismisses it). Otherwise create it.
     if let Some(win) = app.get_webview_window(SHUTDOWN_LABEL) {
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let _ = win.set_focus();
+        let _ = win.close();
         return Ok(());
     }
 

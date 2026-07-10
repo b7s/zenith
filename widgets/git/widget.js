@@ -4,7 +4,6 @@
 
   var invoke = window.__zenith_invoke;
   var listen = window.__zenith_listen;
-  var setIcon = window.__zenith_setIcon;
   if (!invoke) return;
 
   var TAG = "[git-js]";
@@ -18,11 +17,6 @@
 
   var wrap = el.querySelector(".git-wrap");
   if (!wrap) return;
-
-  if (setIcon) {
-    var icEl = wrap.querySelector(".git-ic");
-    if (icEl) setIcon(icEl, "git-branch", { size: 14 });
-  }
 
   function paint(state) {
     var total = (state && state.total_failed) || 0;

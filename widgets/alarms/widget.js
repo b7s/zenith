@@ -11,6 +11,7 @@
   var info = root && root.querySelector(".al-info");
   var nextEl = info && info.querySelector(".al-next");
   var labelEl = info && info.querySelector(".al-label");
+  var removeEl = root && root.querySelector(".al-remove");
 
   var showLabel = true;
   var showWhenNoAlarms = true;
@@ -112,6 +113,37 @@
   // animation when the underlying event hasn't actually changed (e.g. a
   // 30s `update()` poll firing while rotation is also live).
   var lastRenderedId = null;
+  // ID of the alarm currently shown on the bar — the one the remove button
+  // deletes. Cleared when no alarm is shown so the button is inert.
+  var currentAlarmId = null;
+
+  // Remove the alarm currently displayed on the bar. Deleting it from the
+  // event store also stops the Windows alarm (the alarm-firing thread scans
+  // the store on its next tick, so a removed event never fires/pops up).
+  if (removeEl) {
+    removeEl.textContent = "×";
+    removeEl.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (document.body.classList.contains("is-arranging")) return;
+      var id = currentAlarmId;
+      if (!id) return;
+      var inv = window.__zenith_invoke;
+      if (!inv) return;
+      inv("delete_event", { id: id }).then(function () {
+        update();
+      }).catch(function () {
+        update();
+      });
+    });
+  }
+
+  // React immediately to changes made elsewhere (calendar add/edit/delete)
+  // instead of waiting up to 30s for the next poll.
+  if (window.__zenith_listen) {
+    window.__zenith_listen("zenith:events-updated", function () {
+      update();
+    });
+  }
 
   function rotateSchedule() {
     if (rotateTimer) {
@@ -132,12 +164,14 @@
   }
 
   function render() {
+    if (root) root.classList.toggle("has-alarm", alarms.length > 0);
     if (alarms.length === 0) {
       if (nextEl) nextEl.textContent = "";
       if (labelEl) labelEl.textContent = "";
       if (info) info.style.display = "none";
       el.style.display = showWhenNoAlarms ? "" : "none";
       lastRenderedId = null;
+      currentAlarmId = null;
       return;
     }
     el.style.display = "";
@@ -145,6 +179,7 @@
 
     var next = alarms[currentIndex] || alarms[0];
     var entryChanged = lastRenderedId !== next.ev.id;
+    currentAlarmId = next.ev.id;
     lastRenderedId = next.ev.id;
 
     var hasTime = !!next.ev.time;

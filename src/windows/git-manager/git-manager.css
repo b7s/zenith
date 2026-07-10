@@ -179,3 +179,10 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+@keyframes gm-spin {
+  to { transform: rotate(360deg); }
+}
+.gm-footer .zen-button.is-loading svg {
+  animation: gm-spin 0.7s linear infinite;
+}

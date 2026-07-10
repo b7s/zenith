@@ -15,7 +15,11 @@
 
 .git-wrap.is-clean,
 .git-wrap.is-empty {
-  opacity: 0.6;
+  opacity: 0.75;
+}
+
+.git-wrap:hover {
+  opacity: 1 !important;
 }
 
 .git-ic {

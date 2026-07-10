@@ -78,7 +78,9 @@ void (async () => {
   refreshBtn.textContent = "Refresh";
   refIcon(refreshBtn, "refresh-cw", 14, "Refresh now");
   refreshBtn.addEventListener("click", () => {
-    void invoke(CMD.gitRefresh).then(() => void refresh());
+    refreshBtn.classList.add("is-loading");
+    refreshBtn.disabled = true;
+    void invoke(CMD.gitRefresh);
   });
   footer.append(refreshBtn);
 
@@ -106,6 +108,8 @@ void (async () => {
     state = e.payload;
     rebuildAccountPills();
     render();
+    refreshBtn.classList.remove("is-loading");
+    refreshBtn.disabled = false;
   });
   listen<GitState>("zenith:config-updated", async () => {
     try { cfg = await invoke<GitWidgetConfig>(CMD.getGitWidgetConfig); }
@@ -117,13 +121,6 @@ void (async () => {
   logMemory("after mount");
   logInfo("git-manager ready");
 
-  function refresh() {
-    void invoke(CMD.getGitState, { accountId: null }).then((s) => {
-      state = s as GitState;
-      rebuildAccountPills();
-      render();
-    });
-  }
 
   function rebuildAccountPills() {
     const errIds = new Set(

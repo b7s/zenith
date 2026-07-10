@@ -95,6 +95,7 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
                 ago,
                 finished_ms: last_finished,
                 web_url: format!("{web_url}/-/pipelines"),
+                error: String::new(),
                 account_id: acct.id.clone(),
                 account_label: acct.label.clone(),
             });

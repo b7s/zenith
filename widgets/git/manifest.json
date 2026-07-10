@@ -19,6 +19,13 @@
       "value": 5,
       "label": "Global poll cadence (minutes)",
       "hint": "Floor for how often the background thread re-checks each account. Per-account poll_mins overrides this when larger."
+    },
+    "ai_clis": {
+      "type": "multiselect",
+      "value": [],
+      "label": "AI assistants",
+      "hint": "Which AI CLI to offer when sending a failure or PR for analysis. Pick one or more — the card's 'AI' button then lists exactly these.",
+      "options": ["opencode", "codex", "claude", "cursor", "gemini", "amp", "soloterm"]
     }
   }
 }

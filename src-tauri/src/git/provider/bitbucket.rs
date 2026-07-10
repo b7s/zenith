@@ -101,6 +101,7 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
                 ago: crate::git::provider::ago_from_iso(&finished_iso),
                 finished_ms: crate::git::provider::ago_from_iso_ms(&finished_iso),
                 web_url: pipe_url_out,
+                error: String::new(),
                 account_id: acct.id.clone(),
                 account_label: acct.label.clone(),
             });

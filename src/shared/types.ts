@@ -68,7 +68,7 @@ export interface WidgetManifest {
   config?: Record<string, WidgetConfigField>;
 }
 
-export type WidgetConfigType = "string" | "int" | "bool" | "select" | "accounts";
+export type WidgetConfigType = "string" | "int" | "bool" | "select" | "accounts" | "multiselect";
 
 export interface WidgetConfigField {
   type: WidgetConfigType;
@@ -132,6 +132,21 @@ export interface MediaSnapshot {
   info: MediaInfo | null;
 }
 
+/** Mirrored in `src-tauri/src/volume/commands.rs::AppSessionInfo`. */
+export interface AppSessionInfo {
+  /** Stable session identifier from IAudioSessionControl2::GetSessionIdentifier().
+   *  Opaque to the frontend — passed verbatim back to set_app_volume / set_app_muted. */
+  id: string;
+  /** Owning process id (0 for the system-sounds session). */
+  pid: number;
+  /** Display name resolved from the owning exe (pretty-cased). */
+  name: string;
+  /** Per-session volume 0..1. */
+  level: number;
+  /** Per-session mute flag. */
+  muted: boolean;
+}
+
 // ---- Git Manager widget (mirror of src-tauri/src/git/model.rs) -----------------
 
 export type ProviderKind = "github" | "gitlab" | "bitbucket";
@@ -180,6 +195,9 @@ export interface FailRun {
   ago: string;
   finished_ms: number;
   web_url: string;
+  /** Short failure summary from the CI provider (e.g. a failed check-run's
+   *  output), or empty when not available. Surfaced to AI assistants. */
+  error: string;
   account_id: string;
   account_label: string;
 }

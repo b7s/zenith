@@ -1,6 +1,9 @@
 import "../../styles/globals.css";
+import "./widget-config.css";
 import { invoke } from "@tauri-apps/api/core";
 import { mountWindow } from "../../shared/window";
+import { mountTabs } from "../../shared/tabs";
+import { mountFilterPills } from "../../shared/filter-pills";
 import { initLog, logInfo } from "../../shared/log";
 import { CMD } from "../../shared/ipc";
 import type { Config, WidgetManifest, WidgetConfigField } from "../../shared/types";
@@ -52,11 +55,91 @@ void (async () => {
 
   const configDef = manifest.config ?? {};
 
+  // ---- footer (built early so the window can mount with it) --------------
+  const footer = document.createElement("div");
+  footer.style.cssText = "display:flex;gap:0.5rem;justify-content:flex-end;";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "zen-button is-outline";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", async () => {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().close().catch(() => {});
+  });
+  footer.append(cancelBtn);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "zen-button is-primary";
+  saveBtn.textContent = "Save";
+  saveBtn.addEventListener("click", async () => {
+    const newValues: Record<string, unknown> = {};
+    for (const [key, field] of Object.entries(configDef)) {
+      if (field.type === "accounts") {
+        newValues[key] = await collectAndProtectAccounts(key, accountStores);
+      } else if (field.type === "bool") {
+        newValues[key] = switchStates[key] ?? false;
+      } else if (field.type === "int") {
+        const el = inputs[key];
+        const val = el instanceof HTMLInputElement ? el.value : "0";
+        newValues[key] = parseInt(val, 10) || 0;
+      } else if (field.type === "select") {
+        const el = inputs[key];
+        if (field.options && field.options.length <= 3) {
+          const checked = el?.querySelector?.("input:checked") as HTMLInputElement | null;
+          newValues[key] = checked?.value ?? field.value;
+        } else {
+          newValues[key] = (el as HTMLSelectElement | null)?.value ?? field.value;
+        }
+      } else if (field.type === "multiselect") {
+        newValues[key] = multiStates[key] ?? [];
+      } else {
+        newValues[key] = (inputs[key] as HTMLInputElement | null)?.value ?? field.value;
+      }
+    }
+    if (!cfg.widgets.config) cfg.widgets.config = {};
+    cfg.widgets.config[widgetId] = newValues;
+    if (widgetId === "system_stats") {
+      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_gpus = selectedGpus;
+      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_hds = selectedHds;
+      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_networks = selectedNetworks;
+    }
+    await invoke("save_config", { config: cfg });
+    try { await invoke(CMD.gitRefresh); } catch { /* poll thread may not be running */ }
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().close().catch(() => {});
+  });
+  footer.append(saveBtn);
+
+  const { content } = await mountWindow({ title: "Widget Settings", footer });
+
+  const isGit = widgetId === "git";
+
+  // For the git widget, split config into General / Credentials tabs.
+  let generalPane: HTMLElement = content;
+  let credPane: HTMLElement = content;
+  if (isGit) {
+    const tabs = mountTabs(content, [
+      { id: "general", label: "General" },
+      { id: "credentials", label: "Credentials" },
+    ]);
+    content.prepend(tabs.container);
+    generalPane = tabs.panes.general;
+    credPane = tabs.panes.credentials;
+  }
+
   const form = document.createElement("div");
   form.className = "zen-section";
 
+  function getPane(key: string): HTMLElement {
+    if (isGit) return key === "accounts" ? credPane : generalPane;
+    return form;
+  }
+
   const inputs: Record<string, HTMLElement> = {};
   const switchStates: Record<string, boolean> = {};
+  const multiStates: Record<string, string[]> = {};
 
   // Dynamic hardware selection state (for system_stats)
   let selectedGpus: string[] = [];
@@ -75,6 +158,8 @@ void (async () => {
       buildAccountsControl(wrapper, key, field, currentValue as Array<Record<string, unknown>> | undefined, accountStores);
     } else if (field.type === "bool") {
       buildBoolControl(wrapper, key, field, currentValue, switchStates);
+    } else if (field.type === "multiselect") {
+      buildMultiSelectControl(wrapper, key, field, currentValue as string[] | undefined, multiStates);
     } else {
       const label = document.createElement("label");
       label.className = "zen-label";
@@ -89,7 +174,54 @@ void (async () => {
       }
     }
 
-    form.append(wrapper);
+    getPane(key).append(wrapper);
+  }
+
+  // Git: Credentials tab header with provider filter pills (after the title).
+  if (isGit) {
+    const credHeader = document.createElement("div");
+    credHeader.className = "wc-cred-header";
+    const credTitle = document.createElement("h3");
+    credTitle.className = "wc-cred-title";
+    credTitle.textContent = "Accounts";
+    const pillsWrap = document.createElement("div");
+    pillsWrap.className = "wc-cred-pills";
+    credHeader.append(credTitle, pillsWrap);
+    credPane.prepend(credHeader);
+
+    let currentFilter = "all";
+    const providers = ["github", "gitlab", "forgejo", "gitea", "bitbucket"];
+    const filter = mountFilterPills<string>(
+      pillsWrap,
+      [
+        { id: "all", label: "All" },
+        ...providers.map((p) => ({ id: p, label: p.charAt(0).toUpperCase() + p.slice(1) })),
+      ],
+      "all",
+    );
+    filter.container.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-pill-id]");
+      if (!btn) return;
+      const next = btn.dataset.pillId as string;
+      if (next === currentFilter) return;
+      currentFilter = next;
+      filter.container
+        .querySelectorAll<HTMLButtonElement>("[data-pill-id]")
+        .forEach((b) => b.classList.toggle("is-active", b.dataset.pillId === next));
+      credPane.querySelectorAll<HTMLElement>("[data-accts-key] .zen-field").forEach((row) => {
+        const sel = row.querySelector("select");
+        const pv = sel ? sel.value : "";
+        row.style.display = currentFilter === "all" || pv === currentFilter ? "" : "none";
+      });
+    });
+  }
+
+  // Non-git widgets render all fields in a single scrolling section.
+  if (!isGit) {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "flex:1;overflow-y:auto;overflow-x:hidden;padding:1rem;";
+    content.append(wrapper);
+    wrapper.append(form);
   }
 
   // For system_stats widget: show per-GPU and per-drive checkboxes
@@ -197,67 +329,6 @@ void (async () => {
     }
   }
 
-  // Footer actions
-  const footer = document.createElement("div");
-  footer.style.cssText = "display:flex;gap:0.5rem;justify-content:flex-end;";
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.type = "button";
-  cancelBtn.className = "zen-button is-outline";
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.addEventListener("click", async () => {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().close().catch(() => {});
-  });
-  footer.append(cancelBtn);
-
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.className = "zen-button is-primary";
-  saveBtn.textContent = "Save";
-  saveBtn.addEventListener("click", async () => {
-    const newValues: Record<string, unknown> = {};
-    for (const [key, field] of Object.entries(configDef)) {
-      if (field.type === "accounts") {
-        newValues[key] = await collectAndProtectAccounts(key, accountStores);
-      } else if (field.type === "bool") {
-        newValues[key] = switchStates[key] ?? false;
-      } else if (field.type === "int") {
-        const el = inputs[key];
-        const val = el instanceof HTMLInputElement ? el.value : "0";
-        newValues[key] = parseInt(val, 10) || 0;
-      } else if (field.type === "select") {
-        const el = inputs[key];
-        if (field.options && field.options.length <= 3) {
-          const checked = el?.querySelector?.("input:checked") as HTMLInputElement | null;
-          newValues[key] = checked?.value ?? field.value;
-        } else {
-          newValues[key] = (el as HTMLSelectElement | null)?.value ?? field.value;
-        }
-      } else {
-        newValues[key] = (inputs[key] as HTMLInputElement | null)?.value ?? field.value;
-      }
-    }
-    if (!cfg.widgets.config) cfg.widgets.config = {};
-    cfg.widgets.config[widgetId] = newValues;
-    if (widgetId === "system_stats") {
-      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_gpus = selectedGpus;
-      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_hds = selectedHds;
-      (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_networks = selectedNetworks;
-    }
-    await invoke("save_config", { config: cfg });
-    try { await invoke(CMD.gitRefresh); } catch { /* poll thread may not be running */ }
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().close().catch(() => {});
-  });
-  footer.append(saveBtn);
-
-  const { content } = await mountWindow({ title: "Widget Settings", footer });
-
-  const wrapper = document.createElement("div");
-  wrapper.style.cssText = "flex:1;overflow-y:auto;overflow-x:hidden;padding:1rem;";
-  content.append(wrapper);
-  wrapper.append(form);
 })();
 
 // Close on Escape.
@@ -381,6 +452,81 @@ function buildBoolControl(
 
   checkbox.append(switchEl);
   wrapper.append(checkbox);
+}
+
+function buildMultiSelectControl(
+  wrapper: HTMLElement,
+  key: string,
+  field: WidgetConfigField,
+  currentValue: string[] | undefined,
+  states: Record<string, string[]>,
+): void {
+  const opts = field.options ?? [];
+  const selected = new Set<string>(
+    Array.isArray(currentValue) ? currentValue : ((field.value as string[]) ?? []),
+  );
+  states[key] = Array.from(selected);
+
+  const fieldLabel = document.createElement("label");
+  fieldLabel.className = "zen-label";
+  fieldLabel.textContent = field.label || key;
+  wrapper.append(fieldLabel);
+
+  if (opts.length === 0) {
+    const none = document.createElement("p");
+    none.className = "zen-hint";
+    none.textContent = "No options available.";
+    wrapper.append(none);
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "zen-section";
+  list.style.cssText = "display:flex;flex-direction:column;gap:0.35rem;margin-top:0.15rem;";
+  for (const opt of opts) {
+    const label = String(opt);
+    const checkbox = document.createElement("label");
+    checkbox.className = "zen-checkbox";
+
+    const text = document.createElement("span");
+    text.className = "zen-checkbox__text";
+    const lbl = document.createElement("span");
+    lbl.className = "zen-checkbox__label";
+    lbl.textContent = label;
+    text.append(lbl);
+    checkbox.append(text);
+
+    const switchEl = document.createElement("span");
+    switchEl.className = "zen-checkbox__switch";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = selected.has(label);
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        if (!states[key].includes(label)) states[key].push(label);
+      } else {
+        states[key] = states[key].filter((x) => x !== label);
+      }
+    });
+    switchEl.append(input);
+    const track = document.createElement("span");
+    track.className = "zen-checkbox__track";
+    const thumb = document.createElement("span");
+    thumb.className = "zen-checkbox__thumb";
+    track.append(thumb);
+    switchEl.append(track);
+
+    checkbox.append(switchEl);
+    list.append(checkbox);
+  }
+  wrapper.append(list);
+
+  if (field.hint) {
+    const hint = document.createElement("p");
+    hint.className = "zen-hint";
+    hint.textContent = field.hint;
+    wrapper.append(hint);
+  }
 }
 
 function buildHwCheckbox(

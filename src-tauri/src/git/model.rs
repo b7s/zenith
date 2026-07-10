@@ -129,6 +129,10 @@ pub struct FailRun {
     /// Web URL to the failed run page.
     #[serde(default)]
     pub web_url: String,
+    /// Short failure summary from the CI provider (e.g. a failed check-run's
+    /// output), or empty when unavailable. Surfaced to AI assistants.
+    #[serde(default)]
+    pub error: String,
     /// Owning account id — used by the account filter.
     pub account_id: String,
     /// Owning account label — display.

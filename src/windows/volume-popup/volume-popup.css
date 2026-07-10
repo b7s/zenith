@@ -1,0 +1,173 @@
+/* Volume popup — sits on top of the OS acrylic, so everything is
+ * transparent and CSS only colors content. All transitions are transform-
+ * or opacity-only (per §8 motion contract).
+ *
+ * Class composition (always start from the shared `.zen-window` / `.zen-*`
+ * primitives — see AGENTS.md §6 + §6.2):
+ *   - .zen-window        — flex column chrome (header / content / footer)
+ *   - .zen-window__header / __content / __close  — base header bits (unused
+ *     on the bar-style compact row, but kept available for a draggable
+ *     header if we lower the popup into a chrome'd mode in the future).
+ *   - .zen-slider        — master volume slider (shared primitive).
+ *   - .zen-collapse      — shared accordion <details> primitive.
+ *   - .zen-icon-button   — shared round ring-style mute button.
+ * The .vol-* classes below add ONLY what no shared class provides
+ * (popup-specific padding, app-row layout, app mute button size). */
+
+.vol-popup {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: transparent;
+}
+
+/* ----- Master row ----- */
+.vol-master {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  flex: 0 0 auto;
+}
+.vol-master__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.vol-master__slider {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vol-master__label {
+  flex-shrink: 0;
+  width: 2.5rem;
+  text-align: right;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+
+/* ----- Accordion (shadcn/Apple-inspired disclosure) ----- */
+.vol-mixer {
+  border-top: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
+}
+.vol-mixer > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  user-select: none;
+  outline: none;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.vol-mixer > summary::before {
+  display: none;
+}
+.vol-mixer > summary::-webkit-details-marker {
+  display: none;
+}
+.vol-mixer > summary:hover {
+  background: color-mix(in oklch, var(--accent) 20%, transparent);
+}
+.vol-mixer__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.vol-mixer__hint {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.vol-mixer__chevron {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 180ms ease;
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+.vol-mixer[open] .vol-mixer__chevron {
+  transform: rotate(90deg);
+}
+.vol-mixer__count {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  padding: 0.0625rem 0.375rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
+  min-width: 1rem;
+  text-align: center;
+}
+.vol-mixer__count:empty {
+  display: none;
+}
+
+/* ----- Mixer body ----- */
+.vol-mixer__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem 0.5rem;
+  max-height: 17.5rem;
+  overflow-y: auto;
+}
+
+.vol-app {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--card) 45%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.vol-app:hover {
+  background: color-mix(in oklch, var(--accent) 32%, transparent);
+  border-color: color-mix(in oklch, var(--primary) 70%, transparent);
+}
+.vol-app__name {
+  flex: 0 0 4.5rem;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vol-app__slider {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vol-app__pct {
+  flex-shrink: 0;
+  width: 1.875rem;
+  text-align: right;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.vol-app__mute {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.vol-app.is-muted .vol-app__name {
+  opacity: 0.55;
+}
+
+/* ----- Empty hint ----- */
+.vol-mixer__empty {
+  padding: 0.5rem 0.75rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}

@@ -45,6 +45,9 @@ pub fn run() {
             volume::commands::get_volume,
             volume::commands::set_volume,
             volume::commands::set_muted,
+            volume::commands::get_app_sessions,
+            volume::commands::set_app_volume,
+            volume::commands::set_app_muted,
             volume::commands::open_volume_popup,
             calendar::commands::open_calendar,
             calendar::commands::get_calendar_view,
@@ -85,6 +88,7 @@ pub fn run() {
             git::commands::get_git_selected_account,
             git::commands::get_git_widget_config,
             git::commands::open_url,
+            git::commands::send_to_ai,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)

@@ -2,8 +2,10 @@
 //! latest CI state + open PRs. Minimum API surface.
 //!
 //! Token: classic PAT or fine-grained PAT with `metadata:read` +
-//! `pull_requests:read` + `actions:read` (Actions status comes
-//! embedded in `Status.contexts.state`).
+//! `pull_requests:read` + `actions:read`. CI state is derived from BOTH
+//! the legacy Commit Status API (`status.state`) AND GitHub Actions
+//! (`checkSuites`) — reading only `status` produces a false `"unknown"`
+//! for the many repos that report results exclusively via Actions.
 
 use crate::git::model::{AcctInventory, FailRun, GitAccount, OpenPull, RepoSummary};
 
@@ -17,7 +19,34 @@ query ZenithInventory {
       nodes {
         nameWithOwner
         url
-        defaultBranchRef { name }
+        defaultBranchRef {
+          name
+          target {
+            ... on Commit {
+              oid
+              status {
+                state
+                contexts { state targetUrl }
+              }
+              checkSuites(first: 5, orderBy: {field: CREATED_AT, direction: DESC}) {
+                nodes {
+                  status
+                  conclusion
+                  url
+                  commit { committedDate }
+                }
+              }
+              checkRuns(first: 5, orderBy: {field: CREATED_AT, direction: DESC}) {
+                nodes {
+                  name
+                  conclusion
+                  status
+                  output { title summary text }
+                }
+              }
+            }
+          }
+        }
         pullRequests(states: [OPEN], first: 20, orderBy: {field: CREATED_AT, direction: DESC}) {
           nodes {
             number
@@ -26,17 +55,6 @@ query ZenithInventory {
             headRefName
             author { login }
             url
-          }
-        }
-        ref(qualifiedName: "refs/heads/__default__") {
-          target {
-            ... on Commit {
-              oid
-              status {
-                state
-                contexts { state targetUrl }
-              }
-            }
           }
         }
       }
@@ -93,31 +111,36 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
                 account_label: acct.label.clone(),
             });
         }
-        let (last_state, short_sha) = ref_state(&repo);
+        let ci = commit_ci(&repo);
         inv.repos.push(RepoSummary {
             full_name: full_name.clone(),
             provider: "github".into(),
-            last_state: last_state.clone(),
+            last_state: ci.state.clone(),
             open_prs,
-            default_branch_sha: short_sha,
-            default_branch,
+            default_branch_sha: ci.short_sha.clone(),
+            default_branch: default_branch.clone(),
             web_url,
         });
-        if last_state == "failed" || last_state == "cancelled" {
+        if ci.state == "failed" || ci.state == "cancelled" {
             // For GitHub we surface ALL "failed"/"cancelled" refs as FailRun
-            // entries — there's no per-run table in the GraphQL response so
-            // the chip count is "number of repos whose latest default-branch
-            // CI failed / cancelled" rather than total run count. This is per
-            // the user's "actions that fail" intent: one chip per broken repo.
+            // entries — the GraphQL response has no per-run table, so the chip
+            // count is "number of repos whose latest default-branch CI
+            // failed / cancelled" rather than total run count. This is per the
+            // user's "actions that fail" intent: one chip per broken repo.
             failed.push(FailRun {
                 provider: "github".into(),
                 full_name: full_name.clone(),
-                run_label: "latest default-branch CI".into(),
-                branch: "(default)".into(),
-                short_sha: String::new(),
+                run_label: if ci.run_label.is_empty() {
+                    "latest default-branch CI".into()
+                } else {
+                    ci.run_label.clone()
+                },
+                branch: default_branch.clone(),
+                short_sha: ci.short_sha,
                 ago: String::new(),
-                finished_ms: 0,
-                web_url: String::new(),
+                finished_ms: ci.finished_ms,
+                web_url: ci.web_url.clone(),
+                error: ci.error.clone(),
                 account_id: acct.id.clone(),
                 account_label: acct.label.clone(),
             });
@@ -137,25 +160,166 @@ fn str_or<'a>(v: &'a serde_json::Value, ptr: &str, default: &'a str) -> &'a str 
     v.pointer(ptr).and_then(|n| n.as_str()).unwrap_or(default)
 }
 
-fn ref_state(repo: &serde_json::Value) -> (String, String) {
-    let target = repo.pointer("/ref/target");
+/// Combined CI state for a repo's default-branch head commit.
+///
+/// Reads BOTH the legacy Commit Status API (`status.state`) and GitHub
+/// Actions (`checkSuites`). Reading only `status` yields a false
+/// `"unknown"` for the many repos that report exclusively via Actions, so
+/// the result here is the union of the two sources.
+struct CommitCi {
+    state: String,
+    short_sha: String,
+    /// Label for a representative failed/cancelled run (e.g. "GitHub Actions").
+    run_label: String,
+    /// Web URL of the failed/cancelled run (empty when none).
+    web_url: String,
+    /// Unix millis the failed/cancelled run finished, 0 when unknown.
+    finished_ms: i64,
+    /// Short failure summary (check-run output), empty when unavailable.
+    error: String,
+}
+
+fn commit_ci(repo: &serde_json::Value) -> CommitCi {
+    let target = repo.pointer("/defaultBranchRef/target");
     let oid = target
         .and_then(|t| t.pointer("/oid"))
         .and_then(|n| n.as_str())
         .unwrap_or("");
     let short = oid.chars().take(7).collect::<String>();
-    let state = target
+
+    let status_state = target
         .and_then(|t| t.pointer("/status/state"))
         .and_then(|n| n.as_str())
-        .unwrap_or("unknown");
-    let mapped = match state {
-        "SUCCESS" => "success",
-        "FAILURE" | "ERROR" => "failed",
-        "PENDING" => "running",
-        "EXPECTED" => "running",
-        _ => "unknown",
+        .unwrap_or("");
+
+    let suites = target
+        .and_then(|t| t.pointer("/checkSuites/nodes"))
+        .and_then(|n| n.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut has_failed = false;
+    let mut has_running = false;
+    let mut has_success = false;
+    let mut fail_url = String::new();
+    let mut fail_finished = 0i64;
+    let mut fail_label = String::new();
+
+    // Legacy Commit Status API.
+    match status_state {
+        "SUCCESS" => has_success = true,
+        "FAILURE" | "ERROR" => has_failed = true,
+        "PENDING" | "EXPECTED" => has_running = true,
+        _ => {}
+    }
+
+    // GitHub Actions check suites.
+    for s in &suites {
+        let status = str_or(s, "/status", "");
+        let conclusion = str_or(s, "/conclusion", "");
+        let url = str_or(s, "/url", "");
+        let finished = super::ago_from_iso_ms(str_or(s, "/commit/committedDate", ""));
+        match conclusion {
+            "FAILURE" | "TIMED_OUT" | "STARTUP_FAILURE" => {
+                has_failed = true;
+                if fail_url.is_empty() {
+                    fail_url = url.to_string();
+                    fail_finished = finished;
+                    fail_label = "GitHub Actions".into();
+                }
+            }
+            "CANCELLED" => {
+                has_failed = true;
+                if fail_url.is_empty() {
+                    fail_url = url.to_string();
+                    fail_finished = finished;
+                    fail_label = "GitHub Actions (cancelled)".into();
+                }
+            }
+            "SUCCESS" | "NEUTRAL" | "SKIPPED" => has_success = true,
+            "" => match status {
+                "IN_PROGRESS" | "REQUESTED" | "QUEUED" | "WAITING" | "PENDING" => {
+                    has_running = true
+                }
+                "COMPLETED" => has_success = true,
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
+    let state = if has_failed {
+        "failed".to_string()
+    } else if has_running {
+        "running".to_string()
+    } else if has_success {
+        "success".to_string()
+    } else {
+        "unknown".to_string()
     };
-    (mapped.into(), short)
+
+    // Capture a short failure summary from the first failed check-run's output.
+    let error = capture_error(target);
+
+    CommitCi {
+        state,
+        short_sha: short,
+        run_label: fail_label,
+        web_url: fail_url,
+        finished_ms: fail_finished,
+        error,
+    }
+}
+
+/// Pull a short, human-readable failure summary from the first failed
+/// check-run's `output` (title/summary/text). Truncated so the AI prompt
+/// stays bounded.
+fn capture_error(target: Option<&serde_json::Value>) -> String {
+    let Some(target) = target else { return String::new() };
+    let runs = target
+        .pointer("/checkRuns/nodes")
+        .and_then(|n| n.as_array())
+        .cloned()
+        .unwrap_or_default();
+    const MAX: usize = 1200;
+    for run in &runs {
+        let conclusion = str_or(run, "/conclusion", "");
+        let is_failed = matches!(
+            conclusion,
+            "FAILURE" | "TIMED_OUT" | "STARTUP_FAILURE" | "CANCELLED"
+        );
+        if !is_failed {
+            continue;
+        }
+        let name = str_or(run, "/name", "check");
+        let out = run.pointer("/output");
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(t) = out.and_then(|o| o.pointer("/title")).and_then(|n| n.as_str()) {
+            if !t.is_empty() {
+                parts.push(t.to_string());
+            }
+        }
+        if let Some(s) = out.and_then(|o| o.pointer("/summary")).and_then(|n| n.as_str()) {
+            if !s.is_empty() {
+                parts.push(s.to_string());
+            }
+        }
+        if let Some(t) = out.and_then(|o| o.pointer("/text")).and_then(|n| n.as_str()) {
+            if !t.is_empty() {
+                parts.push(t.to_string());
+            }
+        }
+        if parts.is_empty() {
+            continue;
+        }
+        let mut text = format!("{name}: {}", parts.join(" — "));
+        if text.chars().count() > MAX {
+            text = text.chars().take(MAX).collect::<String>();
+            text.push_str("…");
+        }
+        return text;
+    }
+    String::new()
 }
 
 fn now_ms() -> i64 {

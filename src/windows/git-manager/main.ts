@@ -11,6 +11,7 @@ import { CMD } from "../../shared/ipc";
 import { EVENT } from "../../shared/events";
 import type {
   AcctInventory,
+  Config,
   FailRun,
   GitState,
   GitWidgetConfig,
@@ -30,18 +31,22 @@ void (async () => {
 
   let state: GitState = { inventories: [], total_failed: 0, total_open_prs: 0 };
   let cfg: GitWidgetConfig = { accounts: [], selected_account_id: null, poll_interval_mins: 5 };
+  // AI assistants the user enabled in the git widget config — drives the
+  // per-card "Send to AI" dropdown.
+  let aiClis: string[] = [];
   let acctFilter: AcctFilter =
     ((window as unknown as Partial<GitManagerGlobals>).__ZENITH_GIT_ACCOUNT_ID as string | null) ??
     "all";
   if (acctFilter === "") acctFilter = "all";
 
   // ---- chrome ---------------------------------------------------------------
-  const { content } = await mountWindow({ title: "Git Manager" });
+  const { content, titleBadge } = await mountWindow({ title: "Git Manager" });
 
   // ---- account selector (filter pills) ------------------------------------
+  // Lives in the header, right after the title (same left alignment).
   const pillsWrap = document.createElement("div");
   pillsWrap.className = "gm-toolbar";
-  content.prepend(pillsWrap);
+  titleBadge?.parentElement?.append(pillsWrap);
   const pills = mountFilterPills<AcctFilter>(
     pillsWrap,
     [{ id: "all", label: "All" }],
@@ -61,10 +66,30 @@ void (async () => {
 
   // ---- tabs ----------------------------------------------------------------
   const tabs = mountTabs(content, [
+    { id: "dashboard", label: "Dashboard" },
     { id: "failed", label: "Failed CI" },
     { id: "prs", label: "Open PRs" },
     { id: "overview", label: "Overview" },
   ]);
+
+  // Right-aligned action — mirrors the Settings window "Widgets" link style.
+  // The icon lives in its own <span class="zen-icon"> child: calling setIcon
+  // on the button itself would add `.zen-icon` (which has `contain: strict`
+  // size containment) to the button and collapse it to zero width.
+  const configLink = document.createElement("button");
+  configLink.type = "button";
+  configLink.className = "zen-tab zen-tab--action";
+  configLink.title = "Configure Git widget";
+  configLink.setAttribute("aria-label", "Configure Git widget");
+  const configIcon = document.createElement("span");
+  configIcon.className = "zen-icon";
+  setIcon(configIcon, "config", { size: 14 });
+  configLink.append(configIcon);
+  configLink.addEventListener("click", () =>
+    void invoke(CMD.openWidgetConfig, { widgetId: "git" }),
+  );
+  tabs.container.append(configLink);
+
   content.prepend(tabs.container);
 
   // ---- refresh button (footer-ish; mount into content below the panes) ------
@@ -99,6 +124,13 @@ void (async () => {
   } catch (_) {
     /* state stays empty */
   }
+  try {
+    const full = await invoke<Config>(CMD.getConfig);
+    const list = full.widgets?.config?.git?.ai_clis;
+    if (Array.isArray(list)) aiClis = list.map(String).filter(Boolean);
+  } catch (_) {
+    /* aiClis stays empty */
+  }
   rebuildAccountPills();
   render();
 
@@ -114,6 +146,11 @@ void (async () => {
   listen<GitState>("zenith:config-updated", async () => {
     try { cfg = await invoke<GitWidgetConfig>(CMD.getGitWidgetConfig); }
     catch (_) { /* ignore */ }
+    try {
+      const full = await invoke<Config>(CMD.getConfig);
+      const list = full.widgets?.config?.git?.ai_clis;
+      if (Array.isArray(list)) aiClis = list.map(String).filter(Boolean);
+    } catch (_) { /* ignore */ }
     rebuildAccountPills();
     render();
   });
@@ -172,10 +209,224 @@ void (async () => {
   }
 
   function render() {
+    renderDashboard(tabs.panes.dashboard);
     renderFailed(tabs.panes.failed);
     renderPrs(tabs.panes.prs);
     renderOverview(tabs.panes.overview);
     paintMeta();
+  }
+
+  function renderDashboard(pane: HTMLElement) {
+    pane.textContent = "";
+    const invs = filtered();
+
+    const repos: RepoSummary[] = [];
+    const runs: FailRun[] = [];
+    let acctErr = 0;
+    for (const inv of invs) {
+      repos.push(...inv.repos);
+      runs.push(...inv.failed_runs);
+      if (inv.last_error && inv.last_error.length > 0) acctErr++;
+    }
+
+    const stateCounts: Record<string, number> = {
+      success: 0,
+      failed: 0,
+      running: 0,
+      cancelled: 0,
+      unknown: 0,
+    };
+    for (const r of repos) {
+      const k = ["success", "failed", "running", "cancelled", "unknown"].includes(r.last_state)
+        ? r.last_state
+        : "unknown";
+      stateCounts[k]++;
+    }
+    const attention = repos.filter(
+      (r) => r.last_state === "failed" || r.last_state === "running" || r.last_state === "cancelled",
+    );
+    const brokenAccts = invs.filter((i) => i.last_error && i.last_error.length > 0);
+
+    const dash = document.createElement("div");
+    dash.className = "gm-dash";
+
+    // --- At a glance --------------------------------------------------------
+    const glance = document.createElement("section");
+    glance.className = "gm-section";
+    glance.append(sectionTitle("At a glance"));
+    const tiles = document.createElement("div");
+    tiles.className = "gm-tiles";
+
+    const acctTotal = cfg.accounts.length;
+    tiles.append(
+      statTile(String(state.total_failed), "Failed CI", state.total_failed > 0 ? "is-danger" : ""),
+      statTile(String(state.total_open_prs), "Open PRs", state.total_open_prs > 0 ? "is-warn" : ""),
+      statTile(String(repos.length), "Repos tracked", ""),
+      statTile(
+        `${acctTotal}`,
+        acctErr > 0 ? `Accounts · ${acctErr} error${acctErr > 1 ? "s" : ""}` : "Accounts",
+        acctErr > 0 ? "is-danger" : "",
+      ),
+    );
+    glance.append(tiles);
+    dash.append(glance);
+
+    // --- CI status (stacked bar) -------------------------------------------
+    const ci = document.createElement("section");
+    ci.className = "gm-section";
+    ci.append(sectionTitle("CI status"));
+    const totalStates = repos.length || 1;
+    const stack = document.createElement("div");
+    stack.className = "gm-stackbar";
+    const order: Array<[string, string]> = [
+      ["success", "Success"],
+      ["failed", "Failed"],
+      ["running", "Running"],
+      ["cancelled", "Cancelled"],
+      ["unknown", "Unknown"],
+    ];
+    for (const [k, label] of order) {
+      const c = stateCounts[k];
+      if (c === 0) continue;
+      const seg = document.createElement("span");
+      seg.className = `gm-stack-seg is-${k}`;
+      seg.style.width = `${(c / totalStates) * 100}%`;
+      seg.title = `${label}: ${c}`;
+      stack.append(seg);
+    }
+    ci.append(stack);
+    const legend = document.createElement("div");
+    legend.className = "gm-legend";
+    for (const [k, label] of order) {
+      if (stateCounts[k] === 0) continue;
+      const item = document.createElement("span");
+      item.className = "gm-legend-item";
+      const dot = document.createElement("span");
+      dot.className = `gm-legend-dot is-${k}`;
+      item.append(dot, document.createTextNode(`${label} ${stateCounts[k]}`));
+      legend.append(item);
+    }
+    ci.append(legend);
+    dash.append(ci);
+
+    // --- Failures by day (bar chart) ---------------------------------------
+    const fd = document.createElement("section");
+    fd.className = "gm-section";
+    fd.append(sectionTitle("Failed runs by day (7d)"));
+    const DAYS = 7;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const buckets: { label: string; count: number; ts: number }[] = [];
+    for (let i = DAYS - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      buckets.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, count: 0, ts: d.getTime() });
+    }
+    const startTs = buckets[0].ts;
+    const endTs = today.getTime() + 24 * 3600 * 1000;
+    const DAY_MS = 24 * 3600 * 1000;
+    for (const r of runs) {
+      if (r.finished_ms >= startTs && r.finished_ms <= endTs) {
+        const d = new Date(r.finished_ms);
+        d.setHours(0, 0, 0, 0);
+        const idx = Math.round((d.getTime() - startTs) / DAY_MS);
+        if (idx >= 0 && idx < DAYS) buckets[idx].count++;
+      }
+    }
+    const maxCount = Math.max(1, ...buckets.map((b) => b.count));
+    const chart = document.createElement("div");
+    chart.className = "gm-barchart";
+    for (const b of buckets) {
+      const col = document.createElement("div");
+      col.className = "gm-bar-col";
+      const bar = document.createElement("span");
+      bar.className = "gm-bar";
+      bar.style.height = `${(b.count / maxCount) * 100}%`;
+      bar.title = `${b.label}: ${b.count}`;
+      const lbl = document.createElement("span");
+      lbl.className = "gm-bar-label";
+      lbl.textContent = b.label;
+      col.append(bar, lbl);
+      chart.append(col);
+    }
+    fd.append(chart);
+    dash.append(fd);
+
+    // --- Needs attention ----------------------------------------------------
+    const att = document.createElement("section");
+    att.className = "gm-section";
+    att.append(sectionTitle("Needs attention"));
+    if (attention.length === 0 && brokenAccts.length === 0) {
+      att.append(
+        emptyState("All healthy", "No repos in a failed, running, or cancelled state."),
+      );
+    } else {
+      const list = document.createElement("div");
+      list.className = "gm-list";
+      for (const r of attention) list.append(repoChip(r));
+      for (const a of brokenAccts) {
+        const card = document.createElement("article");
+        card.className = "zen-card gm-repo is-broken";
+        const head = document.createElement("header");
+        head.className = "zen-card__header";
+        const ttl = document.createElement("span");
+        ttl.className = "zen-card__title";
+        ttl.textContent = a.account_label || a.username || a.provider;
+        head.append(ttl, stateDot("failed"));
+        card.append(head);
+        const body = document.createElement("div");
+        body.className = "zen-card__content gm-detail";
+        body.append(detailLine("error", a.last_error));
+        card.append(body);
+        list.append(card);
+      }
+      att.append(list);
+    }
+    dash.append(att);
+
+    pane.append(dash);
+  }
+
+  function sectionTitle(text: string): HTMLElement {
+    const h = document.createElement("h3");
+    h.className = "gm-section-title";
+    h.textContent = text;
+    return h;
+  }
+
+  function statTile(value: string, label: string, mod: string): HTMLElement {
+    const tile = document.createElement("div");
+    tile.className = "gm-tile" + (mod ? " " + mod : "");
+    const v = document.createElement("span");
+    v.className = "gm-tile-val";
+    v.textContent = value;
+    const l = document.createElement("span");
+    l.className = "gm-tile-label";
+    l.textContent = label;
+    tile.append(v, l);
+    return tile;
+  }
+
+  function repoChip(r: RepoSummary): HTMLElement {
+    const card = document.createElement("article");
+    card.className = "zen-card gm-repo";
+    card.tabIndex = 0;
+    card.dataset.url = r.web_url;
+    card.addEventListener("click", () => void openCardUrl(r.web_url));
+    const head = document.createElement("header");
+    head.className = "zen-card__header";
+    const ttl = document.createElement("span");
+    ttl.className = "zen-card__title";
+    ttl.textContent = r.full_name;
+    head.append(ttl, stateDot(r.last_state));
+    if (r.open_prs > 0) {
+      const prs = document.createElement("span");
+      prs.className = "gm-pr-count";
+      prs.textContent = String(r.open_prs) + " PRs";
+      head.append(prs);
+    }
+    card.append(head);
+    return card;
   }
 
   function renderFailed(pane: HTMLElement) {
@@ -263,7 +514,10 @@ void (async () => {
     card.className = "zen-card gm-fail";
     card.tabIndex = 0;
     card.dataset.url = r.web_url;
-    card.addEventListener("click", () => void openCardUrl(r.web_url));
+    card.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest(".gm-ai-btn, .gm-ai-menu")) return;
+      void openCardUrl(r.web_url);
+    });
     const head = document.createElement("header");
     head.className = "zen-card__header";
     const stateChip = document.createElement("span");
@@ -279,6 +533,7 @@ void (async () => {
       acct.textContent = r.account_label;
       head.append(acct);
     }
+    head.append(attachAiButton(card, () => failPrompt(r)));
     card.append(head);
     if (r.branch || r.short_sha || r.ago) {
       const body = document.createElement("div");
@@ -300,7 +555,10 @@ void (async () => {
     card.className = "zen-card gm-pr";
     card.tabIndex = 0;
     card.dataset.url = p.web_url;
-    card.addEventListener("click", () => void openCardUrl(p.web_url));
+    card.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest(".gm-ai-btn, .gm-ai-menu")) return;
+      void openCardUrl(p.web_url);
+    });
     const head = document.createElement("header");
     head.className = "zen-card__header";
     const chip = document.createElement("span");
@@ -316,6 +574,7 @@ void (async () => {
       draft.textContent = "draft";
       head.append(draft);
     }
+    head.append(attachAiButton(card, () => prPrompt(p)));
     card.append(head);
     const body = document.createElement("div");
     body.className = "zen-card__content gm-detail";
@@ -324,6 +583,106 @@ void (async () => {
     if (p.branch) body.append(detailLine("branch", p.branch));
     card.append(body);
     return card;
+  }
+
+  function attachAiButton(_card: HTMLElement, getPrompt: () => string): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "gm-ai-btn";
+    btn.title = "Send to AI assistant";
+    btn.setAttribute("aria-label", "Send to AI assistant");
+    const ic = document.createElement("span");
+    ic.className = "zen-icon";
+    setIcon(ic, "sparkles", { size: 14 });
+    btn.append(ic);
+    btn.style.marginLeft = "auto";
+
+    let menu: HTMLElement | null = null;
+
+    function closeMenu() {
+      menu?.remove();
+      menu = null;
+      document.removeEventListener("click", onDocClick, true);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu, true);
+    }
+    function onDocClick(ev: MouseEvent) {
+      if (menu && !menu.contains(ev.target as Node) && ev.target !== btn) closeMenu();
+    }
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (aiClis.length === 0) {
+        // Nothing configured yet — send them to the widget settings.
+        void invoke(CMD.openWidgetConfig, { widgetId: "git" });
+        return;
+      }
+      if (menu) {
+        closeMenu();
+        return;
+      }
+      menu = document.createElement("div");
+      menu.className = "gm-ai-menu";
+      for (const cli of aiClis) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "gm-ai-item";
+        item.textContent = cli;
+        item.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const prompt = getPrompt();
+          void invoke(CMD.sendToAi, { cli, prompt }).catch(() => {});
+          closeMenu();
+        });
+        menu.append(item);
+      }
+      // Fixed-positioned on <body> so the pane's overflow:auto can't clip it.
+      const rect = btn.getBoundingClientRect();
+      menu.style.position = "fixed";
+      menu.style.top = `${rect.bottom + 4}px`;
+      menu.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
+      document.body.append(menu);
+      setTimeout(() => {
+        document.addEventListener("click", onDocClick, true);
+        window.addEventListener("scroll", closeMenu, true);
+        window.addEventListener("resize", closeMenu, true);
+      }, 0);
+    });
+
+    return btn;
+  }
+
+  function failPrompt(r: FailRun): string {
+    const lines = [
+      "Analyze this failed CI run and suggest how to fix it.",
+      "",
+      `Repo: ${r.full_name} (provider: ${r.provider})`,
+      `Branch: ${r.branch}`,
+      `Commit: ${r.short_sha}`,
+      `Run: ${r.run_label}`,
+      `Git id (run URL): ${r.web_url}`,
+    ];
+    if (r.error && r.error.trim()) {
+      lines.push("", "Error / failure summary:", r.error.trim());
+    } else {
+      lines.push("", "No inline failure log was captured — open the run URL for the full log.");
+    }
+    lines.push("", "Explain the likely root cause and propose concrete fixes.");
+    return lines.join("\n");
+  }
+
+  function prPrompt(p: OpenPull): string {
+    return [
+      "Review this pull request.",
+      "",
+      `Repo: ${p.full_name} (provider: ${p.provider})`,
+      `PR: #${p.number} ${p.title}`,
+      `Author: ${p.author_display}`,
+      `Branch: ${p.branch}`,
+      `Git id (PR URL): ${p.web_url}`,
+      "",
+      "Summarize what this PR does, note risks, and suggest improvements.",
+    ].join("\n");
   }
 
   function repoCard(r: RepoSummary): HTMLElement {

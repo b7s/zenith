@@ -18,6 +18,9 @@ export const CMD = {
   getVolume: "get_volume",
   setVolume: "set_volume",
   setMuted: "set_muted",
+  getAppSessions: "get_app_sessions",
+  setAppVolume: "set_app_volume",
+  setAppMuted: "set_app_muted",
   openVolumePopup: "open_volume_popup",
   openCalendar: "open_calendar",
   openWidgetConfig: "open_widget_config",
@@ -51,6 +54,7 @@ export const CMD = {
   getGitSelectedAccount: "get_git_selected_account",
   getGitWidgetConfig: "get_git_widget_config",
   openUrl: "open_url",
+  sendToAi: "send_to_ai",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

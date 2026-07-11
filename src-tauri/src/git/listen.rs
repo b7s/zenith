@@ -185,7 +185,14 @@ fn load_git_widget_config(cfg: &crate::config::model::Config) -> super::model::G
     // widget config payload, not a top-level domain).
     let raw = serde_json::to_value(cfg).unwrap_or(serde_json::Value::Null);
     raw.pointer("/widgets/config/git")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .and_then(|v| {
+            serde_json::from_value(v.clone())
+                .map_err(|e| {
+                    glog!("parse git config failed: {e}");
+                    e
+                })
+                .ok()
+        })
         .unwrap_or_default()
 }
 

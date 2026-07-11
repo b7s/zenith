@@ -10,8 +10,11 @@ use serde::{Deserialize, Serialize};
 pub struct GitAccount {
     #[serde(default)]
     pub id: String,
+    #[serde(default)]
     pub label: String,
+    #[serde(default)]
     pub provider: String,
+    #[serde(default)]
     pub username: String,
     /// Optional self-hosted instance URL (e.g. `https://gitlab.example.com`
     /// or `https://bitbucket.example.com`). Empty = use cloud default

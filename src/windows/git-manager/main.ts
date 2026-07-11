@@ -464,17 +464,32 @@ void (async () => {
     const invs = filtered();
     const repos: RepoSummary[] = [];
     for (const inv of invs) repos.push(...inv.repos);
-    if (repos.length === 0) {
-      const errInvs = invs.filter((i) => i.last_error && i.last_error.length > 0);
-      if (errInvs.length > 0) {
-        const errs = errInvs.map(
-          (i) => `${i.account_label || i.username || i.provider}: ${i.last_error}`,
-        );
-        pane.append(
-          emptyState("Account error", errs.join("\n")),
-        );
-        return;
+    const errInvs = invs.filter((i) => i.last_error && i.last_error.length > 0);
+
+    // Always show errored accounts at the top, even when other accounts have
+    // repos — otherwise a silent error (auth failure, rate limit, etc.) on
+    // one account is invisible as long as any other account succeeds.
+    if (errInvs.length > 0) {
+      const errBlock = document.createElement("div");
+      errBlock.className = "gm-err-block";
+      errBlock.style.cssText = "margin-bottom:0.75rem;display:flex;flex-direction:column;gap:0.35rem;";
+      for (const i of errInvs) {
+        const row = document.createElement("div");
+        row.className = "gm-err-row";
+        row.style.cssText = "display:flex;align-items:center;gap:0.5rem;padding:0.5rem;border-radius:var(--radius);background:color-mix(in oklch,var(--danger) 12%,transparent);border:1px solid color-mix(in oklch,var(--danger) 30%,transparent);font-size:0.8125rem;";
+        const labelSpan = document.createElement("span");
+        labelSpan.style.cssText = "font-weight:600;flex-shrink:0;";
+        labelSpan.textContent = i.account_label || i.username || i.provider;
+        const msgSpan = document.createElement("span");
+        msgSpan.style.cssText = "color:var(--muted-foreground);";
+        msgSpan.textContent = i.last_error;
+        row.append(labelSpan, msgSpan);
+        errBlock.append(row);
       }
+      pane.append(errBlock);
+    }
+
+    if (repos.length === 0 && errInvs.length === 0) {
       pane.append(
         emptyState(
           "No repos yet",
@@ -485,10 +500,13 @@ void (async () => {
       );
       return;
     }
-    const list = document.createElement("div");
-    list.className = "gm-list";
-    for (const r of repos) list.append(repoCard(r));
-    pane.append(list);
+
+    if (repos.length > 0) {
+      const list = document.createElement("div");
+      list.className = "gm-list";
+      for (const r of repos) list.append(repoCard(r));
+      pane.append(list);
+    }
   }
 
   function paintMeta() {

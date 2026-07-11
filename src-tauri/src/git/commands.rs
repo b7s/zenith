@@ -169,7 +169,11 @@ pub fn get_git_widget_config() -> GitWidgetConfig {
     let cfg = crate::config::repository::load();
     let raw = serde_json::to_value(&cfg).unwrap_or(serde_json::Value::Null);
     raw.pointer("/widgets/config/git")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .and_then(|v| {
+            serde_json::from_value(v.clone())
+                .inspect_err(|e| eprintln!("[git] parse widget config: {e}"))
+                .ok()
+        })
         .unwrap_or_default()
 }
 

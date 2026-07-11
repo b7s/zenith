@@ -57,7 +57,15 @@ void (async () => {
 
   // ---- footer (built early so the window can mount with it) --------------
   const footer = document.createElement("div");
-  footer.style.cssText = "display:flex;gap:0.5rem;justify-content:flex-end;";
+  footer.style.cssText = "display:flex;gap:0.5rem;justify-content:space-between;";
+
+  const footerLeft = document.createElement("div");
+  footerLeft.style.cssText = "display:flex;gap:0.5rem;align-items:center;";
+  footer.append(footerLeft);
+
+  const footerRight = document.createElement("div");
+  footerRight.style.cssText = "display:flex;gap:0.5rem;";
+  footer.append(footerRight);
 
   const cancelBtn = document.createElement("button");
   cancelBtn.type = "button";
@@ -67,7 +75,7 @@ void (async () => {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().close().catch(() => {});
   });
-  footer.append(cancelBtn);
+  footerRight.append(cancelBtn);
 
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
@@ -110,7 +118,7 @@ void (async () => {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().close().catch(() => {});
   });
-  footer.append(saveBtn);
+  footerRight.append(saveBtn);
 
   const { content } = await mountWindow({ title: "Widget Settings", footer });
 
@@ -120,6 +128,7 @@ void (async () => {
   let generalPane: HTMLElement = content;
   let credPane: HTMLElement = content;
   if (isGit) {
+    footerLeft.style.display = "none";
     const tabs = mountTabs(content, [
       { id: "general", label: "General" },
       { id: "credentials", label: "Credentials" },
@@ -127,6 +136,11 @@ void (async () => {
     content.prepend(tabs.container);
     generalPane = tabs.panes.general;
     credPane = tabs.panes.credentials;
+    tabs.container.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-tab-id]");
+      if (!btn) return;
+      footerLeft.style.display = btn.dataset.tabId === "credentials" ? "flex" : "none";
+    });
   }
 
   const form = document.createElement("div");
@@ -155,7 +169,7 @@ void (async () => {
     const currentValue = key in savedValues ? savedValues[key] : field.value;
 
     if (field.type === "accounts") {
-      buildAccountsControl(wrapper, key, field, currentValue as Array<Record<string, unknown>> | undefined, accountStores);
+      buildAccountsControl(wrapper, key, field, currentValue as Array<Record<string, unknown>> | undefined, accountStores, isGit ? footerLeft : undefined);
     } else if (field.type === "bool") {
       buildBoolControl(wrapper, key, field, currentValue, switchStates);
     } else if (field.type === "multiselect") {
@@ -591,6 +605,7 @@ function buildAccountsControl(
   _field: WidgetConfigField,
   currentValue: Array<Record<string, unknown>> | undefined,
   stores: Record<string, AcctRow[]>,
+  addBtnTarget?: HTMLElement,
 ): void {
   const rows: AcctRow[] = [];
   stores[_key] = rows;
@@ -603,7 +618,7 @@ function buildAccountsControl(
   addBtn.type = "button";
   addBtn.className = "zen-button is-outline is-sm";
   addBtn.textContent = "+ Add Account";
-  addBtn.style.marginTop = "0.25rem";
+  addBtn.style.marginTop = addBtnTarget ? "0" : "0.25rem";
 
   function addRow(data?: Record<string, unknown>): void {
     const rowKey = crypto.randomUUID();
@@ -721,13 +736,21 @@ function buildAccountsControl(
     rowFlex.append(enabledWrap, removeBtn);
 
     rowEl.append(labelInput, provider, hostUrl, hostHint, username, token, tokenHint, rowFlex);
-    container.insertBefore(rowEl, addBtn);
+    if (addBtnTarget) {
+      container.append(rowEl);
+    } else {
+      container.insertBefore(rowEl, addBtn);
+    }
 
     rows.push({ key: rowKey, id: String(data?.id ?? crypto.randomUUID()), label: labelInput, provider, username, token, hostUrl, enabled: enabledInput, el: rowEl, existingTokenBlob: String(data?.token_blob ?? "") });
   }
 
   addBtn.addEventListener("click", () => addRow());
-  container.append(addBtn);
+  if (addBtnTarget) {
+    addBtnTarget.append(addBtn);
+  } else {
+    container.append(addBtn);
+  }
 
   if (Array.isArray(currentValue)) {
     for (const acct of currentValue) addRow(acct);

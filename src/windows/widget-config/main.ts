@@ -125,23 +125,28 @@ void (async () => {
   if (footer) footer.style.cssText = "display:flex;gap:0.5rem;padding:0.75rem 0.875rem 1rem;";
 
   const isGit = widgetId === "git";
+  const isDatetime = widgetId === "datetime";
+  const useTabs = isGit || isDatetime;
 
-  // For the git widget, split config into General / Credentials tabs.
+  // For the git and datetime widgets, split config into General + a second
+  // tab (Credentials for git, Calendars for datetime).
   let generalPane: HTMLElement = content;
-  let credPane: HTMLElement = content;
-  if (isGit) {
+  let secondPane: HTMLElement = content;
+  if (useTabs) {
     footerLeft.style.display = "none";
+    const secondId = isGit ? "credentials" : "calendars";
+    const secondLabel = isGit ? "Credentials" : "Calendars";
     const tabs = mountTabs(content, [
       { id: "general", label: "General" },
-      { id: "credentials", label: "Credentials" },
+      { id: secondId, label: secondLabel },
     ]);
     content.prepend(tabs.container);
     generalPane = tabs.panes.general;
-    credPane = tabs.panes.credentials;
+    secondPane = tabs.panes[secondId];
     tabs.container.addEventListener("click", (e) => {
       const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-tab-id]");
       if (!btn) return;
-      footerLeft.style.display = btn.dataset.tabId === "credentials" ? "flex" : "none";
+      footerLeft.style.display = btn.dataset.tabId === secondId ? "flex" : "none";
     });
   }
 
@@ -149,7 +154,8 @@ void (async () => {
   form.className = "zen-section";
 
   function getPane(key: string): HTMLElement {
-    if (isGit) return key === "accounts" ? credPane : generalPane;
+    if (isGit) return key === "accounts" ? secondPane : generalPane;
+    if (isDatetime) return generalPane;
     return form;
   }
 
@@ -208,7 +214,7 @@ void (async () => {
     calHint.textContent =
       "Connect Google Calendar or Outlook to show events on the bar and alarm you at event start.";
     section.append(calLabel, calHint);
-    form.append(section);
+    secondPane.append(section);
     void buildCalendarAccountsSection(section);
   }
 
@@ -222,7 +228,7 @@ void (async () => {
     const pillsWrap = document.createElement("div");
     pillsWrap.className = "wc-cred-pills";
     credHeader.append(credTitle, pillsWrap);
-    credPane.prepend(credHeader);
+    secondPane.prepend(credHeader);
 
     let currentFilter = "all";
     const providers = ["github", "gitlab", "forgejo", "gitea", "bitbucket"];
@@ -243,7 +249,7 @@ void (async () => {
       filter.container
         .querySelectorAll<HTMLButtonElement>("[data-pill-id]")
         .forEach((b) => b.classList.toggle("is-active", b.dataset.pillId === next));
-      credPane.querySelectorAll<HTMLElement>("[data-accts-key] .zen-field").forEach((row) => {
+      secondPane.querySelectorAll<HTMLElement>("[data-accts-key] .zen-field").forEach((row) => {
         const sel = row.querySelector("select");
         const pv = sel ? sel.value : "";
         row.style.display = currentFilter === "all" || pv === currentFilter ? "" : "none";
@@ -251,8 +257,8 @@ void (async () => {
     });
   }
 
-  // Non-git widgets render all fields in a single scrolling section.
-  if (!isGit) {
+  // Widgets without tabs render all fields in a single scrolling section.
+  if (!useTabs) {
     const wrapper = document.createElement("div");
     wrapper.style.cssText = "flex:1;overflow-y:auto;overflow-x:hidden;padding:1rem;";
     content.append(wrapper);

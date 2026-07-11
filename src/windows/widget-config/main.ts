@@ -739,6 +739,7 @@ function buildAccountsControl(
     }
 
     rows.push({ key: rowKey, id: String(data?.id ?? crypto.randomUUID()), label: labelInput, provider, username, token, hostUrl, enabled: enabledInput, el: rowEl, existingTokenBlob: String(data?.token_blob ?? "") });
+    if (!data) labelInput.focus();
   }
 
   addBtn.addEventListener("click", () => addRow());

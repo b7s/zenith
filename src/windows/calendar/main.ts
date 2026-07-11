@@ -22,6 +22,7 @@ import {
   type CalendarState,
 } from "./calendar";
 import { mountFilterPills, type FilterPillsMount } from "../../shared/filter-pills";
+import { CMD } from "../../shared/ipc";
 
 type ViewMode = "calendar" | "events";
 type EventFilter = "all" | "event" | "alarm";
@@ -162,9 +163,17 @@ void (async () => {
 
   header.append(eventsHeaderGroup);
 
-  // Right: toggle view + add + close
+  // Right: settings + toggle view + add + close
   const rightGroup = document.createElement("div");
   rightGroup.className = "cal-hright";
+
+  // Settings (cog) — opens the datetime widget config (calendar accounts,
+  // appearance, etc.) in the same style as the other header icon buttons.
+  const settingsBtn = makeIconButton("config", "Calendar settings");
+  settingsBtn.addEventListener("click", () => {
+    void invoke(CMD.openWidgetConfig, { widgetId: "datetime" });
+  });
+  rightGroup.append(settingsBtn);
 
   // View toggle button (calendar <-> events). Hidden in events-only mode.
   const viewToggle = makeIconButton("calendar-search", "Show events");

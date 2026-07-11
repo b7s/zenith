@@ -15,6 +15,27 @@ static WS_CONTEXT_ID: AtomicU32 = AtomicU32::new(0);
 /// for a single menu click (observed on Tauri 2). Cleared after creation.
 static DIALOG_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
 
+/// Guard: `on_menu_event` fires twice for a single menu click on Tauri 2.
+/// With the Settings/Widgets windows being toggles, the duplicate fire would
+/// immediately close the window just opened by the first fire. This claim drops
+/// the duplicate and releases after a short delay so a real second click still
+/// toggles.
+static TOGGLE_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+
+/// Claim the toggle guard; returns false if a (duplicate) event is already in
+/// flight. Releases after 400ms via a spawned timer (same discipline as the
+/// workspace menu guard — synchronous release lets the duplicate re-fire).
+fn claim_toggle() -> bool {
+    if TOGGLE_IN_FLIGHT.swap(true, Ordering::SeqCst) {
+        return false;
+    }
+    let _ = std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        TOGGLE_IN_FLIGHT.store(false, Ordering::SeqCst);
+    });
+    true
+}
+
 /// Unified dialog state passed to the dialog window via `get_dialog_data`.
 /// `kind` selects the body builder; `data` is opaque JSON for that builder.
 /// `width` and `height` request a fixed OS-pixel size (default 320×200),
@@ -127,9 +148,17 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
     eprintln!("[zenith] menu event: {}", id);
     match id {
         MI_SETTINGS => {
+            if !claim_toggle() {
+                eprintln!("[zenith] ctx-settings: dropped duplicate menu event");
+                return;
+            }
             let _ = create_settings_window(app);
         }
         MI_WIDGETS => {
+            if !claim_toggle() {
+                eprintln!("[zenith] ctx-widgets: dropped duplicate menu event");
+                return;
+            }
             let _ = create_widgets_window(app);
         }
         MI_RESTART => {

@@ -378,12 +378,8 @@ document.addEventListener("keydown", async (e) => {
 /// Accounts are managed entirely by the calendar-sync commands — this UI
 /// only triggers connect / disconnect / sync and reflects state.
 async function buildCalendarAccountsSection(parent: HTMLElement): Promise<void> {
-  const list = document.createElement("div");
-  list.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;";
-  parent.append(list);
-
   const actions = document.createElement("div");
-  actions.style.cssText = "display:flex;gap:0.5rem;margin-top:0.5rem;";
+  actions.style.cssText = "display:flex;gap:0.5rem;";
   const gBtn = document.createElement("button");
   gBtn.type = "button";
   gBtn.className = "zen-button is-outline";
@@ -399,6 +395,10 @@ async function buildCalendarAccountsSection(parent: HTMLElement): Promise<void> 
   status.className = "zen-hint";
   status.style.marginTop = "0.25rem";
   parent.append(status);
+
+  const list = document.createElement("div");
+  list.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;margin-top:0.75rem;";
+  parent.append(list);
 
   let pendingId: string | null = null;
   let pollTimer: number | null = null;

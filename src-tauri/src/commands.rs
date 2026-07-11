@@ -285,14 +285,10 @@ Object.freeze(window.__ZENITH_DIALOG_FIXED);"#,
         fixed_json = if fixed { "true" } else { "false" },
     );
     let (w, h) = spec.size();
-    // Center on the monitor containing the anchor (typically the bar widget
-    // that triggered the dialog). Falls back to the primary monitor when
-    // no anchor was supplied.
-    let anchor = match (spec.anchor_x, spec.anchor_y) {
-        (Some(x), Some(y)) => Some((x, y)),
-        _ => None,
-    };
-    let (cx, cy) = window::monitor::center_on_monitor_at(anchor, w as i32, h as i32);
+    // Center on the primary monitor using Tauri's built-in `.center()`, which
+    // accounts for DPI scale factors correctly (a manual physical-pixel
+    // position computed from `MONITORINFO.rcWork` would land off-center / on
+    // the left edge on scaled displays). Mirrors the Settings window.
 
     let win = tauri::WebviewWindowBuilder::new(
         app,
@@ -303,7 +299,7 @@ Object.freeze(window.__ZENITH_DIALOG_FIXED);"#,
     .inner_size(w as f64, h as f64)
     .min_inner_size(280.0, 120.0)
     .max_inner_size(820.0, 800.0)
-    .position(cx as f64, cy as f64)
+    .center()
     .resizable(false)
     .decorations(false)
     .transparent(true)

@@ -49,7 +49,6 @@ pub fn spawn(app: AppHandle) {
         return;
     }
     std::thread::spawn(move || {
-        glog!("thread start");
         // Immediate first poll so the bar gets populated right away
         // instead of waiting 30s for the first cycle.
         poll_once(&app);
@@ -119,14 +118,6 @@ fn poll_once(app: &AppHandle) {
                 }
             }
         };
-        glog!(
-            "inventory {}: {} failed, {} PRs ({}ms ago) [{}]",
-            acct.label,
-            inv.failed_runs.len(),
-            inv.open_pulls.len(),
-            if inv.last_sync_ms > 0 { (now_ms - inv.last_sync_ms) / 1000 } else { 0 },
-            inv.last_error,
-        );
         state.inventories.push(inv);
     }
     go_total(&mut state);
@@ -156,11 +147,6 @@ fn poll_once(app: &AppHandle) {
     }
 
     if changed {
-        glog!(
-            "changed emit: total_failed={} total_prs={}",
-            state.total_failed,
-            state.total_open_prs,
-        );
         let _ = app.emit(EVENT_GIT_CHANGED, &state);
     }
 }

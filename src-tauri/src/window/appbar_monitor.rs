@@ -97,15 +97,13 @@ pub fn install(app: AppHandle) {
             Some(hinst.into()),
             None,
         );
-        let hwnd = match hwnd {
-            Ok(h) => h,
+        match hwnd {
+            Ok(_) => {}
             Err(_) => {
                 eprintln!("[zenith:appbar] CreateWindowExW failed: {}", std::io::Error::last_os_error());
                 return;
             }
         };
-        eprintln!("[zenith:appbar] watcher window installed (hwnd={:p})", hwnd.0);
-
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {
             let _ = TranslateMessage(&msg);

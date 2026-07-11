@@ -179,8 +179,6 @@ pub fn pin_state() -> bool {
 pub fn setup_events(app_handle: tauri::AppHandle) -> Result<winvd::DesktopEventThread, winvd::Error> {
     let (tx, rx) = mpsc::channel::<winvd::DesktopEvent>();
     let _handle = winvd::listen_desktop_events(tx)?;
-    eprintln!("[zenith:ws] event listener registered");
-
     std::thread::spawn(move || {
         // Debounce: coalesce events that arrive within this window into a
         // single emit. `winvd` can deliver overlapping notifications for one

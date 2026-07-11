@@ -19,7 +19,6 @@ pub fn setup(app_handle: AppHandle) {
     if guard.is_none() {
         match super::commands::setup_events(app_handle) {
             Ok(handle) => {
-                eprintln!("[zenith:ws] event listener thread registered");
                 *guard = Some(handle);
             }
             Err(e) => eprintln!("[zenith:ws] event listener failed: {e:?}"),

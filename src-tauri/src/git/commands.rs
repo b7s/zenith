@@ -48,8 +48,20 @@ pub async fn open_git_manager(
         return Ok(());
     }
 
-    let app_clone = app.clone();
-    tauri::async_runtime::spawn_blocking(move || create_git_manager(&app_clone, x, y))
+    // Window creation must run on the main thread — WebviewWindowBuilder::build()
+    // creates an HWND that needs a message pump on its creator thread.
+    // spawn_blocking doesn't pump messages, so the window's SetWindowPos /
+    // SetWindowCompositionAttribute messages never get processed and the
+    // window stays invisible. We post the work to the main thread via
+    // run_on_main_thread, then wait for the result via a channel.
+    let (tx, rx) = std::sync::mpsc::channel();
+    let app2 = app.clone();
+    app.run_on_main_thread(move || {
+        let _ = tx.send(create_git_manager(&app2, x, y));
+    })
+    .map_err(|e| e.to_string())?;
+
+    tauri::async_runtime::spawn_blocking(move || rx.recv().map_err(|_| "channel closed".to_string())?)
         .await
         .map_err(|e| e.to_string())?
 }
@@ -196,29 +208,15 @@ fn create_git_manager(app: &tauri::AppHandle, _x: f64, _y: f64) -> Result<(), St
     let _ = window::set_rounded_corners(&win);
     let _ = window::set_disable_transitions(&win);
 
-    // Show after material is registered, then bring to front. We deliberately
-    // drop SWP_NOZORDER so HWND_TOP actually takes effect (§13.10b's
-    // SWP_NOZORDER keeps the just-created invisible window behind everything,
-    // which is the "opens behind" bug). set_focus() is the foreground safety net.
-    bring_to_front(&win);
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    // Show after material is registered, then bring to front using the same
+    // pattern as the Settings/Widgets windows (§13.10b): reveal with
+    // SWP_SHOWWINDOW + SWP_NOZORDER + SWP_NOSIZE + SWP_NOMOVE, then set_focus.
+    // This avoids the custom HWND_TOP bring_to_front path that left the window
+    // minimized/hidden on open.
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER, SWP_NOSIZE, SWP_NOMOVE};
+    let hwnd = win.hwnd().map_err(|e| e.to_string())?;
+    let _ = unsafe { SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE) };
     let _ = win.set_focus();
 
     Ok(())
-}
-
-/// Reveal a window at the top of the z-order (above other normal windows,
-/// not permanently topmost). Uses `HWND_TOP` as the insert-after handle and
-/// intentionally omits `SWP_NOZORDER` so that placement is honored — passing
-/// `None` + `SWP_NOZORDER` silently keeps a freshly-created invisible window
-/// behind everything.
-fn bring_to_front(win: &tauri::WebviewWindow) {
-    use windows::Win32::UI::WindowsAndMessaging::{
-        HWND_TOP, SetWindowPos, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
-    };
-    if let Ok(hwnd) = win.hwnd() {
-        let _ = unsafe {
-            SetWindowPos(hwnd, Some(HWND_TOP), 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE)
-        };
-    }
 }

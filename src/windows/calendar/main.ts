@@ -124,18 +124,18 @@ void (async () => {
   nextMonthLabel.className = "cal-month";
   centerGroup.append(nextMonthLabel);
 
-  // For the events-only view we replace this whole title with a plain
-  // "Events" header (no month nav, no year select). Render func swaps.
+  header.append(centerGroup);
+
+  // ---- events header group (events mode: title + filter pills left-aligned) --
+  const eventsHeaderGroup = document.createElement("div");
+  eventsHeaderGroup.className = "cal-events-header";
+
   const eventsTitle = document.createElement("span");
   eventsTitle.className = "cal-month";
   eventsTitle.textContent = "Events";
-  centerGroup.append(eventsTitle);
+  eventsHeaderGroup.append(eventsTitle);
 
-  // Day filter chip — only meaningful in events view, only shown when
-  // the user has filtered to a single day (by clicking a day cell).
-  // Pattern matches the rest of the chrome: an outer button that holds a
-  // `.zen-icon` span (for the clear glyph) and the label span. `setIcon`
-  // targets the `.zen-icon` child, so it doesn't wipe the label.
+  // Day filter chip — only in events view, only when a day is filtered.
   const dayFilterChip = document.createElement("button");
   dayFilterChip.type = "button";
   dayFilterChip.className = "zen-icon-button cal-day-filter-chip";
@@ -153,9 +153,14 @@ void (async () => {
     dayFilter = null;
     render();
   });
-  centerGroup.append(dayFilterChip);
+  eventsHeaderGroup.append(dayFilterChip);
 
-  header.append(centerGroup);
+  // Filter pills mount point — populated once in renderEventsView()
+  const pillsWrap = document.createElement("div");
+  pillsWrap.className = "cal-event-filter";
+  eventsHeaderGroup.append(pillsWrap);
+
+  header.append(eventsHeaderGroup);
 
   // Right: toggle view + add + close
   const rightGroup = document.createElement("div");
@@ -235,11 +240,10 @@ void (async () => {
     const inEvents = mode === "events";
     // Left nav: calendar view only
     leftGroup.style.display = inEvents ? "none" : "";
-    // Title parts
-    monthLabel.style.display = inEvents ? "none" : "";
-    yearWrapper.style.display = inEvents ? "none" : "";
-    nextMonthLabel.style.display = (!inEvents && showNextMonth) ? "" : "none";
-    eventsTitle.style.display = inEvents ? "" : "none";
+    // Center title group: calendar mode only
+    centerGroup.style.display = inEvents ? "none" : "";
+    // Events header group: events mode only
+    eventsHeaderGroup.style.display = inEvents ? "flex" : "none";
     // Day filter chip — only in events view, only when a day is filtered.
     if (inEvents && dayFilter) {
       dayFilterLabel.textContent = `Day · ${dayFilter}`;
@@ -309,10 +313,8 @@ void (async () => {
     // Mount (once) and reuse the shared segmented control so the active
     // pill class survives re-renders.
     if (!pillsMount) {
-      const wrap = document.createElement("div");
-      wrap.className = "cal-event-filter";
       pillsMount = mountFilterPills<EventFilter>(
-        wrap,
+        pillsWrap,
         [
           { id: "all",   label: "All" },
           { id: "event", label: "Event" },
@@ -387,7 +389,7 @@ void (async () => {
       }
     }
 
-    content.replaceChildren(pillsMount.container, list);
+    content.replaceChildren(list);
   }
 
   async function openEventEdit(ev: CalendarEvent): Promise<void> {

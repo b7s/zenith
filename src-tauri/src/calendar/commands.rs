@@ -14,12 +14,12 @@ use crate::window;
 const CALENDAR_LABEL: &str = "calendar";
 // Single-month popup. Mirror of `CALENDAR_POPUP_CSS_*` in
 // `src/shared/widget-popup.ts` — keep the two languages in sync.
-const CALENDAR_W: i32 = 340;
+const CALENDAR_W: i32 = 360;
 const CALENDAR_H: i32 = 410;
 // Two-month popup: same height, ~2× width. Activated by the widget's
 // `show_next_month` config option. Same vertical alignment so the bar
 // widget stays visually centred below both panels.
-const CALENDAR_W_WIDE: i32 = 680;
+const CALENDAR_W_WIDE: i32 = 700;
 
 /// The currently-requested calendar view mode. Stored in a Mutex so the
 /// frontend can query it via `get_calendar_view()` on load — this is the

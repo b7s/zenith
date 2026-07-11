@@ -50,6 +50,18 @@
   white-space: nowrap;
 }
 
+/* Events header group — replaces the centered month title in events mode.
+   Title + day filter chip + filter pills, left-aligned. Hidden by default
+   (calendar mode shows the centered .cal-hcenter); JS toggles display via
+   .style. */
+.cal-events-header {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
 /* Right group: toggle + add + close. Match header baseline so icon
    buttons all align. */
 .cal-hright {

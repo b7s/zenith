@@ -47,6 +47,11 @@
 //! work area. If `w` would overflow, x is shifted left; same for y if the
 //! bar is at the top of a small work area.
 
+/// Minimum distance (OS pixels) a popup window keeps from every edge of the
+/// monitor work area. ~1rem so popups never hug the screen edge. Single source
+/// of the edge-safe distance; per-widget `margin` math is now redundant.
+const EDGE_MARGIN: i32 = 16;
+
 use windows::Win32::Foundation::{POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST,
@@ -83,10 +88,12 @@ fn work_area_at(x: i32, y: i32) -> RECT {
 /// preserved — the caller is expected to pick a size that fits.
 pub fn clamp_to_monitor(x: i32, y: i32, w: i32, h: i32) -> (i32, i32, i32, i32) {
     let work = work_area_at(x, y);
-    let left = work.left;
-    let top = work.top;
-    let right = work.right;
-    let bottom = work.bottom;
+    // Inset the work area by the safe edge margin so popups never sit flush
+    // against the screen edge.
+    let left = work.left + EDGE_MARGIN;
+    let top = work.top + EDGE_MARGIN;
+    let right = (work.right - EDGE_MARGIN).max(work.left + EDGE_MARGIN);
+    let bottom = (work.bottom - EDGE_MARGIN).max(work.top + EDGE_MARGIN);
 
     // Clamp width/height so a misbehaving caller can't ask for more than the
     // work area — important on very small screens or extreme DPI scales.

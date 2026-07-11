@@ -3,6 +3,7 @@ import "./volume-popup.css";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { setIcon } from "../../shared/icon";
+import { CMD } from "../../shared/ipc";
 import { applyTheme } from "../../shared/window";
 import { initLog, logInfo } from "../../shared/log";
 import type { AppSessionInfo } from "../../shared/types";
@@ -75,7 +76,19 @@ void (async () => {
   mixerChevron.className = "vol-mixer__chevron";
   setIcon(mixerChevron, "chevron-right", { size: 12 });
 
-  mixerLabel.append(mixerHint, mixerCount);
+  // Clickable icon (side-by-side with "App volumes") that opens the native
+  // Windows 11 audio settings (the per-app volume mixer).
+  const mixerConfig = document.createElement("span");
+  mixerConfig.className = "vol-mixer__config";
+  setIcon(mixerConfig, "sliders-horizontal", { size: 13 });
+  mixerConfig.title = "Open Windows sound settings";
+  mixerConfig.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    void invoke(CMD.openUrl, { url: "ms-settings:apps-volume" }).catch(() => {});
+  });
+
+  mixerLabel.append(mixerConfig, mixerHint, mixerCount);
   mixerSummary.append(mixerLabel, mixerChevron);
   mixer.append(mixerSummary);
 

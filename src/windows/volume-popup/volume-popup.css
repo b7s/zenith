@@ -85,6 +85,20 @@
   font-weight: 500;
   color: var(--muted-foreground);
 }
+
+.vol-mixer__config {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+  transition: color 140ms ease, opacity 140ms ease;
+}
+.vol-mixer__config:hover {
+  color: var(--foreground);
+  opacity: 1;
+}
 .vol-mixer__chevron {
   margin-left: auto;
   display: inline-flex;

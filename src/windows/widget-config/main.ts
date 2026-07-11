@@ -56,16 +56,11 @@ void (async () => {
   const configDef = manifest.config ?? {};
 
   // ---- footer (built early so the window can mount with it) --------------
-  const footer = document.createElement("div");
-  footer.style.cssText = "display:flex;gap:0.5rem;justify-content:space-between;";
-
   const footerLeft = document.createElement("div");
   footerLeft.style.cssText = "display:flex;gap:0.5rem;align-items:center;";
-  footer.append(footerLeft);
 
   const footerRight = document.createElement("div");
   footerRight.style.cssText = "display:flex;gap:0.5rem;";
-  footer.append(footerRight);
 
   const cancelBtn = document.createElement("button");
   cancelBtn.type = "button";
@@ -120,7 +115,8 @@ void (async () => {
   });
   footerRight.append(saveBtn);
 
-  const { content } = await mountWindow({ title: "Widget Settings", footer });
+  const { content, footer } = await mountWindow({ title: "Widget Settings", footer: [footerLeft, footerRight] });
+  if (footer) footer.style.cssText = "display:flex;gap:0.5rem;justify-content:space-between;padding:0.75rem 0.875rem 1rem;";
 
   const isGit = widgetId === "git";
 

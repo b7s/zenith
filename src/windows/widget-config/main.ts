@@ -5,6 +5,7 @@ import { mountWindow } from "../../shared/window";
 import { mountTabs } from "../../shared/tabs";
 import { mountFilterPills } from "../../shared/filter-pills";
 import { initLog, logInfo } from "../../shared/log";
+import { setIcon } from "../../shared/icon";
 import { CMD } from "../../shared/ipc";
 import type { Config, WidgetManifest, WidgetConfigField } from "../../shared/types";
 
@@ -695,6 +696,7 @@ function buildAccountsControl(
 
     const enabledWrap = document.createElement("label");
     enabledWrap.className = "zen-checkbox";
+    enabledWrap.style.flex = "1";
     const enabledText = document.createElement("span");
     enabledText.className = "zen-checkbox__text";
     const enabledLabel = document.createElement("span");
@@ -718,20 +720,21 @@ function buildAccountsControl(
 
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
-    removeBtn.className = "zen-button is-ghost is-sm";
-    removeBtn.textContent = "Remove";
-    removeBtn.style.marginLeft = "auto";
+    removeBtn.className = "zen-icon-button";
+    removeBtn.title = "Remove account";
+    removeBtn.setAttribute("aria-label", "Remove account");
+    setIcon(removeBtn, "trash-2", { size: 14 });
     removeBtn.addEventListener("click", () => {
       rowEl.remove();
       const idx = rows.findIndex((r) => r.key === rowKey);
       if (idx >= 0) rows.splice(idx, 1);
     });
 
-    const rowFlex = document.createElement("div");
-    rowFlex.style.cssText = "display:flex;align-items:center;gap:0.5rem;";
-    rowFlex.append(enabledWrap, removeBtn);
+    const topBar = document.createElement("div");
+    topBar.style.cssText = "display:flex;align-items:center;gap:0.5rem;";
+    topBar.append(enabledWrap, removeBtn);
 
-    rowEl.append(labelInput, provider, hostUrl, hostHint, username, token, tokenHint, rowFlex);
+    rowEl.append(topBar, labelInput, provider, hostUrl, hostHint, username, token, tokenHint);
     if (addBtnTarget) {
       container.append(rowEl);
     } else {

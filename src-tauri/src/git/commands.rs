@@ -124,19 +124,37 @@ pub fn send_to_ai(cli: String, prompt: String) -> Result<bool, String> {
     let (bin, args) = cli_invocation(&cli, &prompt)
         .ok_or_else(|| format!("Unknown AI assistant: {cli}"))?;
     eprintln!("[send_to_ai] launching {bin} with args: {:?}", args);
+
+    // Direct spawn first — when `bin` is on PATH as an `.exe` this works.
     let mut cmd = std::process::Command::new(&bin);
     cmd.args(&args);
     // CREATE_NEW_CONSOLE (0x10): give the assistant its own window instead of
     // inheriting the hidden Zenith console.
     cmd.creation_flags(0x00000010);
-    // Ensure we inherit the parent's PATH so Windows can find .exe/.cmd files
+    // Ensure we inherit the parent's PATH so Windows can find .exe/.cmd files.
     cmd.env("PATH", std::env::var("PATH").unwrap_or_default());
-    cmd.spawn()
-        .map(|_| true)
-        .map_err(|e| {
-            eprintln!("[send_to_ai] Failed to launch {bin}: {e}");
-            format!("Failed to launch {bin}: {e}")
-        })
+    match cmd.spawn() {
+        Ok(_) => return Ok(true),
+        Err(direct_err) => {
+            eprintln!("[send_to_ai] direct spawn failed: {direct_err}; retrying via cmd /C");
+            // Direct spawn failed. On Windows many AI CLIs are npm-installed
+            // `.cmd`/`.bat` shims that conflict with `Command::new`'s
+            // extension lookup when CREATE_NEW_CONSOLE is set. Fall back to
+            // delegating to `cmd.exe /C`, which performs the full PATHEXT
+            // search and launches the right binary in a new console.
+            let mut fallback = std::process::Command::new("cmd");
+            fallback.arg("/C").arg(&bin).args(&args);
+            fallback.creation_flags(0x00000010);
+            fallback.env("PATH", std::env::var("PATH").unwrap_or_default());
+            fallback.spawn().map(|_| true).map_err(|e| {
+                eprintln!("[send_to_ai] cmd fallback also failed: {e}");
+                format!(
+                    "{bin} not found in PATH (and cmd /C fallback failed: {e}). \
+                     Install the {bin} CLI and ensure it's on your PATH."
+                )
+            })
+        }
+    }
 }
 
 /// Map an AI assistant id to its binary + argument list. The prompt is
@@ -158,16 +176,7 @@ fn cli_invocation(cli: &str, prompt: &str) -> Option<(String, Vec<String>)> {
 
 #[tauri::command]
 pub fn open_url(url: String) -> bool {
-    use windows::core::HSTRING;
-    use windows::Win32::UI::Shell::ShellExecuteW;
-    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-    let verb = HSTRING::from("open");
-    let file = HSTRING::from(url.as_str());
-    let r = unsafe {
-        ShellExecuteW(None, &verb, &file, None, None, SW_SHOWNORMAL)
-    };
-    // HINSTANCE > 32 (casted as a usize) means success per Win32 convention.
-    r.0 as usize > 32
+    crate::shared::shell::open_url(&url)
 }
 
 #[tauri::command]

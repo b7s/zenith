@@ -354,6 +354,7 @@ body[data-window="git-manager"] .zen-window__title-wrap {
 /* ---- AI "send to assistant" button + dropdown --------------------------- */
 .gm-ai-btn {
   flex: 0 0 auto;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;

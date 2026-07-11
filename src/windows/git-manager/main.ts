@@ -612,7 +612,6 @@ void (async () => {
     ic.className = "zen-icon";
     setIcon(ic, "sparkles", { size: 14 });
     btn.append(ic);
-    btn.style.marginLeft = "auto";
 
     let menu: HTMLElement | null = null;
 

@@ -60,7 +60,7 @@ void (async () => {
   footerLeft.style.cssText = "display:flex;gap:0.5rem;align-items:center;";
 
   const footerRight = document.createElement("div");
-  footerRight.style.cssText = "display:flex;gap:0.5rem;";
+  footerRight.style.cssText = "display:flex;gap:0.5rem;margin-left:auto;";
 
   const cancelBtn = document.createElement("button");
   cancelBtn.type = "button";
@@ -116,7 +116,7 @@ void (async () => {
   footerRight.append(saveBtn);
 
   const { content, footer } = await mountWindow({ title: "Widget Settings", footer: [footerLeft, footerRight] });
-  if (footer) footer.style.cssText = "display:flex;gap:0.5rem;justify-content:space-between;padding:0.75rem 0.875rem 1rem;";
+  if (footer) footer.style.cssText = "display:flex;gap:0.5rem;padding:0.75rem 0.875rem 1rem;";
 
   const isGit = widgetId === "git";
 

@@ -28,20 +28,22 @@ query ZenithInventory {
                 state
                 contexts { state targetUrl }
               }
-              checkSuites(first: 5, orderBy: {field: CREATED_AT, direction: DESC}) {
+              checkSuites(first: 5) {
                 nodes {
                   status
                   conclusion
                   url
                   commit { committedDate }
-                }
-              }
-              checkRuns(first: 5, orderBy: {field: CREATED_AT, direction: DESC}) {
-                nodes {
-                  name
-                  conclusion
-                  status
-                  output { title summary text }
+                  checkRuns(first: 5) {
+                    nodes {
+                      name
+                      conclusion
+                      status
+                      title
+                      summary
+                      text
+                    }
+                  }
                 }
               }
             }
@@ -71,6 +73,21 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
         .send_string(&body.to_string())
         .map_err(|e| format!("github: {e}"))?;
     let v: serde_json::Value = resp.into_json().map_err(|e| format!("github read: {e}"))?;
+
+    // Check for GraphQL errors before extracting data — a token with
+    // insufficient scopes (or a revoked token) produces a 200 with an
+    // `errors` array. Without this check, `/data/viewer/repositories/nodes`
+    // returns None, repos is empty, last_error stays "", and the account
+    // is completely invisible in the UI (no repos, no error).
+    if let Some(errs) = v.pointer("/errors").and_then(|e| e.as_array()) {
+        if !errs.is_empty() {
+            let msgs: Vec<String> = errs.iter().map(|e| {
+                e.pointer("/message").and_then(|m| m.as_str()).unwrap_or("unknown GraphQL error").to_string()
+            }).collect();
+            return Err(msgs.join("; "));
+        }
+    }
+
     let mut inv = AcctInventory::empty(acct);
     let mut failed = Vec::new();
     let mut pulls = Vec::new();
@@ -80,6 +97,9 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
         .and_then(|n| n.as_array())
         .cloned()
         .unwrap_or_default();
+    if v.pointer("/data/viewer").is_none() && v.pointer("/data").is_some() {
+        return Err("github: token lacks viewer access — check token scopes".into());
+    }
     for repo in repos {
         let full_name = str_or(&repo, "/nameWithOwner", "").to_string();
         let web_url = str_or(&repo, "/url", "").to_string();
@@ -238,9 +258,12 @@ fn commit_ci(repo: &serde_json::Value) -> CommitCi {
             }
             "SUCCESS" | "NEUTRAL" | "SKIPPED" => has_success = true,
             "" => match status {
-                "IN_PROGRESS" | "REQUESTED" | "QUEUED" | "WAITING" | "PENDING" => {
-                    has_running = true
-                }
+                // Only IN_PROGRESS is genuinely running. QUEUED / REQUESTED /
+                // WAITING / PENDING are queued-or-pending states that are not
+                // actively executing — counting them as "running" produces
+                // permanent false positives for suites stuck in a queued state
+                // (e.g. requested but never picked up by a runner).
+                "IN_PROGRESS" => has_running = true,
                 "COMPLETED" => has_success = true,
                 _ => {}
             },
@@ -276,48 +299,54 @@ fn commit_ci(repo: &serde_json::Value) -> CommitCi {
 /// stays bounded.
 fn capture_error(target: Option<&serde_json::Value>) -> String {
     let Some(target) = target else { return String::new() };
-    let runs = target
-        .pointer("/checkRuns/nodes")
+    let suites = target
+        .pointer("/checkSuites/nodes")
         .and_then(|n| n.as_array())
         .cloned()
         .unwrap_or_default();
     const MAX: usize = 1200;
-    for run in &runs {
-        let conclusion = str_or(run, "/conclusion", "");
-        let is_failed = matches!(
-            conclusion,
-            "FAILURE" | "TIMED_OUT" | "STARTUP_FAILURE" | "CANCELLED"
-        );
-        if !is_failed {
-            continue;
-        }
-        let name = str_or(run, "/name", "check");
-        let out = run.pointer("/output");
-        let mut parts: Vec<String> = Vec::new();
-        if let Some(t) = out.and_then(|o| o.pointer("/title")).and_then(|n| n.as_str()) {
-            if !t.is_empty() {
-                parts.push(t.to_string());
+    for suite in &suites {
+        let runs = suite
+            .pointer("/checkRuns/nodes")
+            .and_then(|n| n.as_array())
+            .cloned()
+            .unwrap_or_default();
+        for run in &runs {
+            let conclusion = str_or(run, "/conclusion", "");
+            let is_failed = matches!(
+                conclusion,
+                "FAILURE" | "TIMED_OUT" | "STARTUP_FAILURE" | "CANCELLED"
+            );
+            if !is_failed {
+                continue;
             }
-        }
-        if let Some(s) = out.and_then(|o| o.pointer("/summary")).and_then(|n| n.as_str()) {
-            if !s.is_empty() {
-                parts.push(s.to_string());
+            let name = str_or(run, "/name", "check");
+            let mut parts: Vec<String> = Vec::new();
+            if let Some(t) = run.pointer("/title").and_then(|n| n.as_str()) {
+                if !t.is_empty() {
+                    parts.push(t.to_string());
+                }
             }
-        }
-        if let Some(t) = out.and_then(|o| o.pointer("/text")).and_then(|n| n.as_str()) {
-            if !t.is_empty() {
-                parts.push(t.to_string());
+            if let Some(s) = run.pointer("/summary").and_then(|n| n.as_str()) {
+                if !s.is_empty() {
+                    parts.push(s.to_string());
+                }
             }
+            if let Some(t) = run.pointer("/text").and_then(|n| n.as_str()) {
+                if !t.is_empty() {
+                    parts.push(t.to_string());
+                }
+            }
+            if parts.is_empty() {
+                continue;
+            }
+            let mut text = format!("{name}: {}", parts.join(" — "));
+            if text.chars().count() > MAX {
+                text = text.chars().take(MAX).collect::<String>();
+                text.push_str("…");
+            }
+            return text;
         }
-        if parts.is_empty() {
-            continue;
-        }
-        let mut text = format!("{name}: {}", parts.join(" — "));
-        if text.chars().count() > MAX {
-            text = text.chars().take(MAX).collect::<String>();
-            text.push_str("…");
-        }
-        return text;
     }
     String::new()
 }

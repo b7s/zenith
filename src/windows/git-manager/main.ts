@@ -283,7 +283,7 @@ void (async () => {
       ["failed", "Failed"],
       ["running", "Running"],
       ["cancelled", "Cancelled"],
-      ["unknown", "Unknown"],
+      ["unknown", "Others"],
     ];
     for (const [k, label] of order) {
       const c = stateCounts[k];
@@ -298,7 +298,6 @@ void (async () => {
     const legend = document.createElement("div");
     legend.className = "gm-legend";
     for (const [k, label] of order) {
-      if (stateCounts[k] === 0) continue;
       const item = document.createElement("span");
       item.className = "gm-legend-item";
       const dot = document.createElement("span");

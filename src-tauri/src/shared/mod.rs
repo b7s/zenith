@@ -55,3 +55,22 @@ pub const EVENT_GIT_CHANGED: &str = "zenith:git-changed";
 pub const EVENT_CALENDAR_VIEW: &str = "zenith:calendar-view";
 
 pub mod known_folders;
+pub mod shell;
+
+use std::sync::OnceLock;
+use tauri::AppHandle;
+
+static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+
+/// Install the global `AppHandle` during `lib.rs::setup` so detached
+/// background threads (OAuth callbacks, calendar poll) can emit events
+/// without threading an `AppHandle` through every call site.
+pub fn set_app_handle(handle: AppHandle) {
+    let _ = APP_HANDLE.set(handle);
+}
+
+/// Borrow the global `AppHandle` if it was installed. Returns `None` if
+/// called before setup completes (e.g. during early boot).
+pub fn app_handle() -> Option<AppHandle> {
+    APP_HANDLE.get().cloned()
+}

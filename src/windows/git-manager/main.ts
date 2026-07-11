@@ -526,6 +526,12 @@ void (async () => {
   }
 
   // ---- cards ----------------------------------------------------------------
+  function providerLabel(provider: string): string {
+    if (provider === "github") return "GitHub";
+    if (provider === "gitlab") return "GitLab";
+    return provider.charAt(0).toUpperCase() + provider.slice(1);
+  }
+
   function failCard(r: FailRun): HTMLElement {
     const card = document.createElement("article");
     card.className = "zen-card gm-fail";
@@ -535,24 +541,39 @@ void (async () => {
       if ((e.target as HTMLElement).closest(".gm-ai-btn, .gm-ai-menu")) return;
       void openCardUrl(r.web_url);
     });
+
+    const accent = document.createElement("span");
+    accent.className = "gm-card-accent";
+    card.append(accent);
+
     const head = document.createElement("header");
-    head.className = "zen-card__header";
-    const stateChip = document.createElement("span");
-    stateChip.className = "gm-state-chip is-" + r.provider;
-    stateChip.textContent = r.run_label || "failed";
+    head.className = "zen-card__header gm-card-head";
+
+    const main = document.createElement("div");
+    main.className = "gm-card-main";
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "gm-card-titlerow";
+    const pill = document.createElement("span");
+    pill.className = "gm-status-pill is-fail";
+    pill.textContent = "FAILED";
     const title = document.createElement("span");
     title.className = "zen-card__title";
-    title.textContent = r.full_name;
-    head.append(stateChip, title);
-    if (r.account_label) {
-      const acct = document.createElement("span");
-      acct.className = "gm-account";
-      acct.textContent = r.account_label;
-      head.append(acct);
-    }
-    head.append(attachAiButton(card, () => failPrompt(r)));
+    title.textContent = r.run_label ? `${r.run_label} · ${r.full_name}` : r.full_name;
+    titleRow.append(pill, title);
+    main.append(titleRow);
+
+    const sub = document.createElement("div");
+    sub.className = "gm-card-sub";
+    const prov = document.createElement("span");
+    prov.className = "gm-provider is-" + r.provider;
+    prov.textContent = providerLabel(r.provider);
+    sub.append(prov);
+    main.append(sub);
+    head.append(main, attachAiButton(card, () => failPrompt(r), () => runCopyContent(r)));
     card.append(head);
-    if (r.branch || r.short_sha || r.ago) {
+
+    if (r.branch || r.short_sha || r.ago || r.account_label) {
       const body = document.createElement("div");
       body.className = "zen-card__content gm-detail";
       if (r.branch && r.short_sha) {
@@ -562,6 +583,12 @@ void (async () => {
         if (r.short_sha) body.append(detailLine("sha", r.short_sha));
       }
       if (r.ago) body.append(detailLine("when", r.ago));
+      if (r.account_label) {
+        const acct = document.createElement("span");
+        acct.className = "gm-account gm-detail-account";
+        acct.textContent = r.account_label;
+        body.append(acct);
+      }
       card.append(body);
     }
     return card;
@@ -576,33 +603,64 @@ void (async () => {
       if ((e.target as HTMLElement).closest(".gm-ai-btn, .gm-ai-menu")) return;
       void openCardUrl(p.web_url);
     });
+
+    const accent = document.createElement("span");
+    accent.className = "gm-card-accent";
+    card.append(accent);
+
     const head = document.createElement("header");
-    head.className = "zen-card__header";
-    const chip = document.createElement("span");
-    chip.className = "gm-state-chip is-" + p.provider;
-    chip.textContent = "#" + p.number;
+    head.className = "zen-card__header gm-card-head";
+
+    const main = document.createElement("div");
+    main.className = "gm-card-main";
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "gm-card-titlerow";
+    const num = document.createElement("span");
+    num.className = "gm-pr-num";
+    num.textContent = "#" + p.number;
     const title = document.createElement("span");
     title.className = "zen-card__title";
     title.textContent = p.title;
-    head.append(chip, title);
+    titleRow.append(num, title);
     if (p.is_draft) {
       const draft = document.createElement("span");
-      draft.className = "gm-draft";
-      draft.textContent = "draft";
-      head.append(draft);
+      draft.className = "gm-status-pill is-draft";
+      draft.textContent = "DRAFT";
+      titleRow.append(draft);
     }
-    head.append(attachAiButton(card, () => prPrompt(p)));
+    main.append(titleRow);
+
+    const sub = document.createElement("div");
+    sub.className = "gm-card-sub";
+    const prov = document.createElement("span");
+    prov.className = "gm-provider is-" + p.provider;
+    prov.textContent = providerLabel(p.provider);
+    sub.append(prov);
+    main.append(sub);
+    head.append(main, attachAiButton(card, () => prPrompt(p), () => prCopyContent(p)));
     card.append(head);
+
     const body = document.createElement("div");
     body.className = "zen-card__content gm-detail";
     body.append(detailLine("repo", p.full_name));
     body.append(detailLine("by", p.author_display));
     if (p.branch) body.append(detailLine("branch", p.branch));
+    if (p.account_label) {
+      const acct = document.createElement("span");
+      acct.className = "gm-account gm-detail-account";
+      acct.textContent = p.account_label;
+      body.append(acct);
+    }
     card.append(body);
     return card;
   }
 
-  function attachAiButton(_card: HTMLElement, getPrompt: () => string): HTMLButtonElement {
+  function attachAiButton(
+    _card: HTMLElement,
+    getPrompt: () => string,
+    getCopyContent: () => Promise<string>,
+  ): HTMLButtonElement {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "gm-ai-btn";
@@ -639,6 +697,42 @@ void (async () => {
       }
       menu = document.createElement("div");
       menu.className = "gm-ai-menu";
+
+      // First option: copy the real failure/PR content (fetched lazily so we
+      // never preload heavy logs/diffs for every card). A spinner stands in
+      // for the icon while the fetch is in flight.
+      const copyItem = document.createElement("button");
+      copyItem.type = "button";
+      copyItem.className = "gm-ai-item gm-ai-copy";
+      const copyIc = document.createElement("span");
+      copyIc.className = "zen-icon";
+      setIcon(copyIc, "copy", { size: 14 });
+      const copyLabel = document.createElement("span");
+      copyLabel.textContent = "Copy content";
+      copyItem.append(copyIc, copyLabel);
+      let copying = false;
+      copyItem.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        if (copying) return;
+        copying = true;
+        setIcon(copyIc, "loader", { size: 14 });
+        copyIc.classList.add("gm-spin");
+        try {
+          const text = await getCopyContent();
+          await navigator.clipboard.writeText(text);
+          copyLabel.textContent = "Copied ✓";
+        } catch {
+          copyLabel.textContent = "Copy failed";
+        }
+        copying = false;
+        setTimeout(() => closeMenu(), 750);
+      });
+      menu.append(copyItem);
+
+      const sep = document.createElement("div");
+      sep.className = "gm-ai-sep";
+      menu.append(sep);
+
       for (const cli of aiClis) {
         const item = document.createElement("button");
         item.type = "button";
@@ -652,6 +746,12 @@ void (async () => {
               const msg = `[git-manager] sendToAi failed for ${cli}: ${err}`;
               console.error(msg);
               void invoke("log_write", { window: "git-manager", level: "ERROR", message: msg });
+              // Surface a clean dialog instead of a silent log — the backend
+              // returns a friendly error when the CLI is missing (no flashing
+              // console), so show that to the user.
+              void invoke(CMD.showDialog, {
+                spec: { kind: "message", data: { title: "AI assistant", body: String(err) } },
+              });
             });
           closeMenu();
         });
@@ -690,6 +790,36 @@ void (async () => {
     }
     lines.push("", "Explain the likely root cause and propose concrete fixes.");
     return lines.join("\n");
+  }
+
+  /// Lazily fetch the genuine failure text for a run (the captured summary).
+  async function runCopyContent(r: FailRun): Promise<string> {
+    try {
+      return await invoke<string>(CMD.fetchGitContent, {
+        kind: "run",
+        accountId: r.account_id,
+        fullName: r.full_name,
+        number: null,
+        cachedError: r.error,
+      });
+    } catch {
+      return failPrompt(r);
+    }
+  }
+
+  /// Lazily fetch the PR/MR description (+ diff) from the provider API.
+  async function prCopyContent(p: OpenPull): Promise<string> {
+    try {
+      return await invoke<string>(CMD.fetchGitContent, {
+        kind: "pr",
+        accountId: p.account_id,
+        fullName: p.full_name,
+        number: p.number,
+        cachedError: "",
+      });
+    } catch {
+      return prPrompt(p);
+    }
   }
 
   function prPrompt(p: OpenPull): string {

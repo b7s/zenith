@@ -2,6 +2,7 @@ mod events;
 mod commands;
 mod battery;
 mod calendar;
+mod calendar_sync;
 mod config;
 mod git;
 mod log;
@@ -89,11 +90,21 @@ pub fn run() {
             git::commands::get_git_widget_config,
             git::commands::open_url,
             git::commands::send_to_ai,
+            git::commands::fetch_git_content,
+            calendar_sync::commands::calendar_accounts_list,
+            calendar_sync::commands::calendar_connect,
+            calendar_sync::commands::calendar_poll_auth,
+            calendar_sync::commands::calendar_abort_auth,
+            calendar_sync::commands::calendar_disconnect,
+            calendar_sync::commands::calendar_sync_now,
+            calendar_sync::commands::calendar_save_accounts,
+            calendar_sync::commands::calendar_set_enabled,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)
             unsafe { let _ = windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_APARTMENTTHREADED); }
             let handle = app.handle().clone();
+            crate::shared::set_app_handle(handle.clone());
             if let Some(bar) = handle.get_webview_window("bar") {
                 let h = handle.clone();
                 bar.on_menu_event(move |_window, event| {
@@ -129,6 +140,10 @@ pub fn run() {
             // change. Sleeps 30s between cycles; per-account poll_mins
             // governs which accounts actually fire on a given cycle.
             git::listen::spawn(handle.clone());
+
+            // Calendar sync — background periodic sync of connected Google /
+            // Outlook accounts into the shared events store.
+            calendar_sync::poll::start();
 
             let h = handle.clone();
             std::thread::spawn(move || {

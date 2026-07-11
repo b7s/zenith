@@ -12,8 +12,10 @@ void (async () => {
   const injected = window as unknown as {
     __ZENITH_ALARM_TITLE?: string;
     __ZENITH_ALARM_TIME?: string;
+    __ZENITH_ALARM_END?: string;
   };
   const fireTime = injected.__ZENITH_ALARM_TIME ?? "";
+  const endText = injected.__ZENITH_ALARM_END ?? "";
   const alarmTitle = injected.__ZENITH_ALARM_TITLE;
   if (alarmTitle && alarmTitle.trim()) {
     document.title = alarmTitle;
@@ -40,7 +42,7 @@ void (async () => {
 
   const time = document.createElement("div");
   time.className = "al-pop-time";
-  time.textContent = fireTime;
+  time.textContent = endText.trim() ? `${fireTime} → ${endText}` : fireTime;
   body.append(time);
 
   content.append(body);

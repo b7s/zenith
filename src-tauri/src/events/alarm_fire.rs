@@ -1,11 +1,20 @@
 //! Alarm-firing background thread.
 //!
-//! Runs every 30 seconds, scans enabled events where `kind == Alarm` for any
-//! whose next occurrence falls within the current 30-second window. On a hit:
+//! Runs every 30 seconds, scans enabled events for any whose next
+//! occurrence falls within the current 30-second window. On a hit:
 //!   * plays a Windows system sound (configurable via `widgets.config.alarms.sound_enabled`)
 //!   * shows a small notification popup window
-//!   * for one-shot alarms (Recurrence::None), disables the row so it won't
+//!   * for one-shot items (`Recurrence::None`), disables the row so it won't
 //!     fire again unless the user re-enables it
+//!
+//! Two kinds of rows fire this popup:
+//!   - `kind = Alarm` — the user's stand-alone timed reminders.
+//!   - `kind = Event` with `notify_on_start = true` — synced events from
+//!     Google Calendar / Outlook (or a local event the user has flagged
+//!     for notification). For these we record `last_notified_at` so the
+//!     next 30 seconds don't refire the same row. Local all-day events
+//!     skip the popup (they have no `time`); the alarms widget still
+//!     surfaces them on the bar.
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -22,6 +31,11 @@ const TICK: Duration = Duration::from_secs(30);
 /// across tick boundaries (e.g. alarm popups stay open longer than the
 /// re-check interval).
 const DEDUP_WINDOW_SECS: i64 = 60;
+/// Event-start notifications are pushed onto a one-shot queue with
+/// `last_notified_at`. We treat 5+ minutes as "stale enough to re-notify"
+/// so a missed tick (e.g. the bar was off when an event fired) still
+/// alarms when the bar comes back up.
+const EVENT_NOTIFY_REFIRE_SECS: i64 = 5 * 60;
 
 /// In-memory dedup set — uses alarm IDs echoed with their most-recent
 /// fire-time (epoch secs). Spills to file when the process exits isn't
@@ -57,38 +71,122 @@ fn run_tick(app: &AppHandle) -> Result<(), String> {
     LAST_TICK_AT.store(now, Ordering::Relaxed);
     let events = repository::load();
     let mut to_disable: Vec<String> = Vec::new();
+    let mut event_notified: Vec<(String, i64)> = Vec::new();
 
     for ev in &events {
-        if ev.kind != EventKind::Alarm || !ev.enabled {
+        if !ev.enabled {
+            continue;
+        }
+
+        // ---- One-shot Alarm rows (unchanged from the legacy path) ----
+        if ev.kind == EventKind::Alarm && ev.time.is_some() {
+            let Some(fire_at) = next_fire_secs(ev, now) else {
+                continue;
+            };
+            let delta = fire_at - now;
+            if !(0..=TICK.as_secs() as i64).contains(&delta) {
+                continue;
+            }
+            if already_fired(&ev.id, fire_at) {
+                continue;
+            }
+            record_fired(&ev.id, fire_at);
+            fire_alarm(app, ev, fire_at);
+            if matches!(ev.recurrence, Recurrence::None) {
+                to_disable.push(ev.id.clone());
+            }
+            continue;
+        }
+
+        // ---- Event-start notifications (kind = Event) — synced or local
+        // events with `notify_on_start: true` and a concrete start `time`.
+        // All-day events (no `time`) never fire a popup (we have no
+        // "0:00 sharp" trigger for them); the bar/alarms widget still
+        // shows them on the day. Recurring events fire once per occurrence.
+        if ev.kind != EventKind::Event || !ev.notify_on_start {
+            continue;
+        }
+        if ev.time.is_none() {
             continue;
         }
         let Some(fire_at) = next_fire_secs(ev, now) else {
             continue;
         };
-        // Only fire when fire_at is within the last tick's lookahead ±
-        // `TICK` secs from now. We use a half-window check.
-        let delta = fire_at - now;
-        if !(0..=TICK.as_secs() as i64).contains(&delta) {
+        // Skip if this row already fired within EVENT_NOTIFY_REFIRE_SECS
+        // of `fire_at`. This guards against double-notifying across
+        // multi-tick windows (a 1h meeting straddles two ticks).
+        if !should_fire_event_notify(ev, fire_at, now) {
             continue;
         }
-        if already_fired(&ev.id, fire_at) {
-            continue;
-        }
-        record_fired(&ev.id, fire_at);
+
         fire_alarm(app, ev, fire_at);
         if matches!(ev.recurrence, Recurrence::None) {
+            // One-shot event notifications: delete the row entirely (the
+            // event has already happened, so it isn't useful on the
+            // calendar). Recurring events keep firing each cycle.
             to_disable.push(ev.id.clone());
+        } else {
+            event_notified.push((ev.id.clone(), now));
         }
     }
 
-    // Disable one-shot alarms that fired.
+    // One-shot rows (alarm OR event) that have fired: delete so the user
+    // isn't repeatedly reminded of a past event.
     if !to_disable.is_empty() {
         for id in &to_disable {
             let _ = repository::delete_by_id(id);
         }
+    }
+
+    // Recurring event rows that just fired: stamp `last_notified_at` so
+    // the next tick skips them within `EVENT_NOTIFY_REFIRE_SECS`.
+    let notified_count = event_notified.len();
+    if notified_count > 0 {
+        let mut by_id: std::collections::HashMap<String, i64> =
+            std::collections::HashMap::new();
+        for (id, t) in event_notified {
+            let prev = by_id.get(&id).copied().unwrap_or(0);
+            if t > prev {
+                by_id.insert(id, t);
+            }
+        }
+        for (id, t) in by_id {
+            let _ = repository::mark_event_notified(&id, t);
+        }
+    }
+
+    if !to_disable.is_empty() || notified_count > 0 {
         let _ = app.emit(crate::shared::EVENT_EVENTS_UPDATED, ());
     }
     Ok(())
+}
+
+/// Decide whether to notify this event row now.
+///
+/// Rules:
+///   * If `last_notified_at == 0`, never notified — fire.
+///   * If `last_notified_at` was within `EVENT_NOTIFY_REFIRE_SECS` of the
+///     current `now`, skip (the popup is still considered pending or was
+///     already shown for this occurrence).
+///   * Otherwise the row is stale (the user just powered the bar back on
+///     after a long sleep, or the tick missed) — fire once and stamp.
+///   * For recurring events: only fire when the NEXT occurrence lives
+///     inside the current 30s lookahead window.
+fn should_fire_event_notify(ev: &CalendarEvent, fire_at: i64, now: i64) -> bool {
+    let delta = fire_at - now;
+    if !(0..=TICK.as_secs() as i64).contains(&delta) {
+        return false;
+    }
+    if ev.last_notified_at == 0 {
+        return true;
+    }
+    let elapsed = now - ev.last_notified_at;
+    // If the event fired at `fire_at` and we recorded `last_notified_at`
+    // against `now`, then `fire_at - last_notified_at` is at most
+    // (TICK + jitter) and a value pretty close to 0 means we're still in
+    // the same occurrence window. We consider the same occurrence to be
+    // "elapsed < EVENT_NOTIFY_REFIRE_SECS".
+    elapsed >= EVENT_NOTIFY_REFIRE_SECS
 }
 
 fn already_fired(id: &str, fire_at: i64) -> bool {
@@ -230,6 +328,7 @@ fn open_alarm_popup(app: &AppHandle, ev: &CalendarEvent, fire_at: i64) {
     let title_js = escape_js_string(&title);
     let time = format_fire_clock(fire_at);
     let time_js = escape_js_string(&time);
+    let end_js = escape_js_string(ev.end_time.as_deref().unwrap_or(""));
     let h = app.clone();
     tauri::async_runtime::spawn(async move {
         if let Err(e) = tauri::WebviewWindowBuilder::new(
@@ -246,8 +345,8 @@ fn open_alarm_popup(app: &AppHandle, ev: &CalendarEvent, fire_at: i64) {
         .skip_taskbar(true)
         .additional_browser_args("--default-background-color=00000000")
         .initialization_script(&format!(
-            "window.__ZENITH_ALARM_TITLE = '{}';\nwindow.__ZENITH_ALARM_TIME = '{}';",
-            title_js, time_js
+            "window.__ZENITH_ALARM_TITLE = '{}';\nwindow.__ZENITH_ALARM_TIME = '{}';\nwindow.__ZENITH_ALARM_END = '{}';",
+            title_js, time_js, end_js
         ))
         .build()
         {

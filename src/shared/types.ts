@@ -95,6 +95,9 @@ export interface CalendarEvent {
   date: string;
   /** "HH:MM" or null for all-day. */
   time: string | null;
+  /** Optional end time ("HH:MM") for synced calendar events; lets the
+   *  alarm popup + alarms widget show "until HH:MM". Mirrored in Rust. */
+  end_time: string | null;
   kind: EventKind;
   recurrence: Recurrence;
   /** Weekly recurrence bitmask: bit0=Sun, bit1=Mon, ..., bit6=Sat. */
@@ -105,7 +108,70 @@ export interface CalendarEvent {
   updated_at: number;
   /** Free-text notes. */
   notes: string;
+  /** Origin of the event — "" for user-created, "google" / "outlook" for
+   *  synced entries. Mirrored in `src-tauri/src/events/model.rs::source`. */
+  source: CalendarSource;
+  /** Internal id of the `CalendarAccount` that sourced this event.
+   *  Empty for user-created entries. */
+  source_account_id: string;
+  /** Stable provider-side identifier (Google event id / Outlook event id).
+   *  Empty for user-created entries. */
+  external_id: string;
+  /** When true (default for synced events), the alarm-fire thread raises
+   *  the popup notification when this event's `date`+`time` arrives.
+   *  Local one-shot alarms are unaffected. */
+  notify_on_start: boolean;
+  /** Epoch seconds of the last time the start notification fired for this
+   *  row. Used by the alarm-fire thread to skip rows that already fired. */
+  last_notified_at: number;
 }
+
+/** Mirrored in `src-tauri/src/events/model.rs::source`. */
+export type CalendarSource = "" | "google" | "outlook";
+export const CALENDAR_SOURCE = {
+  LOCAL: "" as const,
+  GOOGLE: "google" as const,
+  OUTLOOK: "outlook" as const,
+};
+
+/** Mirrored in `src-tauri/src/calendar_sync/model.rs::CalendarAccount`. */
+export type CalendarAccountProvider = "google" | "outlook";
+
+/** One connected calendar (user may have several Google work/personal +
+ *  several Outlook tenants). Backed by OAuth refresh tokens wrapped in
+ *  DPAPI. Stored inside `widgets.config.datetime.calendar_accounts`.
+ *  Mirrored in `src-tauri/src/calendar_sync/model.rs`. */
+export interface CalendarAccount {
+  id: string;
+  provider: CalendarAccountProvider;
+  /** Display label, e.g. "Work Calendar" or "Personal". */
+  label: string;
+  /** Email address reported by the OAuth provider (Google/Microsoft). */
+  account_email: string;
+  /** DPAPI-encrypted OAuth access token (short-lived, refreshed on use). */
+  access_token_blob: string;
+  /** DPAPI-encrypted OAuth refresh token (long-lived; the only truly
+   *  sensitive piece — used to mint fresh access tokens without
+   *  requiring the user to reauthorize). */
+  refresh_token_blob: string;
+  /** Epoch-seconds when the access token expires. Used to decide
+   *  whether a refresh is needed before the next API call. */
+  expires_at: number;
+  poll_mins: number;
+  enabled: boolean;
+  /** Epoch-seconds of the last successful sync. */
+  last_sync_at: number;
+  /** Last sync error (empty when healthy) — surfaced to the UI. */
+  last_error: string;
+}
+
+/** Status of an in-flight OAuth connect flow. Mirrored from
+ *  `src-tauri/src/calendar_sync/model.rs::PendingAuthStatus`. */
+export type PendingAuthStatus =
+  | { state: "pending" }
+  | { state: "ok"; account_id: string }
+  | { state: "error"; message: string }
+  | { state: "expired" };
 
 /** Mirrored in `src-tauri/src/media/mod.rs::MediaInfo`. */
 export interface MediaInfo {

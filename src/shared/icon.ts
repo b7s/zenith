@@ -19,6 +19,7 @@ import {
   Clock,
   CloudMoon,
   CloudSun,
+  Copy,
   ExternalLink,
   Focus,
   GitBranch,
@@ -27,6 +28,7 @@ import {
   Github,
   LayoutGrid,
   List,
+  Loader2,
   Lock,
   LogOut,
   MonitorSmartphone,
@@ -139,6 +141,8 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   "git-pull-request-draft": GitPullRequestDraft,
   github: Github,
   check: Check,
+  copy: Copy,
+  loader: Loader2,
 };
 
 const ALIASES: Record<string, string> = {

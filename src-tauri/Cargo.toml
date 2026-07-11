@@ -52,4 +52,5 @@ windows-future = "0.2"
 winvd = "0.0.49"
 ureq = { version = "2", features = ["json", "tls"] }
 base64 = "0.22"
+sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }

@@ -55,6 +55,15 @@ export const CMD = {
   getGitWidgetConfig: "get_git_widget_config",
   openUrl: "open_url",
   sendToAi: "send_to_ai",
+  fetchGitContent: "fetch_git_content",
+  calendarAccountsList: "calendar_accounts_list",
+  calendarConnect: "calendar_connect",
+  calendarPollAuth: "calendar_poll_auth",
+  calendarAbortAuth: "calendar_abort_auth",
+  calendarDisconnect: "calendar_disconnect",
+  calendarSyncNow: "calendar_sync_now",
+  calendarSaveAccounts: "calendar_save_accounts",
+  calendarSetEnabled: "calendar_set_enabled",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

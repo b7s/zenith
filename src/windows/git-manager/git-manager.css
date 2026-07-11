@@ -39,17 +39,33 @@ body[data-window="git-manager"] .zen-window__title-wrap {
 .gm-pr,
 .gm-repo {
   position: relative;
-  padding: 0.6rem;
+  padding: 0.65rem 0.7rem 0.7rem 0.95rem;
   cursor: pointer;
   outline: none;
+  overflow: hidden;
   transition: transform 120ms cubic-bezier(0.22, 0.61, 0.36, 1),
-              border-color 160ms cubic-bezier(0.22, 0.61, 0.36, 1);
+              border-color 160ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              box-shadow 160ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 .gm-fail:hover,
 .gm-pr:hover,
 .gm-repo:hover {
   border-color: color-mix(in oklch, var(--primary) 50%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in oklch, var(--shadow, #000) 18%, transparent);
 }
+
+/* left accent strip marking the card kind (fail = danger, pr = accent) */
+.gm-card-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+}
+.gm-fail .gm-card-accent { background: color-mix(in oklch, var(--danger, #ef4444) 85%, transparent); }
+.gm-pr   .gm-card-accent { background: color-mix(in oklch, var(--primary) 85%, transparent); }
 .gm-fail:focus-visible,
 .gm-pr:focus-visible,
 .gm-repo:focus-visible {
@@ -57,8 +73,6 @@ body[data-window="git-manager"] .zen-window__title-wrap {
   outline-offset: 2px;
 }
 
-.gm-fail .zen-card__header,
-.gm-pr .zen-card__header,
 .gm-repo .zen-card__header {
   display: flex;
   flex-wrap: wrap;
@@ -66,10 +80,96 @@ body[data-window="git-manager"] .zen-window__title-wrap {
   gap: 0.4rem;
   padding: 0 0 0.25rem;
 }
+.gm-fail .zen-card__header,
+.gm-pr .zen-card__header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0 0 0.4rem;
+}
+.gm-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.gm-repo .zen-card__content { padding: 0; }
 .gm-fail .zen-card__content,
-.gm-pr .zen-card__content,
-.gm-repo .zen-card__content {
-  padding: 0;
+.gm-pr .zen-card__content { padding: 0; }
+
+/* new card sub-structure */
+.gm-card-titlerow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.gm-card-titlerow .zen-card__title {
+  font-size: 0.875rem;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.gm-pr-num {
+  flex: 0 0 auto;
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary-foreground, #fff);
+  background: color-mix(in oklch, var(--primary) 78%, transparent);
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+}
+.gm-card-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+.gm-provider {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  color: white;
+  background: color-mix(in oklch, var(--muted-foreground) 65%, transparent);
+}
+.gm-provider.is-github   { background: color-mix(in oklch, #6e40c9 80%, transparent); }
+.gm-provider.is-gitlab   { background: color-mix(in oklch, #fc6d26 82%, transparent); }
+.gm-provider.is-bitbucket{ background: color-mix(in oklch, #0052cc 80%, transparent); }
+.gm-provider.is-gitea    { background: color-mix(in oklch, #609926 80%, transparent); }
+.gm-provider.is-forgejo  { background: color-mix(in oklch, #3853a3 80%, transparent); }
+.gm-provider.is-other    { background: color-mix(in oklch, var(--muted-foreground) 65%, transparent); }
+
+.gm-status-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.12rem 0.45rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+.gm-status-pill.is-fail {
+  color: color-mix(in oklch, var(--danger, #ef4444) 92%, white 8%);
+  background: color-mix(in oklch, var(--danger, #ef4444) 18%, transparent);
+  border: 1px solid color-mix(in oklch, var(--danger, #ef4444) 45%, transparent);
+}
+.gm-status-pill.is-draft {
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
 }
 
 .gm-account {
@@ -118,6 +218,26 @@ body[data-window="git-manager"] .zen-window__title-wrap {
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.15rem 0.5rem;
+}
+.gm-fail .gm-detail,
+.gm-pr .gm-detail {
+  justify-content: flex-start;
+  gap: 0.2rem 0.6rem;
+  padding-top: 0.15rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+}
+.gm-card-sub .gm-account {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.gm-detail-account {
+  margin-left: auto;
+}
+.gm-spin {
+  display: inline-flex;
+  animation: gm-spin 0.7s linear infinite;
 }
 
 .gm-dl {
@@ -403,4 +523,22 @@ body[data-window="git-manager"] .zen-window__title-wrap {
 }
 .gm-ai-item:hover {
   background: color-mix(in oklch, var(--primary) 22%, transparent);
+}
+.gm-ai-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.gm-ai-copy {
+  color: var(--primary, #6e40c9);
+  font-weight: 600;
+}
+.gm-ai-copy:hover {
+  background: color-mix(in oklch, var(--primary) 16%, transparent);
+  color: var(--primary, #6e40c9);
+}
+.gm-ai-sep {
+  height: 1px;
+  margin: 0.2rem 0;
+  background: color-mix(in oklch, var(--border) 70%, transparent);
 }

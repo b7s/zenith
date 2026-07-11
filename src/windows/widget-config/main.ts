@@ -5,9 +5,9 @@ import { mountWindow } from "../../shared/window";
 import { mountTabs } from "../../shared/tabs";
 import { mountFilterPills } from "../../shared/filter-pills";
 import { initLog, logInfo } from "../../shared/log";
-import { setIcon } from "../../shared/icon";
+import { setIcon, applyIcons } from "../../shared/icon";
 import { CMD } from "../../shared/ipc";
-import type { Config, WidgetManifest, WidgetConfigField } from "../../shared/types";
+import type { Config, WidgetManifest, WidgetConfigField, CalendarAccount, PendingAuthStatus } from "../../shared/types";
 
 interface WidgetConfigGlobals {
   __ZENITH_WIDGET_CONFIG_ID: string;
@@ -103,6 +103,11 @@ void (async () => {
       }
     }
     if (!cfg.widgets.config) cfg.widgets.config = {};
+    // Preserve OAuth-connected calendars (managed by dedicated commands,
+    // not the generic form) so Save doesn't wipe them.
+    if (widgetId === "datetime" && savedValues.calendar_accounts) {
+      newValues.calendar_accounts = savedValues.calendar_accounts;
+    }
     cfg.widgets.config[widgetId] = newValues;
     if (widgetId === "system_stats") {
       (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_gpus = selectedGpus;
@@ -186,6 +191,25 @@ void (async () => {
     }
 
     getPane(key).append(wrapper);
+  }
+
+  // Datetime widget: connected Google / Outlook calendars (OAuth). These
+  // are managed by dedicated commands, not the generic form, so they live
+  // outside `configDef` and must be preserved across Save (see the save
+  // handler below).
+  if (widgetId === "datetime") {
+    const section = document.createElement("div");
+    section.className = "zen-field";
+    const calLabel = document.createElement("label");
+    calLabel.className = "zen-label";
+    calLabel.textContent = "Connected calendars";
+    const calHint = document.createElement("p");
+    calHint.className = "zen-hint";
+    calHint.textContent =
+      "Connect Google Calendar or Outlook to show events on the bar and alarm you at event start.";
+    section.append(calLabel, calHint);
+    form.append(section);
+    void buildCalendarAccountsSection(section);
   }
 
   // Git: Credentials tab header with provider filter pills (after the title).
@@ -349,6 +373,150 @@ document.addEventListener("keydown", async (e) => {
     await getCurrentWindow().close().catch(() => {});
   }
 });
+
+/// Render the "Connected calendars" section for the datetime widget.
+/// Accounts are managed entirely by the calendar-sync commands — this UI
+/// only triggers connect / disconnect / sync and reflects state.
+async function buildCalendarAccountsSection(parent: HTMLElement): Promise<void> {
+  const list = document.createElement("div");
+  list.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;";
+  parent.append(list);
+
+  const actions = document.createElement("div");
+  actions.style.cssText = "display:flex;gap:0.5rem;margin-top:0.5rem;";
+  const gBtn = document.createElement("button");
+  gBtn.type = "button";
+  gBtn.className = "zen-button is-outline";
+  gBtn.textContent = "Connect Google";
+  const oBtn = document.createElement("button");
+  oBtn.type = "button";
+  oBtn.className = "zen-button is-outline";
+  oBtn.textContent = "Connect Outlook";
+  actions.append(gBtn, oBtn);
+  parent.append(actions);
+
+  const status = document.createElement("p");
+  status.className = "zen-hint";
+  status.style.marginTop = "0.25rem";
+  parent.append(status);
+
+  let pendingId: string | null = null;
+  let pollTimer: number | null = null;
+
+  const abortActive = () => {
+    if (pendingId && pollTimer !== null) {
+      const id = pendingId;
+      if (pollTimer !== null) clearInterval(pollTimer);
+      pollTimer = null;
+      pendingId = null;
+      void invoke(CMD.calendarAbortAuth, { pendingId: id });
+    }
+  };
+  window.addEventListener("beforeunload", abortActive);
+
+  async function render(): Promise<void> {
+    const accounts = await invoke<CalendarAccount[]>(CMD.calendarAccountsList);
+    list.replaceChildren();
+    if (accounts.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "zen-hint";
+      empty.textContent = "No calendars connected.";
+      list.append(empty);
+      return;
+    }
+    for (const acc of accounts) {
+      const row = document.createElement("div");
+      row.className = "zen-card";
+      row.style.cssText = "display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;";
+      const icon = document.createElement("i");
+      icon.dataset.icon = acc.provider === "google" ? "calendar" : "mail";
+      icon.dataset.size = "16";
+      const name = document.createElement("div");
+      name.style.cssText = "flex:1;min-width:0;";
+      const title = document.createElement("div");
+      title.textContent = acc.label || acc.account_email || acc.provider;
+      const sub = document.createElement("div");
+      sub.className = "zen-hint";
+      sub.textContent =
+        acc.provider +
+        (acc.last_sync_at ? " · synced" : "") +
+        (acc.last_error ? ` · error: ${acc.last_error}` : "");
+      name.append(title, sub);
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "zen-button is-sm" + (acc.enabled ? " is-primary" : " is-outline");
+      toggle.textContent = acc.enabled ? "On" : "Off";
+      toggle.addEventListener("click", async () => {
+        await invoke(CMD.calendarSetEnabled, { accountId: acc.id, enabled: !acc.enabled });
+        await render();
+      });
+
+      const syncBtn = document.createElement("button");
+      syncBtn.type = "button";
+      syncBtn.className = "zen-button is-sm is-ghost";
+      syncBtn.textContent = "Sync";
+      syncBtn.addEventListener("click", async () => {
+        await invoke(CMD.calendarSyncNow);
+        await render();
+      });
+
+      const discBtn = document.createElement("button");
+      discBtn.type = "button";
+      discBtn.className = "zen-button is-sm is-destructive";
+      discBtn.textContent = "Disconnect";
+      discBtn.addEventListener("click", async () => {
+        await invoke(CMD.calendarDisconnect, { accountId: acc.id });
+        await render();
+      });
+
+      row.append(icon, name, toggle, syncBtn, discBtn);
+      list.append(row);
+    }
+    applyIcons(list);
+  }
+
+  async function beginConnect(provider: string, btn: HTMLButtonElement): Promise<void> {
+    if (pendingId) return;
+    try {
+      status.textContent = `Opening ${provider} sign-in…`;
+      const [pid, url] = await invoke<[string, string]>(CMD.calendarConnect, { provider });
+      await invoke(CMD.openUrl, { url });
+      pendingId = pid;
+      btn.disabled = true;
+      const start = Date.now();
+      pollTimer = window.setInterval(async () => {
+        const st = await invoke<PendingAuthStatus>(CMD.calendarPollAuth, { pendingId: pid });
+        if (st.state === "pending") {
+          if (Date.now() - start > 5 * 60 * 1000) {
+            if (pollTimer !== null) clearInterval(pollTimer);
+            pollTimer = null;
+            pendingId = null;
+            btn.disabled = false;
+            status.textContent = "Timed out. Please try again.";
+            await invoke(CMD.calendarAbortAuth, { pendingId: pid });
+          }
+          return;
+        }
+        if (pollTimer !== null) clearInterval(pollTimer);
+        pollTimer = null;
+        pendingId = null;
+        btn.disabled = false;
+        if (st.state === "ok") status.textContent = "Connected!";
+        else if (st.state === "expired") status.textContent = "Session expired. Please try again.";
+        else if (st.state === "error") status.textContent = `Connection failed: ${st.message}`;
+        await render();
+      }, 1500);
+    } catch (e) {
+      status.textContent = `Could not start connection: ${String(e)}`;
+    }
+  }
+
+  gBtn.addEventListener("click", () => void beginConnect("google", gBtn));
+  oBtn.addEventListener("click", () => void beginConnect("outlook", oBtn));
+
+  await render();
+}
 
 function buildControl(
   wrapper: HTMLElement,

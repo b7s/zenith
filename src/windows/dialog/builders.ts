@@ -150,10 +150,30 @@ function eventEditBuilder(data: unknown): DialogOptions {
   };
 }
 
+function messageBuilder(data: unknown): DialogOptions {
+  const payload = (data as { title?: string; body?: string } | null) ?? {};
+  const bodyText = payload.body ?? "";
+
+  const body = document.createElement("p");
+  body.className = "zen-hint";
+  body.style.cssText = "margin:0;white-space:pre-wrap;line-height:1.5";
+  body.textContent = bodyText;
+
+  return {
+    title: payload.title ?? "Notice",
+    data,
+    body: () => body,
+    actions: [action("OK", "primary", (ctx) => ctx.close(), { autofocus: true })],
+    disableContextMenu: true,
+    closeOnEscape: true,
+  };
+}
+
 export function registerBuiltins(): void {
   registerDialog("rename", renameBuilder);
   registerDialog("delete", deleteBuilder);
   registerDialog("event_edit", eventEditBuilder);
+  registerDialog("message", messageBuilder);
 }
 
 registerBuiltins();

@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "../../shared/types";
+import type { CalendarEvent, CalendarSource } from "../../shared/types";
 
 export interface BuiltEventForm {
   root: HTMLElement;
@@ -134,11 +134,17 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
       title,
       date: dateInput.value || new Date().toISOString().slice(0, 10),
       time: timeInput.value || null,
+      end_time: null,
       kind: typeVal,
       recurrence: recurrenceVal,
       weekdays: weekdayMask,
       enabled: enabledVal,
       notes: notesInput.value,
+      source: "" as CalendarSource,
+      source_account_id: "",
+      external_id: "",
+      notify_on_start: typeVal === "event",
+      last_notified_at: 0,
     };
   };
 

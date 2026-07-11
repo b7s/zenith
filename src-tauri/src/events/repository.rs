@@ -91,11 +91,20 @@ pub fn load() -> Vec<CalendarEvent> {
 }
 
 pub fn upsert(event: CalendarEvent) -> Result<(), String> {
+    upsert_many(std::iter::once(event))
+}
+
+/// Upsert many events in a single read/modify/write pass (used by calendar
+/// sync, which pulls a batch per account). Matching is by `id`; new ids
+/// are appended. The list is re-sorted by date/time afterwards.
+pub fn upsert_many(events: impl IntoIterator<Item = CalendarEvent>) -> Result<(), String> {
     let mut file = read_file(&local_path())?.unwrap_or_default();
-    if let Some(slot) = file.events.iter_mut().find(|e| e.id == event.id) {
-        *slot = event;
-    } else {
-        file.events.push(event);
+    for event in events {
+        if let Some(slot) = file.events.iter_mut().find(|e| e.id == event.id) {
+            *slot = event;
+        } else {
+            file.events.push(event);
+        }
     }
     file.events.sort_by(|a, b| a.date.cmp(&b.date).then(a.time.cmp(&b.time)));
     write_file(&local_path(), &file)?;
@@ -110,6 +119,66 @@ pub fn delete_by_id(id: &str) -> Result<bool, String> {
     let before = file.events.len();
     file.events.retain(|e| e.id != id);
     if file.events.len() == before {
+        return Ok(false);
+    }
+    write_file(&local_path(), &file)?;
+    Ok(true)
+}
+
+/// Delete every event authored by a specific calendar account (used when
+/// the user disconnects that account, so its synced events don't linger
+/// on the calendar grid / alarms widget). Returns the number removed.
+pub fn delete_by_source_account(account_id: &str) -> usize {
+    match read_file(&local_path()) {
+        Ok(Some(mut file)) => {
+            let before = file.events.len();
+            file.events.retain(|e| e.source_account_id != account_id);
+            let removed = before - file.events.len();
+            if removed > 0 {
+                let _ = write_file(&local_path(), &file);
+            }
+            removed
+        }
+        _ => 0,
+    }
+}
+
+/// Delete every event originating from a given provider (`"google"` /
+/// `"outlook"`). Used during development / manual resets.
+#[allow(dead_code)]
+pub fn delete_by_source(source: &str) -> usize {
+    match read_file(&local_path()) {
+        Ok(Some(mut file)) => {
+            let before = file.events.len();
+            file.events.retain(|e| e.source != source);
+            let removed = before - file.events.len();
+            if removed > 0 {
+                let _ = write_file(&local_path(), &file);
+            }
+            removed
+        }
+        _ => 0,
+    }
+}
+
+/// Stamp `last_notified_at` on a single event row. Used by the
+/// alarm-fire thread to mark that an event-start notification just
+/// fired for this occurrence, so the next 30-second tick won't
+/// re-popup the same row.
+pub fn mark_event_notified(id: &str, when_secs: i64) -> Result<bool, String> {
+    let mut file = match read_file(&local_path())? {
+        Some(f) => f,
+        None => return Ok(false),
+    };
+    let mut touched = false;
+    for ev in file.events.iter_mut() {
+        if ev.id == id {
+            ev.last_notified_at = when_secs;
+            touched = true;
+            break;
+        }
+    }
+    if !touched {
         return Ok(false);
     }
     write_file(&local_path(), &file)?;

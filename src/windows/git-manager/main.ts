@@ -648,7 +648,12 @@ void (async () => {
         item.addEventListener("click", (ev) => {
           ev.stopPropagation();
           const prompt = getPrompt();
-          void invoke(CMD.sendToAi, { cli, prompt }).catch(() => {});
+          void invoke(CMD.sendToAi, { cli, prompt })
+            .catch((err) => {
+              const msg = `[git-manager] sendToAi failed for ${cli}: ${err}`;
+              console.error(msg);
+              void invoke("log_write", { window: "git-manager", level: "ERROR", message: msg });
+            });
           closeMenu();
         });
         menu.append(item);

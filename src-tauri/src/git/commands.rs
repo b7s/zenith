@@ -123,14 +123,20 @@ pub fn unprotect_secret_for_selftest() -> bool {
 pub fn send_to_ai(cli: String, prompt: String) -> Result<bool, String> {
     let (bin, args) = cli_invocation(&cli, &prompt)
         .ok_or_else(|| format!("Unknown AI assistant: {cli}"))?;
+    eprintln!("[send_to_ai] launching {bin} with args: {:?}", args);
     let mut cmd = std::process::Command::new(&bin);
     cmd.args(&args);
     // CREATE_NEW_CONSOLE (0x10): give the assistant its own window instead of
     // inheriting the hidden Zenith console.
     cmd.creation_flags(0x00000010);
+    // Ensure we inherit the parent's PATH so Windows can find .exe/.cmd files
+    cmd.env("PATH", std::env::var("PATH").unwrap_or_default());
     cmd.spawn()
         .map(|_| true)
-        .map_err(|e| format!("Failed to launch {bin}: {e}"))
+        .map_err(|e| {
+            eprintln!("[send_to_ai] Failed to launch {bin}: {e}");
+            format!("Failed to launch {bin}: {e}")
+        })
 }
 
 /// Map an AI assistant id to its binary + argument list. The prompt is

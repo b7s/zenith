@@ -30,6 +30,7 @@ export const DEFAULT_CONFIG: Config = {
   widgets: { enabled: ["clock", "workspace"], positions: { clock: "left", workspace: "left" }, config: {} },
   motion: { backend: "auto", reduced_motion: false },
   css: { custom_enabled: true },
+  calendar_oauth: { google_client_id: "", outlook_client_id: "" },
 };
 
 let cache: Config | null = null;

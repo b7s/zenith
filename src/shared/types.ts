@@ -46,6 +46,11 @@ export interface CssConfig {
   custom_enabled: boolean;
 }
 
+export interface CalendarOauthConfig {
+  google_client_id: string;
+  outlook_client_id: string;
+}
+
 export interface Config {
   appearance: AppearanceConfig;
   monitors: "all" | string[];
@@ -53,6 +58,7 @@ export interface Config {
   widgets: WidgetsConfig;
   motion: MotionConfig;
   css: CssConfig;
+  calendar_oauth: CalendarOauthConfig;
 }
 
 export interface WidgetManifest {

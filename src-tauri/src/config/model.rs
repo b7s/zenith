@@ -14,6 +14,8 @@ pub struct Config {
     pub motion: MotionConfig,
     #[serde(default)]
     pub css: CssConfig,
+    #[serde(default)]
+    pub calendar_oauth: CalendarOauthConfig,
 }
 
 fn default_monitors() -> MonitorsSelection {
@@ -214,6 +216,16 @@ impl Default for CssConfig {
             custom_enabled: default_custom_enabled(),
         }
     }
+}
+
+/// User-supplied OAuth client ids for calendar providers. Empty strings fall
+/// back to the shipped placeholder ids in `calendar_sync::credentials`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CalendarOauthConfig {
+    #[serde(default)]
+    pub google_client_id: String,
+    #[serde(default)]
+    pub outlook_client_id: String,
 }
 
 #[cfg(test)]

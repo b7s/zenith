@@ -56,6 +56,13 @@ void (async () => {
 
   const configDef = manifest.config ?? {};
 
+  // Client-id inputs for the datetime Calendars tab. Declared early so the
+  // Save handler (below) can read them once populated by buildCalendarAccountsSection.
+  const oauthClientIds: { google: HTMLInputElement | null; outlook: HTMLInputElement | null } = {
+    google: null,
+    outlook: null,
+  };
+
   // ---- footer (built early so the window can mount with it) --------------
   const footerLeft = document.createElement("div");
   footerLeft.style.cssText = "display:flex;gap:0.5rem;align-items:center;";
@@ -107,6 +114,11 @@ void (async () => {
     // not the generic form) so Save doesn't wipe them.
     if (widgetId === "datetime" && savedValues.calendar_accounts) {
       newValues.calendar_accounts = savedValues.calendar_accounts;
+    }
+    if (widgetId === "datetime") {
+      if (!cfg.calendar_oauth) cfg.calendar_oauth = { google_client_id: "", outlook_client_id: "" };
+      cfg.calendar_oauth.google_client_id = oauthClientIds.google?.value.trim() ?? "";
+      cfg.calendar_oauth.outlook_client_id = oauthClientIds.outlook?.value.trim() ?? "";
     }
     cfg.widgets.config[widgetId] = newValues;
     if (widgetId === "system_stats") {
@@ -215,7 +227,11 @@ void (async () => {
       "Connect Google Calendar or Outlook to show events on the bar and alarm you at event start.";
     section.append(calLabel, calHint);
     secondPane.append(section);
-    void buildCalendarAccountsSection(section);
+    void buildCalendarAccountsSection(
+      section,
+      cfg.calendar_oauth ?? { google_client_id: "", outlook_client_id: "" },
+      oauthClientIds,
+    );
   }
 
   // Git: Credentials tab header with provider filter pills (after the title).
@@ -383,7 +399,46 @@ document.addEventListener("keydown", async (e) => {
 /// Render the "Connected calendars" section for the datetime widget.
 /// Accounts are managed entirely by the calendar-sync commands — this UI
 /// only triggers connect / disconnect / sync and reflects state.
-async function buildCalendarAccountsSection(parent: HTMLElement): Promise<void> {
+async function buildCalendarAccountsSection(
+  parent: HTMLElement,
+  oauthCfg: { google_client_id: string; outlook_client_id: string },
+  clientIds: { google: HTMLInputElement | null; outlook: HTMLInputElement | null },
+): Promise<void> {
+  // User-supplied OAuth client ids. Empty → shipped placeholder ids.
+
+  const gField = document.createElement("div");
+  gField.className = "zen-field";
+  const gLabel = document.createElement("label");
+  gLabel.className = "zen-label";
+  gLabel.textContent = "Google client id";
+  const gInput = document.createElement("input");
+  gInput.type = "text";
+  gInput.className = "zen-input";
+  gInput.placeholder = "e.g. 123456-abcdef.apps.googleusercontent.com";
+  gInput.value = oauthCfg.google_client_id ?? "";
+  gField.append(gLabel, gInput);
+  clientIds.google = gInput;
+
+  const oField = document.createElement("div");
+  oField.className = "zen-field";
+  const oLabel = document.createElement("label");
+  oLabel.className = "zen-label";
+  oLabel.textContent = "Outlook client id";
+  const oInput = document.createElement("input");
+  oInput.type = "text";
+  oInput.className = "zen-input";
+  oInput.placeholder = "e.g. 00000000-0000-0000-0000-000000000000";
+  oInput.value = oauthCfg.outlook_client_id ?? "";
+  oField.append(oLabel, oInput);
+  clientIds.outlook = oInput;
+
+  const oauthHint = document.createElement("p");
+  oauthHint.className = "zen-hint";
+  oauthHint.textContent =
+    "Register Zenith as a desktop OAuth app to get a client id. Google: Google Cloud Console → APIs & Services → Credentials (Desktop app). Outlook: Microsoft Entra → App registrations (Mobile and desktop). Leave blank to use the built-in id.";
+
+  parent.append(gField, oField, oauthHint);
+
   const actions = document.createElement("div");
   actions.style.cssText = "display:flex;gap:0.5rem;";
   const gBtn = document.createElement("button");

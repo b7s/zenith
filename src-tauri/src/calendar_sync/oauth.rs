@@ -33,6 +33,7 @@ use sha2::{Digest, Sha256};
 
 use crate::calendar_sync::credentials as creds;
 use crate::calendar_sync::model::{CalendarAccountProvider, PendingAuthStatus};
+use crate::config;
 
 /// How long an in-flight OAuth flow stays open before auto-expiring.
 const OAUTH_TIMEOUT_SECS: i64 = 5 * 60;
@@ -52,10 +53,23 @@ impl Provider {
         }
     }
 
-    fn client_id(&self) -> &'static str {
+    fn client_id(&self) -> String {
+        let configured = config::load().calendar_oauth;
         match self {
-            Provider::Google => creds::google::CLIENT_ID,
-            Provider::Outlook => creds::outlook::CLIENT_ID,
+            Provider::Google => {
+                if !configured.google_client_id.is_empty() {
+                    configured.google_client_id
+                } else {
+                    creds::google::CLIENT_ID.to_string()
+                }
+            }
+            Provider::Outlook => {
+                if !configured.outlook_client_id.is_empty() {
+                    configured.outlook_client_id
+                } else {
+                    creds::outlook::CLIENT_ID.to_string()
+                }
+            }
         }
     }
     fn authorize_url(&self) -> &'static str {
@@ -187,7 +201,7 @@ pub fn begin_flow(provider_str: &str) -> Result<(String, String), String> {
         "{base}?client_id={cid}&redirect_uri={redir}&response_type=code\
 &scope={scope}&state={state}&code_challenge={challenge}&code_challenge_method=plain",
         base = provider.authorize_url(),
-        cid = urlencode(provider.client_id()),
+        cid = urlencode(&provider.client_id()),
         redir = urlencode(&redirect),
         scope = urlencode(provider.scopes()),
         state = urlencode(&state),
@@ -428,7 +442,7 @@ fn exchange_and_persist(
     let token_body = format!(
         "client_id={cid}&code={code}&grant_type=authorization_code\
 &redirect_uri={redir}&code_verifier={verifier}",
-        cid = urlencode(provider.client_id()),
+        cid = urlencode(&provider.client_id()),
         code = urlencode(code),
         redir = urlencode(&redirect),
         verifier = urlencode(verifier),

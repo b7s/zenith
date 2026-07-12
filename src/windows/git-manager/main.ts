@@ -259,8 +259,8 @@ void (async () => {
 
     const acctTotal = cfg.accounts.length;
     tiles.append(
-      statTile(String(state.total_failed), "Failed CI", state.total_failed > 0 ? "is-danger" : ""),
-      statTile(String(state.total_open_prs), "Open PRs", state.total_open_prs > 0 ? "is-warn" : ""),
+      statTile(String(state.total_failed), "Failed CI", state.total_failed > 0 ? "is-danger" : "", () => tabs.switchTo("failed")),
+      statTile(String(state.total_open_prs), "Open PRs", state.total_open_prs > 0 ? "is-warn" : "", () => tabs.switchTo("prs")),
       statTile(String(repos.length), "Repos tracked", ""),
       statTile(
         `${acctTotal}`,
@@ -393,9 +393,21 @@ void (async () => {
     return h;
   }
 
-  function statTile(value: string, label: string, mod: string): HTMLElement {
+  function statTile(value: string, label: string, mod: string, onClick?: () => void): HTMLElement {
     const tile = document.createElement("div");
     tile.className = "gm-tile" + (mod ? " " + mod : "");
+    if (onClick) {
+      tile.tabIndex = 0;
+      tile.classList.add("gm-tile--clickable");
+      tile.setAttribute("role", "button");
+      const handler = (e: Event) => {
+        if (e instanceof KeyboardEvent && e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        onClick();
+      };
+      tile.addEventListener("click", handler);
+      tile.addEventListener("keydown", handler);
+    }
     const v = document.createElement("span");
     v.className = "gm-tile-val";
     v.textContent = value;

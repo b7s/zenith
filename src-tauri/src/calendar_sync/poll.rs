@@ -37,6 +37,7 @@ pub fn start() {
 }
 
 /// Stop the background sync thread (best-effort; the loop checks the flag).
+#[allow(dead_code)]
 pub fn stop() {
     RUNNING.store(false, Ordering::SeqCst);
 }

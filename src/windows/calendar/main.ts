@@ -131,11 +131,6 @@ void (async () => {
   const eventsHeaderGroup = document.createElement("div");
   eventsHeaderGroup.className = "cal-events-header";
 
-  const eventsTitle = document.createElement("span");
-  eventsTitle.className = "cal-month";
-  eventsTitle.textContent = "Events";
-  eventsHeaderGroup.append(eventsTitle);
-
   // Day filter chip — only in events view, only when a day is filtered.
   const dayFilterChip = document.createElement("button");
   dayFilterChip.type = "button";

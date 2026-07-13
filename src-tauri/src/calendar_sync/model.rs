@@ -67,50 +67,10 @@ pub enum CalendarAccountProvider {
     Outlook,
 }
 
-impl CalendarAccountProvider {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            CalendarAccountProvider::Google => "google",
-            CalendarAccountProvider::Outlook => "outlook",
-        }
-    }
-    pub fn parse(s: &str) -> Option<Self> {
-        match s {
-            "google" => Some(CalendarAccountProvider::Google),
-            "outlook" => Some(CalendarAccountProvider::Outlook),
-            _ => None,
-        }
-    }
-}
-
 impl Default for CalendarAccountProvider {
     fn default() -> Self {
         CalendarAccountProvider::Google
     }
-}
-
-/// One in-flight OAuth flow. The frontend polls
-/// `poll_pending_auth(pending_id)` to learn when the loopback callback
-/// completes (success → account was saved to config; failure → error
-/// message). The pending state is held in a `Mutex<HashMap>` inside
-/// the oauth module and removed when the flow resolves.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PendingAuth {
-    /// Auth provider (google/outlook) — purely informational here; the
-    /// stored `code_verifier`/endpoint selection live in the oauth
-    /// module keyed by `pending_id`.
-    pub provider: String,
-    /// Echo'd `state` we sent to the authorize URL. The callback
-    /// handler refuses any redirect that doesn't match — guards
-    /// against CSRF and concurrent flows stealing each other's code.
-    pub state: String,
-    /// Loopback port we bound the local HTTP server on. The authorize
-    /// URL embeds it (`http://127.0.0.1:<port>/callback`).
-    pub port: u16,
-    /// Unix-seconds when the flow was opened. The oauth module
-    /// auto-expires stale flows after 5 minutes so abandoned clicks
-    /// don't squat on a port forever.
-    pub opened_at: i64,
 }
 
 /// Shape returned by `poll_pending_auth`. The frontend should re-fetch

@@ -14,10 +14,6 @@ use crate::events::model::CalendarEvent;
 pub struct OutlookProvider;
 
 impl ProviderApi for OutlookProvider {
-    fn name(&self) -> &'static str {
-        "outlook"
-    }
-
     fn refresh(&self, account: &CalendarAccount) -> Result<(String, i64), String> {
         let refresh = refresh_token_plain(account);
         if refresh.is_empty() {

@@ -5,8 +5,10 @@
 //! `YYYY-MM-DD` date forms are supported (good enough for calendar
 //! sync). No external date crate — keeps the dependency surface small.
 
+#[allow(dead_code)]
 const DAYS_PER_MONTH: [u32; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
+#[allow(dead_code)]
 fn is_leap(y: i64) -> bool {
     (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
 }
@@ -14,7 +16,7 @@ fn is_leap(y: i64) -> bool {
 /// Days since the Unix epoch (1970-01-01) for a Gregorian date (UTC).
 fn ymd_to_days(y: i64, m: u32, d: u32) -> i64 {
     let mut yy = y;
-    let mut mm = m as i64;
+    let mm = m as i64;
     // Shift so March is month 0, Feb last -> leap-day math simplifies.
     if mm <= 2 {
         yy -= 1;
@@ -37,7 +39,7 @@ pub fn to_rfc3339(secs: i64) -> String {
     let s = rem % 60;
 
     // Recover year/month/day from `days` since epoch.
-    let mut d0 = days + 719468;
+    let d0 = days + 719468;
     let era = if d0 >= 0 { d0 } else { d0 - 146096 } / 146097;
     let doe = d0 - era * 146097; // [0, 146096]
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0,399]

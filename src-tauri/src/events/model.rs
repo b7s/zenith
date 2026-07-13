@@ -74,15 +74,6 @@ fn default_true() -> bool {
     true
 }
 
-/// Sentinel sources (also used by the sync domain). Kept as constants
-/// rather than an enum so the on-disk JSON is a plain string and older
-/// files tolerate unknown values.
-pub mod source {
-    pub const LOCAL: &str = "";
-    pub const GOOGLE: &str = "google";
-    pub const OUTLOOK: &str = "outlook";
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum EventKind {

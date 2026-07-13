@@ -24,7 +24,6 @@ pub struct SyncWindow {
 }
 
 pub trait ProviderApi {
-    fn name(&self) -> &'static str;
     /// Exchange the account's refresh token for a fresh access token.
     /// Returns `(access_token, expires_in_secs)`.
     fn refresh(&self, account: &CalendarAccount) -> Result<(String, i64), String>;
@@ -137,6 +136,7 @@ pub fn upsert_events(events: Vec<CalendarEvent>, app: Option<&tauri::AppHandle>)
 }
 
 /// RFC3339 helper re-exported for providers.
+#[allow(dead_code)]
 pub fn fmt(secs: i64) -> String {
     iso8601::to_rfc3339(secs)
 }

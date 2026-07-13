@@ -96,8 +96,13 @@ impl Provider {
 }
 
 struct Pending {
+    // Fields are populated for `get_pending` introspection; the
+    // current `poll_pending` flow only reads `resolved`/`opened_at`.
+    #[allow(dead_code)]
     provider: Provider,
+    #[allow(dead_code)]
     state: String,
+    #[allow(dead_code)]
     verifier: String,
     port: u16,
     opened_at: i64,

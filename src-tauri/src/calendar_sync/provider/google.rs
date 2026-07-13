@@ -16,10 +16,6 @@ use crate::events::model::CalendarEvent;
 pub struct GoogleProvider;
 
 impl ProviderApi for GoogleProvider {
-    fn name(&self) -> &'static str {
-        "google"
-    }
-
     fn refresh(&self, account: &CalendarAccount) -> Result<(String, i64), String> {
         let refresh = refresh_token_plain(account);
         if refresh.is_empty() {

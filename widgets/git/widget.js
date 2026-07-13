@@ -31,23 +31,30 @@
 
   function paint(state) {
     var total = (state && state.total_failed) || 0;
+    var openPrs = (state && state.total_open_prs) || 0;
     var anyAccount = state && state.inventories && state.inventories.length > 0;
     var anyError = state && state.inventories.some(function (i) { return i.last_error && i.last_error.length > 0; });
 
-    wrap.classList.remove("is-empty", "is-broken", "is-clean", "is-active");
+    wrap.classList.remove("is-empty", "is-broken", "is-clean", "is-active", "has-pr");
     if (!anyAccount) {
       wrap.classList.add("is-empty");
       return;
     }
     if (total > 0) {
       wrap.classList.add("is-active");
-      return;
-    }
-    if (anyError) {
+    } else if (anyError) {
       wrap.classList.add("is-broken");
-      return;
+    } else {
+      wrap.classList.add("is-clean");
     }
-    wrap.classList.add("is-clean");
+    if (openPrs > 0) {
+      wrap.classList.add("has-pr");
+    }
+
+    var parts = [];
+    if (total > 0) parts.push(total + " failed CI");
+    if (openPrs > 0) parts.push(openPrs + " open PR");
+    wrap.title = parts.length > 0 ? parts.join(" · ") : "Git — no issues";
   }
 
   wrap.addEventListener("click", function (e) {

@@ -35,7 +35,24 @@
 .git-dot {
   position: absolute;
   bottom: -5px;
-  left: 50%;
+  left: 35%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--danger, #ef4444);
+  opacity: 0;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.git-wrap.is-active .git-dot {
+  opacity: 1;
+}
+
+.git-pr-dot {
+  position: absolute;
+  bottom: -5px;
+  left: 65%;
   transform: translateX(-50%);
   width: 4px;
   height: 4px;
@@ -43,7 +60,8 @@
   background: var(--primary);
   opacity: 0;
   flex: 0 0 auto;
+  pointer-events: none;
 }
-.git-wrap.is-active .git-dot {
+.git-wrap.has-pr .git-pr-dot {
   opacity: 1;
 }

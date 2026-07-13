@@ -79,13 +79,16 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
   let typeVal: CalendarEvent["kind"] = existing?.kind ?? "event";
   root.append(typeGroup);
 
+  let recurrenceVal: CalendarEvent["recurrence"] = existing?.recurrence ?? "none";
   const recGroup = radioGroup<CalendarEvent["recurrence"]>(
     "Repeat",
     RECURRENCE_OPTIONS,
     existing?.recurrence ?? "none",
-    (v) => { weekdayWrap.style.display = v === "weekly" ? "" : "none"; },
+    (v) => {
+      recurrenceVal = v;
+      weekdayWrap.style.display = v === "weekly" ? "" : "none";
+    },
   );
-  let recurrenceVal: CalendarEvent["recurrence"] = existing?.recurrence ?? "none";
   root.append(recGroup);
 
   root.append(weekdayWrap);

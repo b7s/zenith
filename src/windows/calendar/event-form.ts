@@ -21,6 +21,34 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
   const root = document.createElement("div");
   root.className = "cal-event-form";
 
+  // Enabled: canonical `.zen-checkbox` switch (label wraps a hidden
+  // checkbox input + the `__switch` visual with `__track`/`__thumb`).
+  const enabledField = document.createElement("label");
+  enabledField.className = "zen-checkbox";
+  const enabledText = document.createElement("div");
+  enabledText.className = "zen-checkbox__text";
+  const enabledTitle = document.createElement("span");
+  enabledTitle.className = "zen-checkbox__label";
+  enabledTitle.textContent = "Enabled";
+  enabledText.append(enabledTitle);
+  const enabledSwitch = document.createElement("span");
+  enabledSwitch.className = "zen-checkbox__switch";
+  const enabledInput = document.createElement("input");
+  enabledInput.type = "checkbox";
+  let enabledVal = existing?.enabled ?? true;
+  enabledInput.checked = enabledVal;
+  const track = document.createElement("span");
+  track.className = "zen-checkbox__track";
+  const thumb = document.createElement("span");
+  thumb.className = "zen-checkbox__thumb";
+  track.append(thumb);
+  enabledSwitch.append(enabledInput, track);
+  enabledInput.addEventListener("change", () => {
+    enabledVal = enabledInput.checked;
+  });
+  enabledField.append(enabledText, enabledSwitch);
+  root.append(enabledField);
+
   const titleInput = document.createElement("input");
   titleInput.type = "text";
   titleInput.className = "zen-input";
@@ -92,34 +120,6 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
   root.append(recGroup);
 
   root.append(weekdayWrap);
-
-  // Enabled: canonical `.zen-checkbox` switch (label wraps a hidden
-  // checkbox input + the `__switch` visual with `__track`/`__thumb`).
-  const enabledField = document.createElement("label");
-  enabledField.className = "zen-checkbox";
-  const enabledText = document.createElement("div");
-  enabledText.className = "zen-checkbox__text";
-  const enabledTitle = document.createElement("span");
-  enabledTitle.className = "zen-checkbox__label";
-  enabledTitle.textContent = "Enabled";
-  enabledText.append(enabledTitle);
-  const enabledSwitch = document.createElement("span");
-  enabledSwitch.className = "zen-checkbox__switch";
-  const enabledInput = document.createElement("input");
-  enabledInput.type = "checkbox";
-  let enabledVal = existing?.enabled ?? true;
-  enabledInput.checked = enabledVal;
-  const track = document.createElement("span");
-  track.className = "zen-checkbox__track";
-  const thumb = document.createElement("span");
-  thumb.className = "zen-checkbox__thumb";
-  track.append(thumb);
-  enabledSwitch.append(enabledInput, track);
-  enabledInput.addEventListener("change", () => {
-    enabledVal = enabledInput.checked;
-  });
-  enabledField.append(enabledText, enabledSwitch);
-  root.append(enabledField);
 
   // Notes — multi-line textarea so users can attach extra info.
   const notesInput = document.createElement("textarea");

@@ -106,7 +106,10 @@ function applyBarDom(wrapper: HTMLElement, bar: HTMLElement, cfg: Config): void 
   wrapper.style.setProperty("--zen-margin-left", `${a.margin_left}px`);
   wrapper.style.setProperty("--zen-margin-right", `${a.margin_right}px`);
   wrapper.style.setProperty("--zen-margin-bottom", `${a.margin_bottom}px`);
-  bar.style.setProperty("--zen-corner-radius", `${a.corner_radius}px`);
+  bar.style.setProperty(
+    "--zen-corner-radius",
+    `${a.corner_radius_tl}px ${a.corner_radius_tr}px ${a.corner_radius_br}px ${a.corner_radius_bl}px`,
+  );
   bar.style.padding = `${a.padding_top}px ${a.padding_right}px ${a.padding_bottom}px ${a.padding_left}px`;
 
   const mode = a.background.mode;

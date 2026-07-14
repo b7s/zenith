@@ -6,7 +6,10 @@ export type MotionBackend = "auto" | "gpu" | "cpu";
 export interface AppearanceConfig {
   background: BackgroundConfig;
   tint_alpha: number;
-  corner_radius: number;
+  corner_radius_tl: number;
+  corner_radius_tr: number;
+  corner_radius_br: number;
+  corner_radius_bl: number;
   margin_top: number;
   margin_right: number;
   margin_bottom: number;

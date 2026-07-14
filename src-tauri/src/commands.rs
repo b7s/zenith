@@ -452,6 +452,24 @@ fn create_widgets_window(app: &tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn set_start_with_windows(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let mgr = app.autolaunch();
+    if enabled {
+        mgr.enable()
+    } else {
+        mgr.disable()
+    }
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn is_start_with_windows(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri_plugin_autostart::ManagerExt;
+    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || create_settings_window(&app))
         .await

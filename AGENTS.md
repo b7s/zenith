@@ -257,7 +257,10 @@ from the closest existing one and adjust the percentage only.
       "alpha_top": 100,                 // 0..100
       "alpha_bottom": 100               // 0..100
     },
-    "corner_radius": 8,                 // px
+    "corner_radius_tl": 0,             // px
+    "corner_radius_tr": 0,
+    "corner_radius_br": 0,
+    "corner_radius_bl": 0,
     "margin_top": 0, "margin_left": 0, "margin_right": 0,
     "bar_height": 40,                   // px
     "theme": "auto"                     // "auto" | "dark" | "light"
@@ -335,7 +338,10 @@ pub struct AppearanceConfig {
     #[serde(default = "default_material")]   pub material: String,        // "acrylic"
     #[serde(default = "default_tint_alpha")] pub tint_alpha: u8,          // 60
     #[serde(default)]                        pub background: BackgroundConfig,
-    #[serde(default = "default_corner_radius")] pub corner_radius: u32,   // 8
+    #[serde(default = "default_corner_radius")] pub corner_radius_tl: u32, // 0
+    #[serde(default = "default_corner_radius")] pub corner_radius_tr: u32, // 0
+    #[serde(default = "default_corner_radius")] pub corner_radius_br: u32, // 0
+    #[serde(default = "default_corner_radius")] pub corner_radius_bl: u32, // 0
     #[serde(default)]                        pub margin_top: i32,
     #[serde(default)]                        pub margin_left: i32,
     #[serde(default)]                        pub margin_right: i32,
@@ -346,14 +352,16 @@ impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
             material: "acrylic".into(), tint_alpha: 60, background: Default::default(),
-            corner_radius: 8, margin_top: 0, margin_left: 0, margin_right: 0,
+            corner_radius_tl: default_corner_radius(), corner_radius_tr: default_corner_radius(),
+            corner_radius_br: default_corner_radius(), corner_radius_bl: default_corner_radius(),
+            margin_top: 0, margin_left: 0, margin_right: 0,
             bar_height: 40, theme: "auto".into(),
         }
     }
 }
 fn default_material() -> String { "acrylic".into() }
 fn default_tint_alpha() -> u8 { 60 }
-fn default_corner_radius() -> u32 { 8 }
+fn default_corner_radius() -> u32 { 0 }
 fn default_bar_height() -> u32 { 40 }
 fn default_theme() -> String { "auto".into() }
 

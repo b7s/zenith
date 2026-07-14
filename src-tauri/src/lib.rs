@@ -21,9 +21,15 @@ use tauri::{Emitter, Listener, Manager};
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .invoke_handler(tauri::generate_handler![
             commands::open_settings,
             commands::open_widgets,
+            commands::set_start_with_windows,
+            commands::is_start_with_windows,
             commands::show_context_menu,
             commands::show_workspace_context_menu,
             commands::show_dialog,

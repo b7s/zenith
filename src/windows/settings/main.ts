@@ -18,6 +18,7 @@ void (async () => {
   const { content } = await mountWindow({ title: "Settings" });
 
   const tabs = mountTabs(content, [
+    { id: "general", label: "General" },
     { id: "bar", label: "Bar" },
     { id: "about", label: "About" },
   ]);
@@ -36,6 +37,8 @@ void (async () => {
   content.prepend(tabs.container);
 
   let config: Config = await loadConfig();
+
+  buildGeneralTab(tabs.panes.general);
 
   buildBarTab(tabs.panes.bar, (patch) => {
     config = { ...config, appearance: { ...config.appearance, ...patch } };
@@ -205,20 +208,6 @@ void (async () => {
     d2.className = "zen-divider";
     section.append(d2);
 
-    // --- Corner radius ---
-    const cornerField = field("Corner radius");
-    const cornerSlider = document.createElement("input");
-    cornerSlider.type = "range";
-    cornerSlider.className = "zen-slider";
-    cornerSlider.min = "0";
-    cornerSlider.max = "24";
-    cornerSlider.value = String(config.appearance.corner_radius);
-    cornerSlider.dataset.setting = "corner_radius";
-    const cornerValue = hint(`${config.appearance.corner_radius}px`);
-    cornerSlider.addEventListener("input", () => { cornerValue.textContent = `${cornerSlider.value}px`; });
-    cornerField.append(valueRow(cornerSlider, cornerValue));
-    section.append(cornerField);
-
     // --- Bar height ---
     const heightField = field("Bar height");
     const heightSlider = document.createElement("input");
@@ -232,6 +221,35 @@ void (async () => {
     heightSlider.addEventListener("input", () => { heightValue.textContent = `${heightSlider.value}px`; });
     heightField.append(valueRow(heightSlider, heightValue));
     section.append(heightField);
+
+    // --- Corner radius (per corner) ---
+    const cornerField = field("Corner radius (px)");
+    const cornerGrid = document.createElement("div");
+    cornerGrid.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.5rem";
+    for (const cf of [
+      { label: "TL", key: "corner_radius_tl", value: config.appearance.corner_radius_tl },
+      { label: "TR", key: "corner_radius_tr", value: config.appearance.corner_radius_tr },
+      { label: "BR", key: "corner_radius_br", value: config.appearance.corner_radius_br },
+      { label: "BL", key: "corner_radius_bl", value: config.appearance.corner_radius_bl },
+    ] as const) {
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "display:flex;flex-direction:column;gap:0.25rem";
+      const lbl = document.createElement("span");
+      lbl.className = "zen-hint";
+      lbl.textContent = cf.label;
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.className = "zen-input";
+      inp.min = "0";
+      inp.max = "40";
+      inp.value = String(cf.value);
+      inp.dataset.setting = cf.key;
+      inp.style.height = "2rem";
+      wrapper.append(lbl, inp);
+      cornerGrid.append(wrapper);
+    }
+    cornerField.append(cornerGrid);
+    section.append(cornerField);
 
     // --- Margins ---
     const marginField = field("Margins (px)");
@@ -330,8 +348,14 @@ void (async () => {
 
       if (setting === "tint_alpha") {
         update({ tint_alpha: Number(target.value) });
-      } else if (setting === "corner_radius") {
-        update({ corner_radius: Number(target.value) });
+      } else if (setting === "corner_radius_tl") {
+        update({ corner_radius_tl: Number(target.value) });
+      } else if (setting === "corner_radius_tr") {
+        update({ corner_radius_tr: Number(target.value) });
+      } else if (setting === "corner_radius_br") {
+        update({ corner_radius_br: Number(target.value) });
+      } else if (setting === "corner_radius_bl") {
+        update({ corner_radius_bl: Number(target.value) });
       } else if (setting === "bar_height") {
         update({ bar_height: Number(target.value) });
       } else if (setting === "margin_top") {
@@ -396,5 +420,49 @@ void (async () => {
     section.append(gh);
 
     pane.append(section);
+  }
+
+  async function buildGeneralTab(pane: HTMLElement) {
+    const section = document.createElement("div");
+    section.className = "zen-section";
+
+    const row = document.createElement("label");
+    row.className = "zen-checkbox";
+
+    const text = document.createElement("span");
+    text.className = "zen-checkbox__text";
+    const lbl = document.createElement("span");
+    lbl.className = "zen-checkbox__label";
+    lbl.textContent = "Start with Windows";
+    const desc = document.createElement("span");
+    desc.className = "zen-checkbox__desc";
+    desc.textContent = "Launch Zenith automatically when you sign in.";
+    text.append(lbl, desc);
+    row.append(text);
+
+    const switchEl = document.createElement("span");
+    switchEl.className = "zen-checkbox__switch";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    switchEl.append(input);
+    const track = document.createElement("span");
+    track.className = "zen-checkbox__track";
+    const thumb = document.createElement("span");
+    thumb.className = "zen-checkbox__thumb";
+    track.append(thumb);
+    switchEl.append(track);
+    row.append(switchEl);
+
+    section.append(row);
+    pane.append(section);
+
+    try {
+      const enabled = await invoke<boolean>(CMD.isStartWithWindows);
+      input.checked = enabled;
+    } catch { /* ignore */ }
+
+    input.addEventListener("change", () => {
+      void invoke(CMD.setStartWithWindows, { enabled: input.checked });
+    });
   }
 })();

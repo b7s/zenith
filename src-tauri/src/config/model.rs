@@ -42,7 +42,13 @@ pub struct AppearanceConfig {
     #[serde(default = "default_tint_alpha")]
     pub tint_alpha: u8,
     #[serde(default = "default_corner_radius")]
-    pub corner_radius: u32,
+    pub corner_radius_tl: u32,
+    #[serde(default = "default_corner_radius")]
+    pub corner_radius_tr: u32,
+    #[serde(default = "default_corner_radius")]
+    pub corner_radius_br: u32,
+    #[serde(default = "default_corner_radius")]
+    pub corner_radius_bl: u32,
     #[serde(default)]
     pub margin_top: u32,
     #[serde(default)]
@@ -69,7 +75,7 @@ fn default_tint_alpha() -> u8 {
     60
 }
 fn default_corner_radius() -> u32 {
-    8
+    0
 }
 fn default_padding_side() -> u32 {
     8
@@ -86,7 +92,10 @@ impl Default for AppearanceConfig {
         Self {
             background: Default::default(),
             tint_alpha: default_tint_alpha(),
-            corner_radius: default_corner_radius(),
+            corner_radius_tl: default_corner_radius(),
+            corner_radius_tr: default_corner_radius(),
+            corner_radius_br: default_corner_radius(),
+            corner_radius_bl: default_corner_radius(),
             margin_top: 0,
             margin_right: 0,
             margin_bottom: 0,

@@ -37,7 +37,8 @@ quality: lint check
 tag: quality
 	git diff --quiet || (echo ERROR: working tree is dirty, commit or stash first & exit /b 1)
 	git fetch --tags origin
-	git rev-parse -q --verify "refs/tags/v$(VERSION)" >nul 2>&1 && (echo ERROR: tag v$(VERSION) already exists & exit /b 1)
+	git show-ref --verify --quiet "refs/tags/v$(VERSION)" && set EXISTS=1 || set EXISTS=0
+	if "%EXISTS%"=="1" (echo ERROR: tag v$(VERSION) already exists & exit /b 1)
 	git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
 	git push origin "v$(VERSION)"
 	@echo Pushed tag v$(VERSION) - GitHub Actions will build the installer.

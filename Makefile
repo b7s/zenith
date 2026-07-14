@@ -1,3 +1,5 @@
+SHELL := cmd.exe
+
 .PHONY: install dev build lint check clean release quality tag
 
 VERSION ?= 0.1.0
@@ -23,7 +25,8 @@ check:
 
 clean:
 	cd src-tauri && cargo clean
-	rm -rf dist node_modules
+	if exist dist rmdir /s /q dist
+	if exist node_modules rmdir /s /q node_modules
 
 release:
 	npm run build
@@ -32,10 +35,9 @@ release:
 quality: lint check
 
 tag: quality
-	@git diff --quiet || (echo "ERROR: working tree is dirty, commit or stash first" && exit 1)
-	@git fetch --tags origin
-	@git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null && \
-		(echo "ERROR: tag v$(VERSION) already exists" && exit 1) || true
+	git diff --quiet || (echo ERROR: working tree is dirty, commit or stash first & exit /b 1)
+	git fetch --tags origin
+	git rev-parse -q --verify "refs/tags/v$(VERSION)" >nul 2>&1 && (echo ERROR: tag v$(VERSION) already exists & exit /b 1)
 	git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
 	git push origin "v$(VERSION)"
-	@echo "Pushed tag v$(VERSION) — GitHub Actions will build the installer."
+	@echo Pushed tag v$(VERSION) - GitHub Actions will build the installer.

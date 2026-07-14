@@ -45,9 +45,14 @@ pub struct GitWidgetConfig {
     pub selected_account_id: Option<String>,
     #[serde(default = "default_global_poll")]
     pub poll_interval_mins: u64,
+    /// Only failed CI runs finished within this many days are counted
+    /// (drives the dot, title, dashboard, tabs, charts). 0 = no limit.
+    #[serde(default = "default_window_days")]
+    pub failures_window_days: u64,
 }
 
 fn default_global_poll() -> u64 { 5 }
+fn default_window_days() -> u64 { 14 }
 
 impl Default for GitWidgetConfig {
     fn default() -> Self {
@@ -55,6 +60,7 @@ impl Default for GitWidgetConfig {
             accounts: Vec::new(),
             selected_account_id: None,
             poll_interval_mins: default_global_poll(),
+            failures_window_days: default_window_days(),
         }
     }
 }
@@ -218,6 +224,7 @@ mod tests {
         let cfg = GitWidgetConfig::default();
         assert!(cfg.accounts.is_empty());
         assert_eq!(cfg.poll_interval_mins, 5);
+        assert_eq!(cfg.failures_window_days, 14);
         assert!(cfg.selected_account_id.is_none());
     }
 

@@ -244,6 +244,8 @@ export interface GitWidgetConfig {
   /** null = "All". */
   selected_account_id: string | null;
   poll_interval_mins: number;
+  /** Only failed CI runs within this many days are counted (0 = no limit). */
+  failures_window_days?: number;
 }
 
 /** Mirrored in `src-tauri/src/git/model.rs::RepoSummary`. */

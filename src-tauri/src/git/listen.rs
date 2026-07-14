@@ -86,6 +86,7 @@ fn poll_once(app: &AppHandle) {
     }
 
     let mut state = GitState::default();
+    let window_days = git_cfg.failures_window_days;
     for acct in &accounts {
         let prev_sync_ms = read_prev_sync_ms(&acct.id);
         let poll_ms = (acct.poll_mins.max(1) * 60_000) as i64;
@@ -93,7 +94,7 @@ fn poll_once(app: &AppHandle) {
         if !forced && prev_sync_ms > 0 && (now_ms - prev_sync_ms) < poll_ms {
             if let Some(inv) = lookup_inventory(&acct.id) {
                 state.inventories.push(inv);
-                go_total(&mut state);
+                go_total(&mut state, window_days);
                 continue;
             }
         }
@@ -120,7 +121,7 @@ fn poll_once(app: &AppHandle) {
         };
         state.inventories.push(inv);
     }
-    go_total(&mut state);
+    go_total(&mut state, window_days);
 
     let key = format!(
         "{}|{}|{}/{}",
@@ -151,7 +152,17 @@ fn poll_once(app: &AppHandle) {
     }
 }
 
-fn go_total(state: &mut GitState) {
+/// Recompute the aggregate totals. Failed CI runs are filtered to those
+/// finished within `window_days` (0 = no limit); `finished_ms == 0` (unknown)
+/// is always kept. Open PRs are never windowed.
+fn go_total(state: &mut GitState, window_days: u64) {
+    if window_days > 0 {
+        let cutoff_ms = now_ms() - (window_days as i64) * 86_400_000;
+        for inv in &mut state.inventories {
+            inv.failed_runs
+                .retain(|r| r.finished_ms == 0 || r.finished_ms >= cutoff_ms);
+        }
+    }
     state.total_failed = state.inventories.iter().map(|i| i.failed_runs.len() as u32).sum();
     state.total_open_prs =
         state.inventories.iter().map(|i| i.open_pulls.len() as u32).sum();

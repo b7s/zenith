@@ -228,6 +228,7 @@ void (async () => {
       runs.push(...inv.failed_runs);
       if (inv.last_error && inv.last_error.length > 0) acctErr++;
     }
+    const failedRepos = new Set(runs.map((r) => r.full_name));
 
     const stateCounts: Record<string, number> = {
       success: 0,
@@ -237,9 +238,10 @@ void (async () => {
       unknown: 0,
     };
     for (const r of repos) {
-      const k = ["success", "failed", "running", "cancelled", "unknown"].includes(r.last_state)
+      let k = ["success", "failed", "running", "cancelled", "unknown"].includes(r.last_state)
         ? r.last_state
         : "unknown";
+      if (k === "failed" && !failedRepos.has(r.full_name)) k = "unknown";
       stateCounts[k]++;
     }
     const attention = repos.filter(
@@ -311,10 +313,22 @@ void (async () => {
     // --- Failures by day (bar chart) ---------------------------------------
     const fd = document.createElement("section");
     fd.className = "gm-section";
-    fd.append(sectionTitle("Failed runs by day (7d)"));
-    const DAYS = 7;
+    const winDays = cfg.failures_window_days ?? 14;
+    const DAY_MS = 24 * 3600 * 1000;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    let DAYS: number;
+    if (winDays > 0) {
+      DAYS = winDays;
+    } else {
+      let earliest = today.getTime();
+      for (const r of runs) {
+        if (r.finished_ms > 0 && r.finished_ms < earliest) earliest = r.finished_ms;
+      }
+      const span = runs.length > 0 ? Math.ceil((today.getTime() - earliest) / DAY_MS) + 1 : 7;
+      DAYS = Math.max(7, Math.min(span, 90));
+    }
+    fd.append(sectionTitle(`Failed runs by day (${winDays > 0 ? winDays + "d" : "90d"})`));
     const buckets: { label: string; count: number; ts: number }[] = [];
     for (let i = DAYS - 1; i >= 0; i--) {
       const d = new Date(today);
@@ -322,8 +336,7 @@ void (async () => {
       buckets.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, count: 0, ts: d.getTime() });
     }
     const startTs = buckets[0].ts;
-    const endTs = today.getTime() + 24 * 3600 * 1000;
-    const DAY_MS = 24 * 3600 * 1000;
+    const endTs = today.getTime() + DAY_MS;
     for (const r of runs) {
       if (r.finished_ms >= startTs && r.finished_ms <= endTs) {
         const d = new Date(r.finished_ms);

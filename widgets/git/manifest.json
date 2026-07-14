@@ -20,6 +20,12 @@
       "label": "Global poll cadence (minutes)",
       "hint": "Floor for how often the background thread re-checks each account. Per-account poll_mins overrides this when larger."
     },
+    "failures_window_days": {
+      "type": "int",
+      "value": 14,
+      "label": "Failures window (days)",
+      "hint": "Only failed CI runs finished within this many days are counted everywhere — bar dot, hover title, dashboard, CI status, Failed CI tab, and by-day chart. 0 = no limit (chart shows up to 90 days)."
+    },
     "ai_clis": {
       "type": "multiselect",
       "value": [],

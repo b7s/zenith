@@ -42,8 +42,10 @@ pub fn spawn(app: AppHandle) {
             );
         }
         loop {
-            std::thread::sleep(Duration::from_millis(2000));
+            // First iteration runs immediately so the bar is populated on
+            // startup instead of waiting up to 2 s for the cache.
             if app.get_webview_window("bar").is_none() {
+                std::thread::sleep(Duration::from_millis(2000));
                 continue;
             }
             let snap = match resolve_current() {
@@ -84,6 +86,8 @@ pub fn spawn(app: AppHandle) {
             if changed {
                 fire_changed(&app, &snap);
             }
+
+            std::thread::sleep(Duration::from_millis(2000));
         }
     });
 }

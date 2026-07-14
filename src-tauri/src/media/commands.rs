@@ -36,7 +36,9 @@ pub struct MediaSnapshot {
 /// filter the terminal. Kept off `log.rs` (file logger) on purpose — the
 /// poll thread is too chatty and would dwarf the per-window logs.
 macro_rules! mlog {
-    ($($arg:tt)*) => {{}};
+    ($($arg:tt)*) => {{
+        eprintln!("[media] {}", format_args!($($arg)*));
+    }};
 }
 
 // ---- cached snapshot --------------------------------------------------------
@@ -348,18 +350,18 @@ pub(crate) fn capture_session(session: &Session) -> Option<MediaInfo> {
 fn read_thumbnail(props: &MediaProperties) -> Option<String> {
     let stream_ref = match props.Thumbnail() {
         Ok(r) => r,
-        Err(_e) => { mlog!("thumbnail: Thumbnail() err: {e}"); return None; }
+        Err(e) => { mlog!("thumbnail: Thumbnail() err: {e}"); return None; }
     };
     let stream = match stream_ref.OpenReadAsync() {
         Ok(op) => match wait_async_inner(op, std::time::Duration::from_secs(2)) {
             Ok(s) => s,
-            Err(_e) => { mlog!("thumbnail: OpenReadAsync wait failed: {e}"); return None; }
+            Err(e) => { mlog!("thumbnail: OpenReadAsync wait failed: {e}"); return None; }
         },
-        Err(_e) => { mlog!("thumbnail: OpenReadAsync err: {e}"); return None; }
+        Err(e) => { mlog!("thumbnail: OpenReadAsync err: {e}"); return None; }
     };
     let size = match stream.Size() {
         Ok(s) => s as u32,
-        Err(_e) => { mlog!("thumbnail: Size() err: {e}"); return None; }
+        Err(e) => { mlog!("thumbnail: Size() err: {e}"); return None; }
     };
     if size == 0 {
         return None;
@@ -369,11 +371,11 @@ fn read_thumbnail(props: &MediaProperties) -> Option<String> {
     }
     let reader = match DataReader::CreateDataReader(&stream) {
         Ok(r) => r,
-        Err(_e) => { mlog!("thumbnail: CreateDataReader err: {e}"); return None; }
+        Err(e) => { mlog!("thumbnail: CreateDataReader err: {e}"); return None; }
     };
     if let Err(_e) = wait_async_inner(match reader.LoadAsync(size) {
         Ok(op) => op,
-        Err(_e) => { mlog!("thumbnail: LoadAsync call err: {e}"); return None; }
+        Err(e) => { mlog!("thumbnail: LoadAsync call err: {e}"); return None; }
     }, std::time::Duration::from_secs(2)) {
         return None;
     }
@@ -446,45 +448,71 @@ fn base64_encode(input: &[u8]) -> String {
     out
 }
 
-/// Activate the SMTC session manager and return the current session.
-/// Returns `None` when no app has registered with SMTC. **Slow** — must
+/// Rank a session by how "active" it is for now-playing purposes.
+/// 2 = playing, 1 = paused (still has a track loaded), 0 = nothing useful.
+fn session_active_rank(s: &Session) -> u8 {
+    match s
+        .GetPlaybackInfo()
+        .ok()
+        .and_then(|pb| pb.PlaybackStatus().ok())
+    {
+        Some(st) if st == PlaybackStatus::Playing => 2,
+        Some(st) if st == PlaybackStatus::Paused => 1,
+        _ => 0,
+    }
+}
+
+fn session_is_active(s: &Session) -> bool {
+    session_active_rank(s) > 0
+}
+
+/// Activate the SMTC session manager and return the best session to display.
+///
+/// Browsers (Chrome/Edge) register a `GlobalSystemMediaTransportControls`
+/// session when playing media, but Windows does **not** always report their
+/// session as the OS "current" one — `GetCurrentSession()` can return
+/// `None` or a stale/closed session while a track is clearly playing. So we
+/// first trust `GetCurrentSession()` *only* if it is actually active, then
+/// fall back to scanning **all** sessions and pick the most active one. This
+/// is what makes browser playback actually show up.
+///
+/// Returns `None` when nothing has registered with SMTC. **Slow** — must
 /// run on a worker thread, never the Tauri main thread.
 pub(crate) fn resolve_current() -> Option<Session> {
     ensure_com();
     let mgr: SessionManager = wait_async(SessionManager::RequestAsync().ok()?).ok()?;
-    mgr.GetCurrentSession().ok()
-}
 
-/// Capture a fresh snapshot on a worker thread, cache it, and return it.
-/// Used by `get_media` (and the async transport-command helpers).
-async fn capture_fresh() -> MediaSnapshot {
-    tauri::async_runtime::spawn_blocking(|| {
-        let started = std::time::Instant::now();
-        let Some(session) = resolve_current() else {
-            let snap = MediaSnapshot { available: false, info: None };
-            cache_set(Some(snap.clone()));
-            return snap;
-        };
-        let info = capture_session(&session);
-        let _elapsed = started.elapsed().as_millis();
-        match &info {
-            Some(_i) => mlog!(
-                "capture: ok ({}ms) title={:?} status={}",
-                elapsed,
-                if i.title.len() > 32 { &i.title[..32] } else { i.title.as_str() },
-                i.status
-            ),
-            None => mlog!("capture: returned None ({}ms)", elapsed),
+    // Prefer the OS "current" session, but only if it is genuinely active.
+    if let Ok(s) = mgr.GetCurrentSession() {
+        if session_is_active(&s) {
+            return Some(s);
         }
-        let snap = MediaSnapshot {
-            available: info.is_some(),
-            info,
-        };
-        cache_set(Some(snap.clone()));
-        snap
-    })
-    .await
-    .unwrap_or(MediaSnapshot { available: false, info: None })
+    }
+
+    // Scan every registered session and keep the most active one.
+    if let Ok(sessions) = mgr.GetSessions() {
+        let count = sessions.Size().unwrap_or(0);
+        let mut best: Option<(u8, Session)> = None;
+        for i in 0..count {
+            if let Ok(s) = sessions.GetAt(i) {
+                let rank = session_active_rank(&s);
+                if rank == 0 {
+                    continue;
+                }
+                match &best {
+                    Some((r, _)) if *r >= rank => {}
+                    _ => best = Some((rank, s)),
+                }
+            }
+        }
+        if let Some((_, s)) = best {
+            mlog!("resolve_current: picked active session from GetSessions()");
+            return Some(s);
+        }
+    }
+
+    // Last resort: whatever the OS reports as current (even if not active).
+    mgr.GetCurrentSession().ok()
 }
 
 /// Run a transport command (`TryPlayAsync` etc.) on a worker thread. `f`
@@ -522,13 +550,18 @@ fn run_bool(op: windows::core::Result<IAsyncOperation<bool>>) -> Result<bool, St
 
 #[tauri::command]
 pub async fn get_media() -> MediaSnapshot {
-    // Fast path: return the cached snapshot the poll thread keeps fresh.
-    // This avoids ANY SMTC call on the IPC round-trip when the poll thread
-    // has already captured the current state — which is the normal case.
+    // Fast path ONLY. The poll thread (`media::listen`) is the single writer
+    // of the cache and keeps it fresh every ~2 s. We deliberately do NOT
+    // fall back to `capture_fresh()` here: that path runs SMTC's
+    // `RequestAsync` (15 s worst-case) and would block the IPC channel —
+    // freezing the bar's first paint and every other window's `get_config`
+    // round-trip (AGENTS.md §13.1). On cold start the cache is empty for at
+    // most one poll cycle (~2 s); returning an "unavailable" snapshot for
+    // that brief window is far better than a frozen bar.
     if let Some(snap) = cache_get() {
         return snap;
     }
-    capture_fresh().await
+    MediaSnapshot { available: false, info: None }
 }
 
 #[tauri::command]
@@ -561,5 +594,6 @@ pub async fn media_seek(position_ms: i64) -> Result<bool, String> {
     let ticks = position_ms.saturating_mul(10_000);
     run_transport("seek", move |s| s.TryChangePlaybackPositionAsync(ticks)).await
 }
+
 
 

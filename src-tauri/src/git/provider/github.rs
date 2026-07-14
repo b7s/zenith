@@ -343,7 +343,7 @@ fn capture_error(target: Option<&serde_json::Value>) -> String {
             let mut text = format!("{name}: {}", parts.join(" — "));
             if text.chars().count() > MAX {
                 text = text.chars().take(MAX).collect::<String>();
-                text.push_str("…");
+                text.push('…');
             }
             return text;
         }

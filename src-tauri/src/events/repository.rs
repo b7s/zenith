@@ -319,7 +319,7 @@ fn parse_date(s: &str) -> Result<i64, ()> {
 fn civil_to_days(y: i64, m: i64, d: i64) -> i64 {
     let (y, m) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
     let era = if y >= 0 { y } else { y - 399 } / 400;
-    let yoe = (y - era * 400) as i64;
+    let yoe = y - era * 400;
     let doy = (153 * m + 2) / 5 + d - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     era * 146097 + doe - 719469

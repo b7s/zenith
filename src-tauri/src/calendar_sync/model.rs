@@ -60,17 +60,12 @@ fn default_poll_mins() -> u32 {
 
 /// Provider discriminator. Kept as a real enum (not a string) so the
 /// sync engine dispatches on it in one place.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum CalendarAccountProvider {
+    #[default]
     Google,
     Outlook,
-}
-
-impl Default for CalendarAccountProvider {
-    fn default() -> Self {
-        CalendarAccountProvider::Google
-    }
 }
 
 /// Shape returned by `poll_pending_auth`. The frontend should re-fetch

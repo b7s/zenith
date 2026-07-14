@@ -10,9 +10,9 @@
 //!   - `secrets.rs`     — DPAPI `CryptProtectData` / `CryptUnprotectData`.
 //!   - `provider/*`      — pure HTTPS clients returning unified `AcctInventory`.
 //!   - `poll.rs`         — background sequential per-account fan-out, `Mutex<GitState>`
-//!                         cache, emits `zenith:git-changed` on totals change.
+//!     cache, emits `zenith:git-changed` on totals change.
 //!   - `commands.rs`    — thin `#[tauri::command]` adapters + window opener
-//!                         (calendar-popup shape, see §13.14 monitor clamping).
+//!     (calendar-popup shape, see §13.14 monitor clamping).
 
 pub mod commands;
 pub mod listen;

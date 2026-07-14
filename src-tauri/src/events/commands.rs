@@ -82,7 +82,7 @@ fn uuid_v4_like() -> String {
         let mut z = seed;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
         z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        let v = (z ^ (z >> 31)) as u64;
+        let v = z ^ (z >> 31);
         *slot = (v & 0xff) as u8;
     }
     // RFC4122 variant + version bits

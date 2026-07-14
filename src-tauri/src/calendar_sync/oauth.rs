@@ -349,7 +349,7 @@ fn accept_one(listener: &TcpListener) -> Result<(CallbackRequest, std::net::TcpS
     let mut parts = first_line.split_whitespace();
     let _method = parts.next().ok_or("bad method")?;
     let path = parts.next().ok_or("bad path")?;
-    let query_str = path.splitn(2, '?').nth(1).unwrap_or("");
+    let query_str = path.split_once('?').map(|x| x.1).unwrap_or("");
     let query = parse_query(query_str);
     Ok((CallbackRequest { query }, stream))
 }

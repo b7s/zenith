@@ -74,32 +74,22 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum EventKind {
+    #[default]
     Event,
     Alarm,
 }
 
-impl Default for EventKind {
-    fn default() -> Self {
-        EventKind::Event
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Recurrence {
+    #[default]
     None,
     Daily,
     Weekly,
     Monthly,
-}
-
-impl Default for Recurrence {
-    fn default() -> Self {
-        Recurrence::None
-    }
 }
 
 impl EventKind {

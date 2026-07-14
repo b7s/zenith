@@ -27,7 +27,7 @@ use windows::{
     Win32::System::WinRT::{RoInitialize, RO_INIT_MULTITHREADED, RO_INIT_SINGLETHREADED},
     Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW,
-        MSG, WNDCLASSEXW, WM_QUIT,
+        MSG, WNDCLASSEXW,
     },
 };
 
@@ -94,6 +94,7 @@ unsafe extern "system" fn pump_proc(
 
 // A pure GetMessageW message loop. Sleeps OOM uses this to receive any
 // dispatched Windows messages while waiting for the async completion.
+#[allow(dead_code)]
 fn pump_messages_for(deadline: Instant) {
     unsafe {
         while Instant::now() < deadline {
@@ -123,9 +124,9 @@ fn dump_session(prefix: &str, s: &Session) {
     let props = match s.TryGetMediaPropertiesAsync() {
         Ok(op) => match wait_async_message(op, Duration::from_secs(10)) {
             Ok(p) => p,
-            Err(_e) => return print!("{}  source={:?} status={:>8} (props timed out)\n", prefix, src, status),
+            Err(_e) => return println!("{}  source={:?} status={:>8} (props timed out)", prefix, src, status),
         },
-        Err(_e) => return print!("{}  source={:?} status={:>8} (TryGet err)\n", prefix, src, status),
+        Err(_e) => return println!("{}  source={:?} status={:>8} (TryGet err)", prefix, src, status),
     };
     let title = props.Title().map(|h| h.to_string()).unwrap_or_default();
     let artist = props.Artist().map(|h| h.to_string()).unwrap_or_default();

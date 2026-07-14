@@ -76,6 +76,7 @@ fn urlencode(s: &str) -> String {
 /// provider string (`google`/`outlook`). `start_secs`/`end_secs` are Unix
 /// seconds (UTC); all-day events get `time = None`. Recurring events fire
 /// once per occurrence via `last_notified_at`.
+#[allow(clippy::too_many_arguments)]
 pub fn build_event(
     source: &str,
     account_id: &str,

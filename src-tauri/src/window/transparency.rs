@@ -16,6 +16,7 @@ struct ACCENT_POLICY {
 }
 
 #[repr(C)]
+#[allow(clippy::upper_case_acronyms)]
 struct WINDOWCOMPOSITIONATTRIBDATA {
     attribute: u32,
     data: *mut ACCENT_POLICY,
@@ -33,6 +34,7 @@ fn get_swca() -> Option<SetWindowCompositionAttribute> {
     unsafe {
         let module = LoadLibraryA(s!("user32.dll")).ok()?;
         let addr = GetProcAddress(module, s!("SetWindowCompositionAttribute"))?;
+        #[allow(clippy::missing_transmute_annotations)]
         Some(std::mem::transmute::<_, SetWindowCompositionAttribute>(addr))
     }
 }

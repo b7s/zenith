@@ -144,7 +144,7 @@ fn status_string(status: PlaybackStatus) -> &'static str {
 
 /// Block-wait on a WinRT `IAsyncOperation<T>` by hooking the Completed event
 /// + pumping COM messages on a hidden window so the async state machine can
-/// deliver its callback to this apartment.
+///   deliver its callback to this apartment.
 ///
 /// Default timeout: 15 s. Sources like Edge Web Media Player can take
 /// several seconds for their first `OpenReadAsync`.
@@ -174,7 +174,7 @@ fn wait_async_inner<T: windows::core::RuntimeType + 'static>(
                 break;
             }
             if msg.message == WM_QUIT {
-                let _ = windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0);
+                windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0);
                 break;
             }
             let _ = TranslateMessage(&msg);
@@ -315,8 +315,6 @@ pub(crate) fn capture_session(session: &Session) -> Option<MediaInfo> {
             let artist = m.Artist().map(|h| h.to_string()).unwrap_or_default();
             let album = m.AlbumTitle().map(|h| h.to_string()).unwrap_or_default();
             let thumb = read_thumbnail(&m);
-            if thumb.is_none() && m.Thumbnail().is_ok() {
-            }
             (title, artist, album, thumb)
         }
         None => {
@@ -418,7 +416,7 @@ fn read_thumbnail(props: &MediaProperties) -> Option<String> {
 fn base64_encode(input: &[u8]) -> String {
     const CHARS: &[u8] =
         b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(((input.len() + 2) / 3) * 4);
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
     let mut chunks = input.chunks_exact(3);
     for c in chunks.by_ref() {
         let n = ((c[0] as u32) << 16) | ((c[1] as u32) << 8) | (c[2] as u32);

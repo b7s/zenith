@@ -33,7 +33,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
         // are per-session, the value is the same process-wide, but we cache it
         // lazily in a thread-local to avoid re-registering each call).
         thread_local! {
-            static TASKBAR_MSG: std::cell::Cell<u32> = std::cell::Cell::new(0);
+            static TASKBAR_MSG: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
         }
         let tb = TASKBAR_MSG.with(|c| {
             let v = c.get();

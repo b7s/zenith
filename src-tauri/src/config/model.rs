@@ -22,17 +22,12 @@ fn default_monitors() -> MonitorsSelection {
     MonitorsSelection::All
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum MonitorsSelection {
+    #[default]
     All,
     Only(Vec<String>),
-}
-
-impl Default for MonitorsSelection {
-    fn default() -> Self {
-        MonitorsSelection::All
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

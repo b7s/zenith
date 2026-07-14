@@ -22,10 +22,10 @@ fn ymd_to_days(y: i64, m: u32, d: u32) -> i64 {
         yy -= 1;
     }
     let era = if yy >= 0 { yy } else { yy - 399 } / 400;
-    let yoe = (yy - era * 400) as i64; // [0, 399]
+    let yoe = yy - era * 400; // [0, 399]
     let m_from_mar = (mm + 9) % 12; // 0..11
     let doy = (m_from_mar * 306 + 5) / 10 + (d as i64) - 1; // day of year [0,365]
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + (doy as i64); // day of era
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // day of era
     era * 146097 + doe - 719468 // days since 1970-01-01
 }
 
@@ -85,7 +85,7 @@ pub fn parse_rfc3339(value: &str) -> i64 {
         }
         let rest = &v[11..];
         // Split time and optional offset.
-        let (time_part, offset) = match rest.find(|c| c == 'Z' || c == '+' || c == '-') {
+        let (time_part, offset) = match rest.find(|c| ['Z', '+', '-'].contains(&c)) {
             Some(i) => {
                 let t = &rest[..i];
                 let off = &rest[i..];

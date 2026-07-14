@@ -512,7 +512,7 @@ fn do_toggle_airplane_mode() -> bool {
 
 #[tauri::command]
 pub async fn toggle_wifi(app: tauri::AppHandle) -> Result<ToggleResult, String> {
-    let on = tauri::async_runtime::spawn_blocking(|| do_toggle_wifi())
+    let on = tauri::async_runtime::spawn_blocking(do_toggle_wifi)
         .await
         .map_err(|e| e.to_string())?;
     emit_toggle_updated(&app);
@@ -521,7 +521,7 @@ pub async fn toggle_wifi(app: tauri::AppHandle) -> Result<ToggleResult, String> 
 
 #[tauri::command]
 pub async fn toggle_bluetooth(app: tauri::AppHandle) -> Result<ToggleResult, String> {
-    let on = tauri::async_runtime::spawn_blocking(|| do_toggle_bluetooth())
+    let on = tauri::async_runtime::spawn_blocking(do_toggle_bluetooth)
         .await
         .map_err(|e| e.to_string())?;
     emit_toggle_updated(&app);
@@ -544,7 +544,7 @@ pub fn toggle_focus_assist(app: tauri::AppHandle) -> Result<ToggleResult, String
 
 #[tauri::command]
 pub async fn toggle_airplane(app: tauri::AppHandle) -> Result<ToggleResult, String> {
-    let on = tauri::async_runtime::spawn_blocking(|| do_toggle_airplane_mode())
+    let on = tauri::async_runtime::spawn_blocking(do_toggle_airplane_mode)
         .await
         .map_err(|e| e.to_string())?;
     emit_toggle_updated(&app);
@@ -553,7 +553,7 @@ pub async fn toggle_airplane(app: tauri::AppHandle) -> Result<ToggleResult, Stri
 
 #[tauri::command]
 pub async fn toggle_night_light(app: tauri::AppHandle) -> Result<ToggleResult, String> {
-    let on = tauri::async_runtime::spawn_blocking(|| do_toggle_night_light())
+    let on = tauri::async_runtime::spawn_blocking(do_toggle_night_light)
         .await
         .map_err(|e| e.to_string())?;
     emit_toggle_updated(&app);

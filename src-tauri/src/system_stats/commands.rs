@@ -249,7 +249,7 @@ fn gpu_stats() -> Vec<GpuStats> {
             if item.FmtValue.CStatus != 0 {
                 continue;
             }
-            let v = (item.FmtValue.Anonymous.doubleValue).max(0.0).min(100.0);
+            let v = (item.FmtValue.Anonymous.doubleValue).clamp(0.0, 100.0);
             let name = String::from_utf16_lossy(item.szName.as_wide());
             let phys = extract_phys(&name);
             *sums.entry(phys).or_insert(0.0) += v;

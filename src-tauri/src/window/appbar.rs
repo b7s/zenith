@@ -22,7 +22,7 @@ fn monitor_of(hwnd: windows::Win32::Foundation::HWND) -> RECT {
 /// call ABM_QUERYPOS + ABM_SETPOS, then SetWindowPos.
 unsafe fn position_appbar(hwnd: HWND) {
     let cfg = crate::config::load();
-    let bar_h = cfg.appearance.bar_height.max(20).min(200);
+    let bar_h = cfg.appearance.bar_height.clamp(20, 200);
     let total_h = bar_h + cfg.appearance.margin_top + cfg.appearance.margin_bottom + cfg.appearance.padding_top + cfg.appearance.padding_bottom;
     let bar_height = total_h as i32;
 

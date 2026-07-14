@@ -177,7 +177,7 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
         #[cfg(debug_assertions)]
         MI_INSPECT => {
             if let Some(bar) = app.get_webview_window("bar") {
-                let _ = bar.open_devtools();
+                bar.open_devtools();
             }
         }
         WS_RENAME => {

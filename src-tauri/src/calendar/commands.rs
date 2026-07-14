@@ -152,7 +152,7 @@ fn create_calendar_window(
     .focused(true)
     .always_on_top(true)
     .additional_browser_args("--default-background-color=00000000")
-    .initialization_script(&format!(
+    .initialization_script(format!(
         "window.__ZENITH_CALENDAR_VIEW = '{}';",
         view
     ))

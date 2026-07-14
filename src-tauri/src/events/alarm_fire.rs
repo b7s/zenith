@@ -294,7 +294,7 @@ fn civil_from_days(z: i64) -> (i64, i64, i64) {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = if m <= 2 { y + 1 } else { y };
-    (y as i64, m as i64, d)
+    (y, m, d)
 }
 
 fn weekday_of_epoch_day(d: i64) -> u32 {
@@ -344,7 +344,7 @@ fn open_alarm_popup(app: &AppHandle, ev: &CalendarEvent, fire_at: i64) {
         .always_on_top(true)
         .skip_taskbar(true)
         .additional_browser_args("--default-background-color=00000000")
-        .initialization_script(&format!(
+          .initialization_script(format!(
             "window.__ZENITH_ALARM_TITLE = '{}';\nwindow.__ZENITH_ALARM_TIME = '{}';\nwindow.__ZENITH_ALARM_END = '{}';",
             title_js, time_js, end_js
         ))

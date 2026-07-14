@@ -47,6 +47,8 @@
 //! work area. If `w` would overflow, x is shifted left; same for y if the
 //! bar is at the top of a small work area.
 
+#![allow(clippy::fn_to_numeric_cast_with_truncation)]
+
 /// Minimum distance (OS pixels) a popup window keeps from every edge of the
 /// monitor work area. ~1rem so popups never hug the screen edge. Single source
 /// of the edge-safe distance; per-widget `margin` math is now redundant.

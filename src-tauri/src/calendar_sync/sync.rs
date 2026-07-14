@@ -58,11 +58,10 @@ fn sync_one(account: &CalendarAccount) -> Result<usize, String> {
         start: now - LOOKBACK_SECS,
         end: now + HORIZON_SECS,
     };
-    let events = provider.fetch(account, &window).map_err(|e| {
+    let events = provider.fetch(account, &window).inspect_err(|e| {
         let mut failed = account.clone();
         failed.last_error = e.clone();
         let _ = update_account(None, &failed);
-        e
     })?;
 
     let count = events.len();

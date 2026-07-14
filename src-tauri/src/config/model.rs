@@ -72,7 +72,7 @@ pub struct AppearanceConfig {
 }
 
 fn default_tint_alpha() -> u8 {
-    60
+    102
 }
 fn default_corner_radius() -> u32 {
     0

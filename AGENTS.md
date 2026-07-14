@@ -248,7 +248,7 @@ from the closest existing one and adjust the percentage only.
 {
   "appearance": {
     "material": "acrylic",              // "acrylic" | "mica" | "none"  (global toggle)
-    "tint_alpha": 60,                   // 0..255 → accent gradient_color alpha (AABBGGRR)
+    "tint_alpha": 102,                   // 0..255 → accent gradient_color alpha (AABBGGRR)
     "background": {
       "mode": "transparent",            // "transparent" | "solid" | "gradient"
       "color_top": "#1a1a1a",
@@ -336,7 +336,7 @@ impl Default for MonitorsSelection { fn default() -> Self { MonitorsSelection::A
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppearanceConfig {
     #[serde(default = "default_material")]   pub material: String,        // "acrylic"
-    #[serde(default = "default_tint_alpha")] pub tint_alpha: u8,          // 60
+    #[serde(default = "default_tint_alpha")] pub tint_alpha: u8,          // 102
     #[serde(default)]                        pub background: BackgroundConfig,
     #[serde(default = "default_corner_radius")] pub corner_radius_tl: u32, // 0
     #[serde(default = "default_corner_radius")] pub corner_radius_tr: u32, // 0
@@ -351,7 +351,7 @@ pub struct AppearanceConfig {
 impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
-            material: "acrylic".into(), tint_alpha: 60, background: Default::default(),
+            material: "acrylic".into(), tint_alpha: 102, background: Default::default(),
             corner_radius_tl: default_corner_radius(), corner_radius_tr: default_corner_radius(),
             corner_radius_br: default_corner_radius(), corner_radius_bl: default_corner_radius(),
             margin_top: 0, margin_left: 0, margin_right: 0,
@@ -360,7 +360,7 @@ impl Default for AppearanceConfig {
     }
 }
 fn default_material() -> String { "acrylic".into() }
-fn default_tint_alpha() -> u8 { 60 }
+fn default_tint_alpha() -> u8 { 102 }
 fn default_corner_radius() -> u32 { 0 }
 fn default_bar_height() -> u32 { 40 }
 fn default_theme() -> String { "auto".into() }

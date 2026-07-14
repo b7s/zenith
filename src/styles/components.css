@@ -511,9 +511,9 @@
 }
 .zen-tab.is-active {
   color: var(--foreground);
-  background: color-mix(in oklch, var(--background) 50%, transparent);
+  background: color-mix(in oklch, var(--accent) 60%, transparent);
   border-color: var(--border);
-  border-bottom-color: transparent;
+  border-bottom-color: color-mix(in oklch, var(--accent) 60%, transparent);
 }
 
 .zen-tab-pane {

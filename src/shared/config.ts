@@ -5,7 +5,7 @@ import type { Config } from "./types";
 
 export const DEFAULT_CONFIG: Config = {
   appearance: {
-    tint_alpha: 60,
+    tint_alpha: 102,
     background: {
       mode: "acrylic",
       color_top: "#1a1a1a",

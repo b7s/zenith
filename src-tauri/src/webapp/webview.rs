@@ -1,3 +1,11 @@
+//! WebView2 title-watch helper for the webapp link windows.
+//!
+//! Used to surface unread/notification badges via the `zenith:link-notification`
+//! event. Kept as the single owner of this logic; wired back once the link
+//! window is stable.
+
+#![allow(dead_code)]
+
 use webview2_com::Microsoft::Web::WebView2::Win32::*;
 use webview2_com::DocumentTitleChangedEventHandler;
 use windows::core::*;
@@ -52,7 +60,7 @@ pub fn watch_title(wv: PlatformWebview, id: String, app: AppHandle) {
                             };
                         }
                         let has = parse_badge(&title_str);
-                            let _ = app.emit(
+                        let _ = app.emit(
                             EVENT_LINK_NOTIFICATION,
                             serde_json::json!({ "id": id, "has": has }),
                         );

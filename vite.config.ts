@@ -27,6 +27,7 @@ export default defineConfig({
         "shutdown-popup": resolve(__dirname, "shutdown-popup.html"),
         "alarm-popup": resolve(__dirname, "alarms/alarm-popup.html"),
         "git-manager": resolve(__dirname, "git-manager.html"),
+        "webapp-window": resolve(__dirname, "webapp-window.html"),
       },
     },
   },

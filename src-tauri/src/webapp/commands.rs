@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use base64::Engine;
+
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::{Manager, WindowEvent};
-use tauri::webview::NewWindowResponse;
 
 use crate::webapp::model;
-use crate::webapp::webview as wv;
 
 use crate::window;
 
@@ -21,17 +21,18 @@ fn window_label(id: &str) -> String {
     format!("{}{}", LINK_PREFIX, id)
 }
 
-/// Per the Tauri 2 docs, `WebviewWindowBuilder::build()` must run on an async thread,
-/// NOT on the main thread via a sync command (which can deadlock on Windows).
-/// The pattern below — async command calling `build()` directly — is the documented
-/// approach: <https://docs.rs/tauri/2.9.3/tauri/webview/struct.WebviewWindowBuilder.html#method.new>
+/// Build the WebView2 window on a dedicated thread (same proven pattern as
+/// `create_settings_window` / `create_widgets_window` in `commands.rs`: an
+/// `App`-URL window built via `spawn_blocking`, revealed with `SetWindowPos`
+/// after construction). The external site is loaded by the `webapp-window.html`
+/// loader page via `window.location.replace`, so we never build a window with
+/// a `WebviewUrl::External` target — that path deadlocks on the main thread
+/// and hides the window when built off it.
 #[tauri::command]
 pub async fn open_link(app: tauri::AppHandle, id: String, x: f64, y: f64) -> Result<(), String> {
-    let r = open_link_inner(&app, &id, x, y);
-    if let Err(ref e) = r {
-        eprintln!("[webapp] open_link failed: {e}");
-    }
-    r
+    tauri::async_runtime::spawn_blocking(move || open_link_inner(&app, &id, x, y))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 pub fn open_link_inner(app: &tauri::AppHandle, id: &str, x: f64, y: f64) -> Result<(), String> {
@@ -46,6 +47,13 @@ pub fn open_link_inner(app: &tauri::AppHandle, id: &str, x: f64, y: f64) -> Resu
 
     if let Some(win) = app.get_webview_window(&lbl) {
         eprintln!("[webapp] reusing existing window {lbl}");
+        // A hidden acrylic window loses its `SetWindowCompositionAttribute`
+        // accent when re-shown, so it would appear invisible. Reapply the
+        // material (and corners) before showing. Also un-minimize in case it
+        // was tucked away by a persistent close.
+        let _ = window::apply_fixed_acrylic(app, &lbl);
+        let _ = window::set_rounded_corners(&win);
+        let _ = win.unminimize();
         let _ = win.show();
         let _ = win.set_focus();
         return Ok(());
@@ -64,7 +72,23 @@ pub fn open_link_inner(app: &tauri::AppHandle, id: &str, x: f64, y: f64) -> Resu
     let pos_x = link.pos_x.unwrap_or_else(|| x.round() as i32);
     let pos_y = link.pos_y.unwrap_or_else(|| y.round() as i32);
 
-    create_link_window(app, id, pos_x as f64, pos_y as f64, w, h, &url, &label, persistent)
+    create_link_window(app, id, pos_x as f64, pos_y as f64, w, h, &url, &label, persistent, link.icon.clone())
+}
+
+/// Decode a link's `data:` URL icon into a Tauri `Image`.
+///
+/// Only `;base64` data URLs are supported. Raster formats (PNG/JPEG/ICO/GIF)
+/// are accepted by `Image::from_bytes`; SVG data URLs can't be a Win32 window
+/// icon, so `from_bytes` fails there and the caller falls back to the default.
+fn link_icon_image(icon: &Option<String>) -> Option<tauri::image::Image<'_>> {
+    let url = icon.as_ref()?;
+    let rest = url.strip_prefix("data:")?;
+    let (meta, data) = rest.split_once(',')?;
+    if !meta.to_ascii_lowercase().contains(";base64") {
+        return None;
+    }
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data).ok()?;
+    tauri::image::Image::from_bytes(&bytes).ok()
 }
 
 fn create_link_window(
@@ -77,13 +101,9 @@ fn create_link_window(
     url: &str,
     label: &str,
     persistent: bool,
+    icon: Option<String>,
 ) -> Result<(), String> {
     eprintln!("[webapp] create_link_window id={id} url={url} w={w} h={h} x={x} y={y} persistent={persistent}");
-    let lbl = window_label(id);
-
-    let parsed_url = url::Url::parse(url).map_err(|e| format!("invalid url: {e}"))?;
-    let lo_scheme = parsed_url.scheme().to_string();
-    let lo_host = parsed_url.host_str().unwrap_or("").to_string();
 
     let (cx, cy, _, _) = window::monitor::clamp_to_monitor(
         x.round() as i32,
@@ -94,42 +114,45 @@ fn create_link_window(
 
     let lbl = window_label(id);
 
-    let win = tauri::WebviewWindowBuilder::new(
-        app,
-        &lbl,
-        tauri::WebviewUrl::External(parsed_url),
-    )
-    .title(label)
-    .inner_size(w, h)
-    .position(cx as f64, cy as f64)
-    .resizable(true)
-    .decorations(false)
-    .transparent(false)
-    .skip_taskbar(false)
-    .visible(true)
-    .focused(true)
-    .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    .on_navigation(move |nav_url| {
-        let nav_scheme = nav_url.scheme();
-        let nav_host = nav_url.host_str().unwrap_or("");
-        let allow = (nav_scheme == lo_scheme && nav_host == lo_host)
-            || nav_scheme == "tauri"
-            || (nav_scheme == "http" && nav_host == "localhost");
-        eprintln!("[webapp] on_navigation allow={allow} url={}", nav_url.as_str());
-        if allow {
-            return true;
-        }
-        crate::shared::shell::open_url(nav_url.as_str());
-        false
-    })
-    .on_new_window(move |nav_url, _| {
-        eprintln!("[webapp] on_new_window url={}", nav_url.as_str());
-        crate::shared::shell::open_url(nav_url.as_str());
-        NewWindowResponse::Deny
-    })
-    .build()
-    .map_err(|e| e.to_string())?;
+    // The loader page reads `__ZENITH_LINK_URL` (set below via an init script,
+    // before any page script runs) and does `window.location.replace(url)`.
+    let init_js = format!(
+        "window.__ZENITH_LINK_URL = {}; window.__ZENITH_LINK_TITLE = {};",
+        serde_json::to_string(url).unwrap_or_else(|_| "\"\"".into()),
+        serde_json::to_string(&label).unwrap_or_else(|_| "\"\"".into()),
+    );
+
+    let win = tauri::WebviewWindowBuilder::new(app, &lbl, tauri::WebviewUrl::App("webapp-window.html".into()))
+        .inner_size(w, h)
+        .position(cx as f64, cy as f64)
+        .resizable(true)
+        .decorations(true)
+        .transparent(true)
+        .visible(false)
+        .focused(true)
+        .title(label)
+        .additional_browser_args("--default-background-color=00000000")
+        .initialization_script(&init_js)
+        .build()
+        .map_err(|e| e.to_string())?;
     eprintln!("[webapp] build() succeeded");
+
+    // Use the link's configured icon (a `data:` URL) as the window icon; fall
+    // back to Zenith's default icon when none is set or it can't be decoded.
+    // SVG data URLs can't be a Win32 window icon, so `from_bytes` failing there
+    // correctly falls through to the default.
+    match link_icon_image(&icon) {
+        Some(img) => {
+            let _ = win.set_icon(img);
+            eprintln!("[webapp] icon set from link config");
+        }
+        None => {
+            if let Some(def) = app.default_window_icon() {
+                let _ = win.set_icon(def.clone());
+                eprintln!("[webapp] icon set from default (fallback)");
+            }
+        }
+    }
 
     let ev_last_save = Arc::new(Mutex::new(Instant::now()));
     let ev_app = app.clone();
@@ -164,13 +187,23 @@ fn create_link_window(
             }
             WindowEvent::CloseRequested { api, .. } => {
                 eprintln!("[webapp] {} CloseRequested persistent={}", ev_label, ev_persist);
-                // TEMP DEBUG: always prevent close to see if the window survives
-                api.prevent_close();
                 save_link_window_state(&ev_app, &ev_id);
                 if ev_persist {
-                    if let Some(c) = ev_app.get_webview_window(&ev_label) {
-                        let _ = c.hide();
-                    }
+                    // Keep the window alive (don't let the close destroy it)...
+                    api.prevent_close();
+                    // ...but get it off-screen. `hide()` inside/after the close
+                    // flow is overridden by `prevent_close()`, so minimize
+                    // instead — a normal window state the close handling leaves
+                    // alone. The bar button re-shows it (with acrylic reapplied).
+                    let min_label = ev_label.clone();
+                    let min_app = ev_app.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(80));
+                        if let Some(c) = min_app.get_webview_window(&min_label) {
+                            let r = c.minimize();
+                            eprintln!("[webapp] {} minimize -> {:?}", min_label, r);
+                        }
+                    });
                 }
             }
             _ => {}
@@ -178,9 +211,26 @@ fn create_link_window(
     });
     eprintln!("[webapp] on_window_event registered");
 
+    let _ = window::apply_fixed_acrylic(app, &lbl);
     let _ = window::set_rounded_corners(&win);
-    eprintln!("[webapp] set_rounded_corners done");
+    let _ = window::set_disable_transitions(&win);
+    eprintln!("[webapp] acrylic+corners done");
 
+    // Reveal AFTER the window is fully built (§13.10b). The window was built
+    // `visible(false)`; `decorations(true)` gives a native OS title bar so the
+    // user can move and close the window.
+    // The position/size are passed explicitly to `SetWindowPos` rather than
+    // relying on the builder's `inner_size`/`position` — those may not have
+    // been processed by the main-thread event loop yet when `SetWindowPos`
+    // runs from a `spawn_blocking` thread, causing the window to appear at a
+    // default size (e.g. 160×28).
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, SWP_SHOWWINDOW, SWP_NOZORDER,
+    };
+    let hwnd = win.hwnd().map_err(|e| e.to_string())?;
+    let _ = unsafe {
+        SetWindowPos(hwnd, None, cx, cy, w as i32, h as i32, SWP_SHOWWINDOW | SWP_NOZORDER)
+    };
     let _ = win.set_focus();
     eprintln!("[webapp] create_link_window done");
     Ok(())
@@ -202,8 +252,14 @@ fn save_link_window_state(app: &tauri::AppHandle, id: &str) {
             for item in arr.iter_mut() {
                 if let Some(obj) = item.as_object_mut() {
                     if obj.get("id").and_then(|v| v.as_str()) == Some(id) {
-                        obj.insert("width".into(), serde_json::json!(size.width));
-                        obj.insert("height".into(), serde_json::json!(size.height));
+                        // Only persist sizes that the user could have actually
+                        // chosen via window resize — transient 0/tiny values
+                        // during initial creation or minimize must never
+                        // overwrite the user-configured dimensions.
+                        if size.width > 100 && size.height > 100 {
+                            obj.insert("width".into(), serde_json::json!(size.width));
+                            obj.insert("height".into(), serde_json::json!(size.height));
+                        }
                         obj.insert("pos_x".into(), serde_json::json!(pos.x));
                         obj.insert("pos_y".into(), serde_json::json!(pos.y));
                         break;

@@ -17,6 +17,7 @@
   var showWhenNoAlarms = true;
   var rotateUpcoming = true;
   var rotateSeconds = 30;
+  var showRelativeTime = false;
 
   if (chip) {
     chip.setAttribute("title", "Open calendar");
@@ -51,6 +52,18 @@
   }
 
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+  function formatRelativeTime(ms) {
+    if (ms < 0) return "now";
+    var absMs = Math.abs(ms);
+    var days = Math.floor(absMs / (1000 * 60 * 60 * 24));
+    var hours = Math.floor((absMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    var minutes = Math.floor((absMs % (1000 * 60 * 60)) / (1000 * 60));
+    if (days > 0) return "in " + days + "d " + hours + "h";
+    if (hours > 0) return "in " + hours + "h " + minutes + "m";
+    if (minutes > 0) return "in " + minutes + "m";
+    return "in < 1m";
+  }
 
   function nextOccurrence(ev) {
     var d = ev.date.split("-");
@@ -186,10 +199,23 @@
     var timeLabel = hasTime
       ? pad(next.at.getHours()) + ":" + pad(next.at.getMinutes())
       : "All Day";
+    if (showRelativeTime && hasTime) {
+      var msUntil = next.at.getTime() - Date.now();
+      timeLabel = formatRelativeTime(msUntil);
+    }
     var titleLabel = next.ev.title || "";
     var hasTitle = showLabel && !!titleLabel;
 
-    if (nextEl) nextEl.textContent = timeLabel;
+    if (nextEl) {
+      nextEl.textContent = timeLabel;
+      if (showRelativeTime && hasTime) {
+        var exactTime = pad(next.at.getHours()) + ":" + pad(next.at.getMinutes());
+        var exactDate = next.at.getFullYear() + "-" + pad(next.at.getMonth() + 1) + "-" + pad(next.at.getDate());
+        nextEl.title = exactDate + " " + exactTime;
+      } else {
+        nextEl.removeAttribute("title");
+      }
+    }
     if (labelEl) {
       if (hasTitle) {
         labelEl.textContent = titleLabel;
@@ -205,9 +231,16 @@
     }
     var total = alarms.length;
     var dot = total > 1 ? " (" + (currentIndex + 1) + "/" + total + ")" : "";
-    el.title = hasTitle
-      ? timeLabel + " \u00b7 " + titleLabel + dot
-      : timeLabel + dot;
+    var exactTime = hasTime ? pad(next.at.getHours()) + ":" + pad(next.at.getMinutes()) : "";
+    var exactDate = hasTime ? next.at.getFullYear() + "-" + pad(next.at.getMonth() + 1) + "-" + pad(next.at.getDate()) : "";
+    var exactDateTime = exactDate + " " + exactTime;
+    if (showRelativeTime && hasTime) {
+      el.title = exactDateTime + (hasTitle ? " \u00b7 " + titleLabel + dot : "");
+    } else {
+      el.title = hasTitle
+        ? timeLabel + " \u00b7 " + titleLabel + dot
+        : timeLabel + dot;
+    }
     if (info) info.removeAttribute("title");
 
     // Soon dot: only when this event fires within 6 minutes from now
@@ -303,6 +336,7 @@
       showLabel = wc.show_label !== false;
       showWhenNoAlarms = wc.show_when_no_alarms !== false;
       rotateUpcoming = wc.rotate_upcoming !== false;
+      showRelativeTime = wc.show_relative_time === true;
       var rs = parseInt(wc.rotate_seconds, 10);
       rotateSeconds = isFinite(rs) && rs >= 1 ? rs : 15;
       if (rotateTimer) { clearInterval(rotateTimer); rotateTimer = null; }

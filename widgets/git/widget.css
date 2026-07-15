@@ -32,36 +32,40 @@
   height: 16px;
 }
 
-.git-dot {
+.git-dots {
   position: absolute;
   bottom: -5px;
-  left: 35%;
+  left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.git-dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
   background: var(--danger, #ef4444);
-  opacity: 0;
+  display: none;
   flex: 0 0 auto;
   pointer-events: none;
 }
 .git-wrap.is-active .git-dot {
-  opacity: 1;
+  display: block;
 }
 
 .git-pr-dot {
-  position: absolute;
-  bottom: -5px;
-  left: 65%;
-  transform: translateX(-50%);
   width: 4px;
   height: 4px;
   border-radius: 50%;
   background: var(--primary);
-  opacity: 0;
+  display: none;
   flex: 0 0 auto;
   pointer-events: none;
 }
 .git-wrap.has-pr .git-pr-dot {
-  opacity: 1;
+  display: block;
 }

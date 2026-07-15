@@ -1,0 +1,67 @@
+.lk-root {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 100%;
+  user-select: none;
+}
+
+.lk-ic {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.6rem;
+  width: 1.6rem;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition:
+    background 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 120ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.lk-ic:hover {
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
+}
+.lk-ic:active {
+  transform: scale(0.92);
+}
+
+.lk-ic-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.lk-ic-img {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Red notification dot, bottom-center, git-dot style. */
+.lk-dot {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.6);
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 70%, transparent);
+  background: var(--danger);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.lk-dot.is-active {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}

@@ -1,0 +1,10 @@
+{
+  "identifier": "webapp",
+  "description": "Capability for link windows. The window loads an external URL via redirect; init script injects header overlay with drag+close.",
+  "windows": ["link-*"],
+  "permissions": [
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus"
+  ]
+}

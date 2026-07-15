@@ -77,7 +77,39 @@ export interface WidgetManifest {
   config?: Record<string, WidgetConfigField>;
 }
 
-export type WidgetConfigType = "string" | "int" | "bool" | "select" | "accounts" | "multiselect";
+export type WidgetConfigType =
+  | "string"
+  | "int"
+  | "bool"
+  | "select"
+  | "accounts"
+  | "multiselect"
+  | "links";
+
+/** One custom HTTP header (key/value) sent to a link's site. */
+export interface LinkHeader {
+  key: string;
+  value: string;
+}
+
+/** A single user-added site for the `links` widget. */
+export interface LinkItem {
+  id: string;
+  enabled: boolean;
+  label: string;
+  url: string;
+  width: number;
+  height: number;
+  /** Keep the window alive (hidden) when closed, instead of destroying it. */
+  persistent: boolean;
+  /** Uploaded logo as a `data:` URL, or null → site favicon → globe icon. */
+  icon: string | null;
+  headers: LinkHeader[];
+  /** Saved window position (set by Rust on window move). */
+  pos_x?: number | null;
+  /** Saved window position (set by Rust on window move). */
+  pos_y?: number | null;
+}
 
 export interface WidgetConfigField {
   type: WidgetConfigType;

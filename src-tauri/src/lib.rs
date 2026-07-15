@@ -16,6 +16,7 @@ mod volume;
 mod widgets;
 mod window;
 mod workspace;
+mod webapp;
 
 use tauri::{Emitter, Listener, Manager};
 
@@ -97,6 +98,10 @@ pub fn run() {
             git::commands::open_url,
             git::commands::send_to_ai,
             git::commands::fetch_git_content,
+            webapp::commands::open_link,
+            webapp::commands::close_link,
+            webapp::commands::reload_link,
+            webapp::commands::show_link_menu,
             calendar_sync::commands::calendar_accounts_list,
             calendar_sync::commands::calendar_connect,
             calendar_sync::commands::calendar_poll_auth,

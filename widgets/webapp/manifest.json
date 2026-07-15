@@ -1,0 +1,18 @@
+{
+  "id": "links",
+  "name": "Web Apps",
+  "version": "1.0.0",
+  "description": "Open your own links as personal web-app windows",
+  "default_zone": "right",
+  "icon": "globe",
+  "min_width": 28,
+  "preview": "<span class=\"lk-root\"><span class=\"lk-ic\"><i class=\"lk-ic-glyph\" data-icon=\"globe\" data-size=\"16\"></i></span></span>",
+  "config": {
+    "links": {
+      "type": "links",
+      "value": [],
+      "label": "Sites",
+      "hint": "Add sites to open as personal windows. Reorder to change bar order; disable to hide from the bar."
+    }
+  }
+}

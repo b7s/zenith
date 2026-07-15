@@ -5,6 +5,7 @@ use tauri::Emitter;
 use tauri::Manager;
 use serde::Serialize;
 
+use crate::webapp;
 use crate::volume;
 use crate::window;
 use crate::workspace;
@@ -254,6 +255,9 @@ pub fn handle_menu_event(app: &tauri::AppHandle, id: &str) {
         }
         "vol-unmute" => {
             let _ = volume::commands::set_muted(false);
+        }
+        id if id.starts_with("lk-open-") || id.starts_with("lk-close-") || id.starts_with("lk-reload-") => {
+            webapp::commands::handle_link_menu_event(app, id);
         }
         _ => {}
     }

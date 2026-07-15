@@ -6,7 +6,10 @@ import { mountTabs } from "../../shared/tabs";
 import { mountFilterPills } from "../../shared/filter-pills";
 import { initLog, logInfo } from "../../shared/log";
 import { setIcon, applyIcons } from "../../shared/icon";
+import { mountFileUpload } from "../../shared/file-upload";
+import type { FileUploadHandle } from "../../shared/file-upload";
 import { CMD } from "../../shared/ipc";
+import { loadConfig } from "../../shared/config";
 import type { Config, WidgetManifest, WidgetConfigField, CalendarAccount, PendingAuthStatus } from "../../shared/types";
 
 interface WidgetConfigGlobals {
@@ -105,6 +108,8 @@ void (async () => {
         }
       } else if (field.type === "multiselect") {
         newValues[key] = multiStates[key] ?? [];
+      } else if (field.type === "links") {
+        newValues[key] = await collectLinks(key, linkStores);
       } else {
         newValues[key] = (inputs[key] as HTMLInputElement | null)?.value ?? field.value;
       }
@@ -181,6 +186,8 @@ void (async () => {
   let selectedNetworks: string[] = [];
   // Dynamic accounts state (for git widget)
   const accountStores: Record<string, AcctRow[]> = {};
+    // Dynamic link state (for links widget)
+    const linkStores: Record<string, LinkRow[]> = {};
 
   for (const [key, field] of Object.entries(configDef)) {
     const wrapper = document.createElement("div");
@@ -188,9 +195,11 @@ void (async () => {
 
     const currentValue = key in savedValues ? savedValues[key] : field.value;
 
-    if (field.type === "accounts") {
-      buildAccountsControl(wrapper, key, field, currentValue as Array<Record<string, unknown>> | undefined, accountStores, isGit ? footerLeft : undefined);
-    } else if (field.type === "bool") {
+      if (field.type === "accounts") {
+        buildAccountsControl(wrapper, key, field, currentValue as Array<Record<string, unknown>> | undefined, accountStores, isGit ? footerLeft : undefined);
+      } else if (field.type === "links") {
+        buildLinksControl(wrapper, key, field, currentValue as Array<Record<string, unknown>> | undefined, linkStores);
+      } else if (field.type === "bool") {
       buildBoolControl(wrapper, key, field, currentValue, switchStates);
     } else if (field.type === "multiselect") {
       buildMultiSelectControl(wrapper, key, field, currentValue as string[] | undefined, multiStates);
@@ -1014,4 +1023,365 @@ async function collectAndProtectAccounts(key: string, stores: Record<string, Acc
     });
   }
   return out;
+}
+
+/* ── links type (links widget) ── */
+
+interface LinkHeaderRow {
+  key: HTMLInputElement;
+  value: HTMLInputElement;
+  el: HTMLElement;
+}
+
+interface LinkRow {
+  key: string;
+  id: string;
+  enabledInput: HTMLInputElement;
+  labelInput: HTMLInputElement;
+  urlInput: HTMLInputElement;
+  widthInput: HTMLInputElement;
+  heightInput: HTMLInputElement;
+  persistentInput: HTMLInputElement;
+  fileUpload: FileUploadHandle;
+  headerRows: LinkHeaderRow[];
+  upBtn: HTMLButtonElement;
+  downBtn: HTMLButtonElement;
+  el: HTMLElement;
+}
+
+function buildLinksControl(
+  wrapper: HTMLElement,
+  _key: string,
+  _field: WidgetConfigField,
+  currentValue: Array<Record<string, unknown>> | undefined,
+  stores: Record<string, LinkRow[]>,
+): void {
+  const rows: LinkRow[] = [];
+  stores[_key] = rows;
+
+  const container = document.createElement("div");
+  container.className = "zen-section";
+  container.dataset.linksKey = _key;
+
+  const rowsEl = document.createElement("div");
+  rowsEl.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;margin-top:0.25rem;";
+  container.append(rowsEl);
+
+  function renderList(): void {
+    rowsEl.replaceChildren();
+    rows.forEach((row, idx) => {
+      row.upBtn.disabled = idx === 0;
+      row.downBtn.disabled = idx === rows.length - 1;
+      rowsEl.append(row.el);
+    });
+    applyIcons(rowsEl);
+  }
+
+  function addRow(data?: Record<string, unknown>): void {
+    const rowEl = document.createElement("div");
+    rowEl.className = "zen-field";
+    rowEl.style.cssText =
+      "display:flex;flex-direction:column;gap:0.35rem;padding:0.5rem;border:1px solid color-mix(in oklch,var(--border) 50%,transparent);border-radius:var(--radius);";
+
+    const top = document.createElement("div");
+    top.className = "lk-top";
+    top.style.cssText = "display:flex;align-items:center;gap:0.4rem;";
+
+    // Enabled — the FIRST control, per spec.
+    const enabledWrap = document.createElement("label");
+    enabledWrap.className = "zen-checkbox";
+    enabledWrap.style.flex = "1";
+    const enabledText = document.createElement("span");
+    enabledText.className = "zen-checkbox__text";
+    const enabledLabel = document.createElement("span");
+    enabledLabel.className = "zen-checkbox__label";
+    enabledLabel.textContent = "Enabled";
+    enabledText.append(enabledLabel);
+    enabledWrap.append(enabledText);
+    const enabledSwitch = document.createElement("span");
+    enabledSwitch.className = "zen-checkbox__switch";
+    const enabledInput = document.createElement("input");
+    enabledInput.type = "checkbox";
+    enabledInput.checked = data?.enabled !== false;
+    enabledSwitch.append(enabledInput);
+    const enabledTrack = document.createElement("span");
+    enabledTrack.className = "zen-checkbox__track";
+    const enabledThumb = document.createElement("span");
+    enabledThumb.className = "zen-checkbox__thumb";
+    enabledTrack.append(enabledThumb);
+    enabledSwitch.append(enabledTrack);
+    enabledWrap.append(enabledSwitch);
+    top.append(enabledWrap);
+
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.className = "zen-icon-button";
+    upBtn.title = "Move up";
+    upBtn.setAttribute("aria-label", "Move up");
+    setIcon(upBtn, "chevron-up", { size: 14 });
+    upBtn.addEventListener("click", () => {
+      const i = rows.indexOf(row);
+      if (i > 0) {
+        rows.splice(i, 1);
+        rows.splice(i - 1, 0, row);
+        renderList();
+      }
+    });
+
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.className = "zen-icon-button";
+    downBtn.title = "Move down";
+    downBtn.setAttribute("aria-label", "Move down");
+    setIcon(downBtn, "chevron-down", { size: 14 });
+    downBtn.addEventListener("click", () => {
+      const i = rows.indexOf(row);
+      if (i >= 0 && i < rows.length - 1) {
+        rows.splice(i, 1);
+        rows.splice(i + 1, 0, row);
+        renderList();
+      }
+    });
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "zen-icon-button";
+    removeBtn.title = "Remove site";
+    removeBtn.setAttribute("aria-label", "Remove site");
+    setIcon(removeBtn, "trash-2", { size: 14 });
+    removeBtn.addEventListener("click", () => {
+      const i = rows.indexOf(row);
+      if (i >= 0) rows.splice(i, 1);
+      renderList();
+    });
+
+    top.append(upBtn, downBtn, removeBtn);
+    rowEl.append(top);
+
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.className = "zen-input";
+    labelInput.placeholder = "Label (e.g. WhatsApp)";
+    labelInput.value = String(data?.label ?? "");
+
+    const urlInput = document.createElement("input");
+    urlInput.type = "text";
+    urlInput.className = "zen-input";
+    urlInput.placeholder = "https://example.com";
+    urlInput.value = String(data?.url ?? "");
+
+    const sizeWrap = document.createElement("div");
+    sizeWrap.style.cssText = "display:flex;gap:0.75rem;";
+    const widthField = document.createElement("div");
+    widthField.className = "zen-field";
+    widthField.style.flex = "1";
+    const widthLabel = document.createElement("label");
+    widthLabel.className = "zen-label";
+    widthLabel.textContent = "Width (px)";
+    const widthInput = document.createElement("input");
+    widthInput.type = "number";
+    widthInput.className = "zen-input";
+    widthInput.placeholder = "e.g. 1000";
+    widthInput.value = String(data?.width ?? 1000);
+    widthField.append(widthLabel, widthInput);
+    const heightField = document.createElement("div");
+    heightField.className = "zen-field";
+    heightField.style.flex = "1";
+    const heightLabel = document.createElement("label");
+    heightLabel.className = "zen-label";
+    heightLabel.textContent = "Height (px)";
+    const heightInput = document.createElement("input");
+    heightInput.type = "number";
+    heightInput.className = "zen-input";
+    heightInput.placeholder = "e.g. 700";
+    heightInput.value = String(data?.height ?? 700);
+    heightField.append(heightLabel, heightInput);
+    sizeWrap.append(widthField, heightField);
+
+    const persistentWrap = document.createElement("label");
+    persistentWrap.className = "zen-checkbox";
+    const persistentText = document.createElement("span");
+    persistentText.className = "zen-checkbox__text";
+    const persistentLabel = document.createElement("span");
+    persistentLabel.className = "zen-checkbox__label";
+    persistentLabel.textContent = "Persistent — hide on close (instant reopen, keeps session)";
+    persistentText.append(persistentLabel);
+    persistentWrap.append(persistentText);
+    const persistentSwitch = document.createElement("span");
+    persistentSwitch.className = "zen-checkbox__switch";
+    const persistentInput = document.createElement("input");
+    persistentInput.type = "checkbox";
+    persistentInput.checked = data?.persistent === true;
+    persistentSwitch.append(persistentInput);
+    const pTrack = document.createElement("span");
+    pTrack.className = "zen-checkbox__track";
+    const pThumb = document.createElement("span");
+    pThumb.className = "zen-checkbox__thumb";
+    pTrack.append(pThumb);
+    persistentSwitch.append(pTrack);
+    persistentWrap.append(persistentSwitch);
+
+    // Logo upload
+    const logoLabel = document.createElement("label");
+    logoLabel.className = "zen-label";
+    logoLabel.textContent = "Logo";
+    const logoField = document.createElement("div");
+
+    const initialFiles = [];
+    const existingIcon = (data?.icon as string | null) ?? null;
+    if (existingIcon) {
+      initialFiles.push({
+        id: "logo",
+        name: "logo",
+        size: 0,
+        type: "image/png",
+        dataUrl: existingIcon,
+      });
+    }
+
+    const fileUpload = mountFileUpload(logoField, {
+      accept: ".png,.jpg,.jpeg,.webp,.svg",
+      maxSize: 2 * 1024 * 1024,
+      multiple: false,
+      prompt: "Drop a logo here or click to browse",
+      hint: "PNG, JPG, WebP, SVG · Max 2 MB",
+      initialFiles,
+    });
+
+    // Custom headers (key/value table)
+    const headersLabel = document.createElement("label");
+    headersLabel.className = "zen-label";
+    headersLabel.textContent = "Custom headers";
+    const headersBox = document.createElement("div");
+    headersBox.style.cssText = "display:flex;flex-direction:column;gap:0.3rem;";
+    const headerRows: LinkHeaderRow[] = [];
+
+    function addHeaderRow(hk = "", hv = ""): void {
+      const hEl = document.createElement("div");
+      hEl.style.cssText = "display:flex;gap:0.3rem;align-items:center;";
+      const k = document.createElement("input");
+      k.type = "text";
+      k.className = "zen-input";
+      k.placeholder = "Header";
+      k.value = hk;
+      const v = document.createElement("input");
+      v.type = "text";
+      v.className = "zen-input";
+      v.placeholder = "Value";
+      v.value = hv;
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "zen-icon-button";
+      rm.title = "Remove header";
+      rm.setAttribute("aria-label", "Remove header");
+      setIcon(rm, "x", { size: 12 });
+      rm.addEventListener("click", () => {
+        const i = headerRows.findIndex((r) => r.el === hEl);
+        if (i >= 0) headerRows.splice(i, 1);
+        hEl.remove();
+      });
+      hEl.append(k, v, rm);
+      headerRows.push({ key: k, value: v, el: hEl });
+      headersBox.append(hEl);
+    }
+
+    const addHeaderBtn = document.createElement("button");
+    addHeaderBtn.type = "button";
+    addHeaderBtn.className = "zen-button is-outline is-sm";
+    addHeaderBtn.textContent = "+ Add header";
+    addHeaderBtn.style.alignSelf = "flex-start";
+    addHeaderBtn.addEventListener("click", () => addHeaderRow());
+
+    const headersHint = document.createElement("p");
+    headersHint.className = "zen-hint";
+    headersHint.textContent =
+      "Sent as HTTP request headers to the site (e.g. auth tokens). Left blank to use the site's defaults.";
+
+    if (Array.isArray(data?.headers)) {
+      for (const hh of data!.headers as Array<Record<string, unknown>>) {
+        addHeaderRow(String(hh.key ?? ""), String(hh.value ?? ""));
+      }
+    }
+
+    rowEl.append(
+      labelInput,
+      urlInput,
+      sizeWrap,
+      persistentWrap,
+      logoLabel,
+      logoField,
+      headersLabel,
+      headersBox,
+      addHeaderBtn,
+      headersHint,
+    );
+
+    const row: LinkRow = {
+      key: crypto.randomUUID(),
+      id: String(data?.id ?? crypto.randomUUID()),
+      enabledInput,
+      labelInput,
+      urlInput,
+      widthInput,
+      heightInput,
+      persistentInput,
+      fileUpload,
+      headerRows,
+      upBtn,
+      downBtn,
+      el: rowEl,
+    };
+    rows.push(row);
+    renderList();
+  }
+
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "zen-button is-outline is-sm";
+  addBtn.textContent = "+ Add Site";
+  addBtn.style.marginTop = "0.25rem";
+  addBtn.addEventListener("click", () => addRow());
+
+  if (Array.isArray(currentValue)) {
+    for (const item of currentValue) addRow(item);
+  }
+
+  container.append(addBtn);
+  wrapper.append(container);
+}
+
+async function collectLinks(key: string, stores: Record<string, LinkRow[]>): Promise<unknown[]> {
+  const rows = stores[key] ?? [];
+  const savedPositions: Record<string, { pos_x?: number; pos_y?: number }> = {};
+  try {
+    const cfg = await loadConfig();
+    const existingLinks = (cfg.widgets?.config?.["links"]?.links as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const item of existingLinks) {
+      if (item.id) {
+        savedPositions[item.id as string] = {
+          pos_x: item.pos_x as number | undefined,
+          pos_y: item.pos_y as number | undefined,
+        };
+      }
+    }
+  } catch { /* ignore */ }
+
+  return rows.map((row) => {
+    const saved = savedPositions[row.id] || {};
+    return {
+      id: row.id,
+      enabled: row.enabledInput.checked,
+      label: row.labelInput.value,
+      url: row.urlInput.value,
+      width: parseInt(row.widthInput.value, 10) || 1000,
+      height: parseInt(row.heightInput.value, 10) || 700,
+      persistent: row.persistentInput.checked,
+      icon: (row.fileUpload.getFiles()[0]?.dataUrl) ?? null,
+      headers: row.headerRows
+        .map((hr) => ({ key: hr.key.value, value: hr.value.value }))
+        .filter((h) => h.key.trim() !== ""),
+      ...(saved.pos_x != null ? { pos_x: saved.pos_x } : {}),
+      ...(saved.pos_y != null ? { pos_y: saved.pos_y } : {}),
+    };
+  });
 }

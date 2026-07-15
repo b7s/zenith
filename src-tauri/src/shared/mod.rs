@@ -53,6 +53,9 @@ pub const EVENT_GIT_CHANGED: &str = "zenith:git-changed";
 /// `__ZENITH_CALENDAR_VIEW` init script; this event handles the
 /// reuse case where the init script does not re-run.
 pub const EVENT_CALENDAR_VIEW: &str = "zenith:calendar-view";
+/// Emitted by the webapp site webview (via WebView2 title-badge heuristic)
+/// when a site's unread state changes. Payload: `{ id: String, has: bool }`.
+pub const EVENT_LINK_NOTIFICATION: &str = "zenith:link-notification";
 
 pub mod known_folders;
 pub mod shell;

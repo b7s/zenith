@@ -5129,7 +5129,7 @@ dependencies = [
 
 [[package]]
 name = "zenith"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "base64 0.22.1",
  "indexmap 2.14.0",
@@ -5141,7 +5141,9 @@ dependencies = [
  "tauri-plugin-autostart",
  "tauri-plugin-single-instance",
  "ureq",
+ "url",
  "uuid",
+ "webview2-com",
  "windows 0.58.0",
  "windows 0.61.3",
  "windows-future",

@@ -50,6 +50,8 @@ windows = { version = "0.61", features = [
 windows_058 = { package = "windows", version = "0.58", features = ["Win32_Foundation"] }
 windows-future = "0.2"
 winvd = "0.0.49"
+webview2-com = "0.38"
+url = "2"
 ureq = { version = "2", features = ["json", "tls"] }
 base64 = "0.22"
 sha2 = "0.10"

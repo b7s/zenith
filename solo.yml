@@ -1,0 +1,17 @@
+name: zenith
+icon: null
+processes:
+  NPM Tauri Dev:
+    command: npm run tauri dev
+    working_dir: null
+    auto_start: true
+    auto_restart: true
+    restart_when_changed: []
+    env: {}
+  make:dev:
+    command: make dev
+    working_dir: null
+    auto_start: false
+    auto_restart: true
+    restart_when_changed: []
+    env: {}

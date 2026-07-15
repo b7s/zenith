@@ -1,6 +1,6 @@
 SHELL := cmd.exe
 
-.PHONY: install dev build lint check clean release quality tag
+.PHONY: install dev build lint check clean release quality tag bump
 
 VERSION ?= 0.1.0
 
@@ -34,11 +34,16 @@ release:
 
 quality: lint check
 
-tag: quality
-	git diff --quiet || (echo ERROR: working tree is dirty, commit or stash first & exit /b 1)
+bump:
+	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bump-version.ps1 $(VERSION)
+
+tag: quality bump
+	git add -A
+	git diff --cached --quiet || git commit -m "chore(release): v$(VERSION)"
 	git fetch --tags origin
 	git show-ref --verify --quiet "refs/tags/v$(VERSION)" && set EXISTS=1 || set EXISTS=0
 	if "%EXISTS%"=="1" (echo ERROR: tag v$(VERSION) already exists & exit /b 1)
+	git push origin HEAD
 	git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
 	git push origin "v$(VERSION)"
 	@echo Pushed tag v$(VERSION) - GitHub Actions will build the installer.

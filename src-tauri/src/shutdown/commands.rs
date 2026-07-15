@@ -1,11 +1,51 @@
 use tauri::Manager;
+use windows::core::w;
+use windows::Win32::Foundation::{CloseHandle, HANDLE, LUID};
+use windows::Win32::Security::{
+    AdjustTokenPrivileges, LookupPrivilegeValueW, LUID_AND_ATTRIBUTES, TOKEN_ADJUST_PRIVILEGES,
+    TOKEN_PRIVILEGES, TOKEN_QUERY, SE_PRIVILEGE_ENABLED,
+};
+use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
 use crate::window;
 
 const SHUTDOWN_LABEL: &str = "shutdown-popup";
 
+/// Enable `SE_SHUTDOWN_NAME` in the current process token. Windows requires
+/// this privilege for `ExitWindowsEx` and `SetSuspendState` even when the user
+/// is an administrator — the privilege is present in the token but disabled by
+/// default. Without it the calls fail and the action silently does nothing.
+fn enable_shutdown_privilege() -> Result<(), String> {
+    unsafe {
+        let mut token: HANDLE = HANDLE::default();
+        OpenProcessToken(
+            GetCurrentProcess(),
+            TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+            &mut token,
+        )
+        .map_err(|e| format!("OpenProcessToken: {e}"))?;
+
+        let mut luid = LUID::default();
+        LookupPrivilegeValueW(None, w!("SeShutdownPrivilege"), &mut luid)
+            .map_err(|e| format!("LookupPrivilegeValueW: {e}"))?;
+
+        let tp = TOKEN_PRIVILEGES {
+            PrivilegeCount: 1,
+            Privileges: [LUID_AND_ATTRIBUTES {
+                Luid: luid,
+                Attributes: SE_PRIVILEGE_ENABLED,
+            }],
+        };
+        AdjustTokenPrivileges(token, false, Some(&tp), 0, None, None)
+            .map_err(|e| format!("AdjustTokenPrivileges: {e}"))?;
+        let _ = CloseHandle(token);
+        Ok(())
+    }
+}
+
 #[tauri::command]
 pub fn system_shutdown() -> Result<(), String> {
+    enable_shutdown_privilege()?;
     unsafe {
         windows::Win32::System::Shutdown::ExitWindowsEx(
             windows::Win32::System::Shutdown::EWX_POWEROFF
@@ -18,6 +58,7 @@ pub fn system_shutdown() -> Result<(), String> {
 
 #[tauri::command]
 pub fn system_restart() -> Result<(), String> {
+    enable_shutdown_privilege()?;
     unsafe {
         windows::Win32::System::Shutdown::ExitWindowsEx(
             windows::Win32::System::Shutdown::EWX_REBOOT
@@ -30,6 +71,7 @@ pub fn system_restart() -> Result<(), String> {
 
 #[tauri::command]
 pub fn system_sleep() -> Result<(), String> {
+    enable_shutdown_privilege()?;
     let ok = unsafe {
         windows::Win32::System::Power::SetSuspendState(false, true, false)
     };
@@ -38,6 +80,7 @@ pub fn system_sleep() -> Result<(), String> {
 
 #[tauri::command]
 pub fn system_hibernate() -> Result<(), String> {
+    enable_shutdown_privilege()?;
     let ok = unsafe {
         windows::Win32::System::Power::SetSuspendState(true, true, false)
     };
@@ -54,6 +97,7 @@ pub fn system_lock() -> Result<(), String> {
 
 #[tauri::command]
 pub fn system_logout() -> Result<(), String> {
+    enable_shutdown_privilege()?;
     unsafe {
         windows::Win32::System::Shutdown::ExitWindowsEx(
             windows::Win32::System::Shutdown::EWX_LOGOFF

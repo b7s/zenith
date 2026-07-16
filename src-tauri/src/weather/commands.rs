@@ -39,7 +39,7 @@ const WEATHER_LABEL: &str = "weather";
 
 /// Cached snapshot returned to both the bar widget and the popup window.
 /// `payload` is the combined, pre-shaped data the frontend renders from.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct WeatherSnapshot {
     pub ok: bool,
     /// Human label resolved from geocoding (e.g. "Lisbon, PT"), or the raw
@@ -64,21 +64,6 @@ pub struct WeatherSnapshot {
     pub error: Option<String>,
     /// Unix seconds of the last **successful** fetch. 0 when never fetched.
     pub updated_at: i64,
-}
-
-impl Default for WeatherSnapshot {
-    fn default() -> Self {
-        Self {
-            ok: false,
-            city: None,
-            units: None,
-            daily: Vec::new(),
-            current: None,
-            air: None,
-            error: None,
-            updated_at: 0,
-        }
-    }
 }
 
 static WEATHER_STATE: OnceLock<Mutex<WeatherSnapshot>> = OnceLock::new();
@@ -136,7 +121,7 @@ fn read_weather_cfg() -> Result<WeatherCfg, String> {
     let forecast_days = wc
         .get("forecast_days")
         .and_then(Value::as_i64)
-        .map(|n| n.max(1).min(7) as u32)
+        .map(|n| n.clamp(1, 7) as u32)
         .unwrap_or(7);
     let units = wc
         .get("units")
@@ -321,7 +306,7 @@ fn try_one_call_40(
     let daily = daily
         .get("data")
         .and_then(Value::as_array)
-        .map(|a| a.clone())
+        .cloned()
         .unwrap_or_default();
 
     let air = http_get(&format!(

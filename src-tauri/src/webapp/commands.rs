@@ -91,6 +91,7 @@ fn link_icon_image(icon: &Option<String>) -> Option<tauri::image::Image<'_>> {
     tauri::image::Image::from_bytes(&bytes).ok()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_link_window(
     app: &tauri::AppHandle,
     id: &str,

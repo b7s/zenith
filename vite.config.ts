@@ -28,6 +28,7 @@ export default defineConfig({
         "alarm-popup": resolve(__dirname, "alarms/alarm-popup.html"),
         "git-manager": resolve(__dirname, "git-manager.html"),
         "webapp-window": resolve(__dirname, "webapp-window.html"),
+        "weather": resolve(__dirname, "weather.html"),
       },
     },
   },

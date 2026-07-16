@@ -68,7 +68,7 @@ export interface MountedWindow {
  * the declarative approach can swallow click events on transparent windows,
  * making the close button and search field intermittently unresponsive.
  */
-function enableDrag(header: HTMLElement): void {
+export function enableDrag(header: HTMLElement): void {
   header.addEventListener("pointerdown", (e) => {
     const target = e.target as HTMLElement;
     if (target.closest("button, input, select, textarea, [data-no-drag]")) return;

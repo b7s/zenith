@@ -251,9 +251,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: .5rem;
   width: 100%;
   max-width: 100%;
+  margin-bottom: .75rem;
   cursor: pointer;
   user-select: none;
   overflow: hidden;

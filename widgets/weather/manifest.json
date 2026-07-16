@@ -1,0 +1,43 @@
+{
+  "id": "weather",
+  "name": "Weather",
+  "version": "1.0.0",
+  "description": "Current weather + 7-day forecast from OpenWeatherMap (click to open the forecast, air quality & charts window)",
+  "default_zone": "right",
+  "icon": "weather",
+  "min_width": 52,
+  "preview": "<span class=\"wx-wrap\"><span class=\"zen-icon\" data-icon=\"cloud-sun\" data-size=\"16\"></span><span class=\"wx-temp\">21&deg;</span></span>",
+  "config": {
+    "city": {
+      "type": "string",
+      "value": "",
+      "label": "City",
+      "hint": "e.g. Lisbon, Paris, Tokyo, New York. Geocoded by OpenWeatherMap — full city name or \u0027City, Country\u0027 both work. As you type, suggestions appear from the geocoding API."
+    },
+    "api_key": {
+      "type": "secret",
+      "value": "",
+      "label": "OpenWeatherMap API key",
+      "hint": "DPAPI-encrypted (per-Windows-user) before saving — never stored as plaintext. Get a free key at https://home.openweathermap.org/api_keys"
+    },
+    "units": {
+      "type": "select",
+      "value": "metric",
+      "options": ["metric", "imperial"],
+      "label": "Units",
+      "hint": "metric = Celsius + m/s. imperial = Fahrenheit + mph."
+    },
+    "forecast_days": {
+      "type": "int",
+      "value": 7,
+      "label": "Forecast days",
+      "hint": "Daily forecast cards shown in the popup (1-7). Default 7 — also the maximum the free tier returns per request."
+    },
+    "update_minutes": {
+      "type": "int",
+      "value": 30,
+      "label": "Update interval (minutes)",
+      "hint": "Minimum 1 minute. Default 30. Each update costs ~3 API calls (geocode once cached, current, daily, air quality). Free tier (One Call by Call) gives 2,000 calls/day; at 30 min that\u0027s ~144 calls/day — well within the limit. Below ~10 min may exhaust the daily quota."
+    }
+  }
+}

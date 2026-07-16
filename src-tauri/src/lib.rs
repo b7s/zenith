@@ -13,6 +13,7 @@ mod shutdown;
 mod system_stats;
 mod tray;
 mod volume;
+mod weather;
 mod widgets;
 mod window;
 mod workspace;
@@ -60,6 +61,10 @@ pub fn run() {
             calendar::commands::open_calendar,
             calendar::commands::get_calendar_view,
             calendar::commands::get_calendar_single,
+            weather::commands::open_weather,
+            weather::commands::weather_refresh,
+            weather::commands::weather_get_cache,
+            weather::commands::weather_geocode_suggestions,
             shutdown::commands::system_shutdown,
             shutdown::commands::system_restart,
             shutdown::commands::system_sleep,

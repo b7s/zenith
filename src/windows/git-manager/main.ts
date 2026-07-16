@@ -262,7 +262,7 @@ void (async () => {
     const acctTotal = cfg.accounts.length;
     tiles.append(
       statTile(String(state.total_failed), "Failed CI", state.total_failed > 0 ? "is-danger" : "", () => tabs.switchTo("failed")),
-      statTile(String(state.total_open_prs), "Open PRs", state.total_open_prs > 0 ? "is-warn" : "", () => tabs.switchTo("prs")),
+      statTile(String(state.total_open_prs), "Open PRs", state.total_open_prs > 0 ? "is-info" : "", () => tabs.switchTo("prs")),
       statTile(String(repos.length), "Repos tracked", ""),
       statTile(
         `${acctTotal}`,

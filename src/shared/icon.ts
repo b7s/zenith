@@ -17,11 +17,21 @@ import {
   ChevronUp,
   Check,
   Clock,
+  Cloud,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
   CloudMoon,
+  CloudRain,
+  CloudSnow,
   CloudSun,
+  Cloudy,
   Copy,
+  Droplets,
   ExternalLink,
+  Eye,
   Focus,
+  Gauge,
   Globe,
   Image,
   GitBranch,
@@ -36,6 +46,7 @@ import {
   MonitorSmartphone,
   Moon,
   Music,
+  Navigation,
   Plane,
   Pencil,
   Plus,
@@ -49,16 +60,23 @@ import {
   SkipForward,
   SlidersHorizontal,
   Sparkles,
+  Sun,
   SunMoon,
+  Sunrise,
+  Sunset,
+  Thermometer,
   ToggleRight,
   Trash2,
   TriangleAlert,
+  Umbrella,
   Upload,
   Volume,
   Volume1,
   Volume2,
   VolumeX,
+  Waves,
   Wifi,
+  Wind,
   X,
 } from "lucide";
 
@@ -110,6 +128,26 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   music: Music,
   activity: Activity,
   "cloud-sun": CloudSun,
+  "cloud-moon": CloudMoon,
+  cloud: Cloud,
+  "cloud-rain": CloudRain,
+  "cloud-drizzle": CloudDrizzle,
+  "cloud-lightning": CloudLightning,
+  "cloud-snow": CloudSnow,
+  "cloud-fog": CloudFog,
+  cloudy: Cloudy,
+  sun: Sun,
+  moon: Moon,
+  wind: Wind,
+  droplets: Droplets,
+  eye: Eye,
+  gauge: Gauge,
+  sunrise: Sunrise,
+  sunset: Sunset,
+  thermometer: Thermometer,
+  umbrella: Umbrella,
+  navigation: Navigation,
+  waves: Waves,
   "monitor-smartphone": MonitorSmartphone,
   "external-link": ExternalLink,
   globe: Globe,
@@ -123,8 +161,6 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   "calendar-search": CalendarSearch,
   "refresh-cw": RefreshCw,
   repeat: Repeat,
-  moon: Moon,
-  "cloud-moon": CloudMoon,
   "triangle-alert": TriangleAlert,
   wifi: Wifi,
   bluetooth: Bluetooth,
@@ -293,4 +329,28 @@ export function applyIcons(root: ParentNode = document): void {
     const size = sizeAttr ? Number(sizeAttr) : undefined;
     setIcon(el, name, { size: Number.isFinite(size) ? size : undefined });
   }
+}
+
+/// Map an OpenWeatherMap condition code (weather[0].id) + day/night
+/// (weather[0].icon suffix 'd'/'n') to a Lucide icon name. Falls back to
+/// "cloud" when no specific mapping exists. Single home — the popup window
+/// and the bar widget both use this via `window.__zenith_weatherIcon`.
+export function weatherIcon(code: number, icon?: string): string {
+  const isNight = icon?.endsWith("n") ?? false;
+  // Group 2xx: Thunderstorm
+  if (code >= 200 && code < 300) return "cloud-lightning";
+  // Group 3xx: Drizzle
+  if (code >= 300 && code < 400) return "cloud-drizzle";
+  // Group 5xx: Rain
+  if (code >= 500 && code < 600) return "cloud-rain";
+  // Group 6xx: Snow
+  if (code >= 600 && code < 700) return "cloud-snow";
+  // Group 7xx: Atmosphere (mist, fog, haze, sand, dust, etc.)
+  if (code >= 700 && code < 800) return "cloud-fog";
+  // Group 800: Clear
+  if (code === 800) return isNight ? "moon" : "sun";
+  // Group 801-804: Clouds
+  if (code > 800) return isNight ? "cloud-moon" : "cloud-sun";
+  // Default
+  return "cloud";
 }

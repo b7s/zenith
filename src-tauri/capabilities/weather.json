@@ -1,0 +1,15 @@
+{
+  "identifier": "weather",
+  "description": "Capability for the weather forecast popup window",
+  "windows": ["weather"],
+  "webviews": ["weather"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-effects",
+    "core:event:default",
+    "core:event:allow-listen"
+  ]
+}

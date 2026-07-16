@@ -18,6 +18,7 @@ import {
   setupBarReceiveDrop,
   attachOutsideClickDeactivate,
 } from "../../shared/widget-arrange";
+import { weatherIcon } from "../../shared/icon";
 import type { Config } from "../../shared/types";
 
 void (async () => {
@@ -28,12 +29,18 @@ void (async () => {
   (window as any).__zenith_listen = listen;
   (window as any).__zenith_applyIcons = applyIcons;
   (window as any).__zenith_setIcon = setIcon;
+  // Used by the weather widget to map OWM condition codes -> Lucide names.
+  (window as any).__zenith_weatherIcon = (code: number, icon?: string) =>
+    weatherIcon(code, icon);
 
-  // Helper exposed to widget JS: opens the calendar popup anchored under
-  // the requesting widget element. Widgets call (e.g. the datetime widget)
-  // `window.__zenith_openCalendar(el)` from their IIFE; we forward through
+  // Helper exposed to widget JS: opens the weather popup anchored under
+  // the requesting widget element. Widgets call
+  // `window.__zenith_openWeather(el)` from their IIFE; we forward through
   // the shared positional helper in `widget-popup.ts`.
   void import("../../shared/widget-popup").then((m) => {
+    (window as any).__zenith_openWeather = (el: HTMLElement) => {
+      void m.openWeatherFromWidget(el);
+    };
     (window as any).__zenith_openCalendar = (el: HTMLElement) => {
       void m.openCalendarFromWidget(el);
     };

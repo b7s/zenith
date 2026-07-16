@@ -84,7 +84,8 @@ export type WidgetConfigType =
   | "select"
   | "accounts"
   | "multiselect"
-  | "links";
+  | "links"
+  | "secret";
 
 /** One custom HTTP header (key/value) sent to a link's site. */
 export interface LinkHeader {

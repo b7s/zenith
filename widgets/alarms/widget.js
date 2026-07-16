@@ -59,9 +59,9 @@
     var days = Math.floor(absMs / (1000 * 60 * 60 * 24));
     var hours = Math.floor((absMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     var minutes = Math.floor((absMs % (1000 * 60 * 60)) / (1000 * 60));
-    if (days > 0) return "in " + days + "d " + hours + "h";
-    if (hours > 0) return "in " + hours + "h " + minutes + "m";
-    if (minutes > 0) return "in " + minutes + "m";
+    if (days > 0) return days + "d " + hours + "h";
+    if (hours > 0) return hours + "h " + minutes + "m";
+    if (minutes > 0) return minutes + "m";
     return "in < 1m";
   }
 

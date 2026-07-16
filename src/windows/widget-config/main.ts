@@ -125,6 +125,24 @@ void (async () => {
       cfg.calendar_oauth.google_client_id = oauthClientIds.google?.value.trim() ?? "";
       cfg.calendar_oauth.outlook_client_id = oauthClientIds.outlook?.value.trim() ?? "";
     }
+    // Encrypt any `secret` fields via DPAPI before persisting. A blank input
+    // preserves the existing blob so re-saving other fields never wipes the key.
+    for (const [key, field] of Object.entries(configDef)) {
+      if (field.type === "secret") {
+        const store = secretStores[key];
+        if (!store) continue;
+        const raw = store.input.value;
+        if (raw.length > 0) {
+          try {
+            newValues[key] = await invoke<string>(CMD.protectSecret, { plaintext: raw });
+          } catch {
+            newValues[key] = store.existingBlob;
+          }
+        } else {
+          newValues[key] = store.existingBlob;
+        }
+      }
+    }
     cfg.widgets.config[widgetId] = newValues;
     if (widgetId === "system_stats") {
       (cfg.widgets.config[widgetId] as Record<string, unknown>).selected_gpus = selectedGpus;
@@ -188,6 +206,10 @@ void (async () => {
   const accountStores: Record<string, AcctRow[]> = {};
     // Dynamic link state (for links widget)
     const linkStores: Record<string, LinkRow[]> = {};
+  // DPAPI-protected secret inputs (for weather api_key, etc.). Each entry
+  // holds the live password input + the saved blob so a blank re-save keeps
+  // the existing key. Mirrors the git-accounts token handling.
+  const secretStores: Record<string, { input: HTMLInputElement; existingBlob: string }> = {};
 
   for (const [key, field] of Object.entries(configDef)) {
     const wrapper = document.createElement("div");
@@ -201,14 +223,16 @@ void (async () => {
         buildLinksControl(wrapper, key, field, currentValue as Array<Record<string, unknown>> | undefined, linkStores);
       } else if (field.type === "bool") {
       buildBoolControl(wrapper, key, field, currentValue, switchStates);
-    } else if (field.type === "multiselect") {
-      buildMultiSelectControl(wrapper, key, field, currentValue as string[] | undefined, multiStates);
-    } else {
+      } else if (field.type === "multiselect") {
+        buildMultiSelectControl(wrapper, key, field, currentValue as string[] | undefined, multiStates);
+      } else if (field.type === "secret") {
+        buildSecretControl(wrapper, key, field, currentValue, secretStores);
+      } else {
       const label = document.createElement("label");
       label.className = "zen-label";
       label.textContent = field.label || key;
       wrapper.append(label);
-      buildControl(wrapper, key, field, currentValue, inputs);
+      buildControl(wrapper, key, field, currentValue, inputs, widgetId);
       if (field.hint) {
         const hint = document.createElement("p");
         hint.className = "zen-hint";
@@ -588,12 +612,50 @@ async function buildCalendarAccountsSection(
   await render();
 }
 
+/// Render a DPAPI-protected secret field (e.g. the weather API key). The
+/// input is a password box that is always blank on load — the saved blob is
+/// never decrypted back into the DOM. A non-blank submit re-encrypts via
+/// `CMD.protectSecret`; a blank submit preserves the existing blob (handled
+/// in the save loop above).
+function buildSecretControl(
+  wrapper: HTMLElement,
+  key: string,
+  field: WidgetConfigField,
+  currentValue: unknown,
+  stores: Record<string, { input: HTMLInputElement; existingBlob: string }>,
+): void {
+  const label = document.createElement("label");
+  label.className = "zen-label";
+  label.textContent = field.label || key;
+  wrapper.append(label);
+
+  const input = document.createElement("input");
+  input.type = "password";
+  input.className = "zen-input";
+  const existingBlob = typeof currentValue === "string" ? currentValue : "";
+  input.placeholder = existingBlob.length > 0 ? "Leave blank to keep existing key" : "Paste your API key";
+  input.value = "";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  wrapper.append(input);
+
+  stores[key] = { input, existingBlob };
+
+  if (field.hint) {
+    const hint = document.createElement("p");
+    hint.className = "zen-hint";
+    hint.textContent = field.hint;
+    wrapper.append(hint);
+  }
+}
+
 function buildControl(
   wrapper: HTMLElement,
   key: string,
   field: WidgetConfigField,
   currentValue: unknown,
   inputs: Record<string, HTMLElement>,
+  widgetId: string,
 ): void {
   if (field.type === "select" && field.options) {
     if (field.options.length <= 3) {
@@ -643,6 +705,8 @@ function buildControl(
     input.value = String(currentValue ?? 0);
     inputs[key] = input;
     wrapper.append(input);
+  } else if (widgetId === "weather" && key === "city") {
+    buildCityAutocomplete(wrapper, key, currentValue, inputs);
   } else {
     const input = document.createElement("input");
     input.type = "text";
@@ -651,6 +715,85 @@ function buildControl(
     inputs[key] = input;
     wrapper.append(input);
   }
+}
+
+/// City autocomplete using OpenWeatherMap geocoding direct API.
+/// Debounced fetch shows up to 8 suggestions in a <datalist>.
+function buildCityAutocomplete(
+  wrapper: HTMLElement,
+  key: string,
+  currentValue: unknown,
+  inputs: Record<string, HTMLElement>,
+): void {
+  const listId = `city-suggestions-${crypto.randomUUID()}`;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "zen-input";
+  input.value = String(currentValue ?? "");
+  input.setAttribute("list", listId);
+  input.setAttribute("autocomplete", "off");
+  input.placeholder = "Type to search (e.g. London, UK)";
+  inputs[key] = input;
+
+  const datalist = document.createElement("datalist");
+  datalist.id = listId;
+
+  const hintEl = document.createElement("p");
+  hintEl.className = "zen-hint";
+  hintEl.style.marginTop = "0.25rem";
+  hintEl.style.fontSize = "0.7rem";
+
+  let debounceTimer: number | null = null;
+  let lastQuery = "";
+
+  async function fetchSuggestions(query: string): Promise<void> {
+    if (query.length < 2) {
+      datalist.replaceChildren();
+      hintEl.textContent = "";
+      return;
+    }
+    if (query === lastQuery) return;
+    lastQuery = query;
+
+    try {
+      const cfg = await invoke<{ widgets: { config: Record<string, Record<string, unknown>> } }>("get_config");
+      const apiKeyBlob = cfg.widgets?.config?.["weather"]?.["api_key"] as string | undefined;
+      if (!apiKeyBlob) {
+        hintEl.textContent = "Add an API key first to enable city search.";
+        return;
+      }
+      // We can't decrypt the blob here; instead use a lightweight direct call
+      // with a known test key? No — we need the actual key. Since we can't
+      // decrypt DPAPI in the browser, we use a simple workaround: the widget
+      // config window runs in the same process as the Rust side, so we can
+      // expose a helper command that takes the plaintext query and returns
+      // suggestions using the stored key.
+      const results = await invoke<string[]>("weather_geocode_suggestions", { query });
+      datalist.replaceChildren();
+      for (const name of results) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        datalist.append(opt);
+      }
+      hintEl.textContent = "";
+    } catch {
+      datalist.replaceChildren();
+      hintEl.textContent = "Could not fetch suggestions — check your API key.";
+    }
+  }
+
+  input.addEventListener("input", () => {
+    const q = input.value.trim();
+    if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(() => fetchSuggestions(q), 250);
+  });
+
+  input.addEventListener("blur", () => {
+    // Keep datalist for a moment so click-to-select works
+    window.setTimeout(() => datalist.replaceChildren(), 200);
+  });
+
+  wrapper.append(input, datalist, hintEl);
 }
 
 function buildBoolControl(

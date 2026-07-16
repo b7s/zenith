@@ -85,3 +85,13 @@ export async function openEventsPopupFromWidget(widget: HTMLElement, popupW = 32
   const { x, y } = await popupAnchorUnderWidget(widget, popupW, 4);
   await invoke(CMD.openCalendar, { x, y, wide: false, mode: "events" });
 }
+
+/** Popup dimensions mirroring the Rust `create_weather_window`. */
+export const WEATHER_POPUP_CSS_W = 380;
+export const WEATHER_POPUP_CSS_H = 560;
+
+/** Open the weather forecast popup, centered under the widget. */
+export async function openWeatherFromWidget(widget: HTMLElement): Promise<void> {
+  const { x, y } = await popupAnchorUnderWidget(widget, WEATHER_POPUP_CSS_W, 4);
+  await invoke(CMD.openWeather, { x, y });
+}

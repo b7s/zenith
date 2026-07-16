@@ -377,7 +377,7 @@ fn create_volume_popup_window(app: &tauri::AppHandle, x: f64, y: f64) -> Result<
     let win = tauri::WebviewWindowBuilder::new(
         app,
         VOLUME_POPUP_LABEL,
-        tauri::WebviewUrl::App("volume-popup.html".into()),
+        tauri::WebviewUrl::App("widgets/volume/window/volume-popup.html".into()),
     )
     .title("Volume")
     .inner_size(cw as f64, ch as f64)

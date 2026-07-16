@@ -443,7 +443,7 @@ fn create_git_manager(app: &tauri::AppHandle, _x: f64, _y: f64) -> Result<(), St
     let win = tauri::WebviewWindowBuilder::new(
         app,
         GIT_MANAGER_LABEL,
-        tauri::WebviewUrl::App("git-manager.html".into()),
+        tauri::WebviewUrl::App("widgets/git/window/git-manager.html".into()),
     )
     .title("Git Manager")
     .inner_size(GIT_MANAGER_W as f64, GIT_MANAGER_H as f64)

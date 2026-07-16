@@ -334,7 +334,7 @@ fn open_alarm_popup(app: &AppHandle, ev: &CalendarEvent, fire_at: i64) {
         if let Err(e) = tauri::WebviewWindowBuilder::new(
             &h,
             label,
-            tauri::WebviewUrl::App("alarms/alarm-popup.html".into()),
+            tauri::WebviewUrl::App("widgets/alarms/window/alarm-popup.html".into()),
         )
         .title(title.clone())
         .inner_size(360.0, 200.0)

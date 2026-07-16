@@ -24,7 +24,7 @@ fn window_label(id: &str) -> String {
 /// Build the WebView2 window on a dedicated thread (same proven pattern as
 /// `create_settings_window` / `create_widgets_window` in `commands.rs`: an
 /// `App`-URL window built via `spawn_blocking`, revealed with `SetWindowPos`
-/// after construction). The external site is loaded by the `webapp-window.html`
+/// after construction). The external site is loaded by the `widgets/webapp/window/webapp-window.html`
 /// loader page via `window.location.replace`, so we never build a window with
 /// a `WebviewUrl::External` target — that path deadlocks on the main thread
 /// and hides the window when built off it.
@@ -123,7 +123,7 @@ fn create_link_window(
         serde_json::to_string(&label).unwrap_or_else(|_| "\"\"".into()),
     );
 
-    let win = tauri::WebviewWindowBuilder::new(app, &lbl, tauri::WebviewUrl::App("webapp-window.html".into()))
+    let win = tauri::WebviewWindowBuilder::new(app, &lbl, tauri::WebviewUrl::App("widgets/webapp/window/webapp-window.html".into()))
         .inner_size(w, h)
         .position(cx as f64, cy as f64)
         .resizable(true)

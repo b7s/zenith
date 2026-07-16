@@ -137,7 +137,7 @@ fn create_calendar_window(
     let win = tauri::WebviewWindowBuilder::new(
         app,
         CALENDAR_LABEL,
-        tauri::WebviewUrl::App("calendar.html".into()),
+        tauri::WebviewUrl::App("src/windows/calendar/calendar.html".into()),
     )
     .title("Calendar")
     .inner_size(cw as f64, ch as f64)

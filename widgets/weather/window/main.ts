@@ -1,11 +1,11 @@
-import "../../styles/globals.css";
+import "../../../src/styles/globals.css";
 import "./weather.css";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { setIcon, applyIcons, weatherIcon } from "../../shared/icon";
-import { mountWindow } from "../../shared/window";
-import { applyTheme } from "../../shared/window";
-import { initLog, logInfo } from "../../shared/log";
+import { setIcon, applyIcons, weatherIcon } from "../../../src/shared/icon";
+import { mountWindow } from "../../../src/shared/window";
+import { applyTheme } from "../../../src/shared/window";
+import { initLog, logInfo } from "../../../src/shared/log";
 
 interface WeatherSnapshot {
   ok: boolean;

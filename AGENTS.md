@@ -81,11 +81,15 @@ zenith/
 ├── AGENTS.md                          # this file — the contract
 ├── README.md
 ├── package.json  tsconfig.json  vite.config.ts
-├── index.html                         # bar window
-├── settings.html                      # settings window (800×600)
-├── widgets.html                       # widget manager window
 ├── src/
-│   ├── shared/                        # SHARED KERNEL (frontend)
+│   ├── windows/                         # thin window shells (HTML + TS) — see §10
+│   │   ├── bar/index.html               # bar window entry
+│   │   ├── settings/settings.html       # settings window (800×600)
+│   │   ├── manager/widgets.html         # widget manager window
+│   │   ├── dialog/dialog.html           # unified dialog window
+│   │   ├── widget-config/widget-config.html   # generic widget-config window
+│   │   └── calendar/calendar.html       # calendar popup
+│   ├── shared/                          # SHARED KERNEL (frontend)
 │   │   ├── ipc.ts                     # typed invoke() wrappers — single source of command names
 │   │   ├── events.ts                  # event-name constants + typed listeners
 │   │   ├── types.ts                   # DTO types mirroring Rust models
@@ -97,8 +101,9 @@ zenith/
 │       ├── base.css                   # reset, theme switch, scrollbars
 │       ├── components.css             # .zen-* reusable component classes (see §6)
 │       └── globals.css                # @import the three above; per-window CSS imports this
-├── widgets/                           # standalone JS/CSS/HTML widgets
-│   └── <name>/{manifest.json, widget.html, widget.js, widget.css}
+├── widgets/                           # standalone JS/CSS/HTML bar widgets (+ window shells for windows that pair with a widget)
+│   └── <name>/{manifest.json, widget.html, widget.js, widget.css}   # bar widget (scanned by registry.rs)
+│       └── window/<window>.html + main.ts + <window>.css            # OPTIONAL: Tauri window shell co-located with its widget (e.g. widgets/volume/window/volume-popup.html)
 └── src-tauri/
     ├── Cargo.toml  tauri.conf.json  build.rs
     ├── capabilities/{default,settings,widgets}.json   # per-window permissions
@@ -879,7 +884,7 @@ lives in exactly one folder, adding/removing a widget is just `mkdir`/`rmdir`.
 Widgets that need user-configurable settings declare them in `manifest.json` under the
 top-level `config` key. When a widget has a non-empty `config`, the Widget Manager card
 shows a **gear button** (below the add/remove button) that opens a **single generic
-widget-config window** (`widget-config.html`). This window is data-driven — it reads the
+widget-config window** (`src/windows/widget-config/widget-config.html`). This window is data-driven — it reads the
 manifest's `config` definition and renders the appropriate form controls via JS. **Never
 create a per-widget config window** — always extend the generic one.
 
@@ -964,7 +969,7 @@ The widget IIFE calls `window.__zenith_invoke("get_config")`, navigates to
 | Manifest `config` field definition (Rust) | `widgets/manifest.rs::WidgetConfigField` |
 | Manifest `config` field definition (TS) | `shared/types.ts::WidgetConfigField` |
 | Stored config values | `config/model.rs::WidgetsConfig.config` + `shared/types.ts::WidgetsConfig.config` |
-| Config window (generic) | `src/windows/widget-config/main.ts` + `widget-config.html` |
+| Config window (generic) | `src/windows/widget-config/main.ts` + `src/windows/widget-config/widget-config.html` |
 | Config window creation | `commands.rs::open_widget_config` |
 | Gear button rendering | `manager/main.ts::buildCard` |
 
@@ -988,7 +993,7 @@ right-clicking on that widget's area.
   delete open a small unified Tauri dialog window directly (see §13.10). State-change actions
   (create, move, switch, pin) emit typed events that the frontend listens for.
 - The rename and delete flows go through `show_dialog(spec)` in `commands.rs` (a single command
-  that opens the unified `dialog.html` window). The spec selects which body builder runs.
+  that opens the unified `src/windows/dialog/dialog.html` window). The spec selects which body builder runs.
   This avoids the duplication that existed when there was a `rename.html` + `delete.html`.
 - **No frontend event round-trip for rename/delete.** Both open the dialog window directly from
   the Rust menu handler via `spawn`. This prevents double dialogs caused by Tauri event-listener
@@ -1138,7 +1143,7 @@ Rules:
 
 ## 10. Window, base HTML & permissions contract
 
-- **Shared base HTML.** All three windows (`index.html`, `settings.html`, `widgets.html`) use the
+- **Shared base HTML.** All windows (`src/windows/bar/index.html`, `src/windows/settings/settings.html`, `src/windows/manager/widgets.html`, `src/windows/dialog/dialog.html`, the popups, and the window shells co-located in `widgets/<id>/window/`) use the
   identical skeleton — `<html data-theme="…">` → `<body data-window="bar|settings|widgets">` →
   `<div id="root">` → a single entry `main.ts`. **No window chrome is duplicated in HTML.** Each
   `main.ts` imports `src/styles/globals.css` once (the `@import` chain: tokens → base → components
@@ -1374,7 +1379,7 @@ user sees nothing and the app appears frozen.
 
 - **Never call `prompt()`, `confirm()`, or `alert()`** in widget JS or the bar itself.
 - Zenith has **one** transient dialog window for all user input / confirmation flows. It
-  loads `dialog.html` and renders a builder from a registry selected by `kind`. New dialogs
+   loads `src/windows/dialog/dialog.html` and renders a builder from a registry selected by `kind`. New dialogs
   add a builder; they do **not** add a new HTML/JS bundle.
 - The window is created by `show_dialog(spec)` in `commands.rs::show_dialog`, called directly
   from the menu handler via `spawn`, with `decorations: false`, `transparent: true`,
@@ -1543,10 +1548,10 @@ time, and IPC issues.
 
 | File | Source |
 |---|---|
-| `%TEMP%/zenith/{date}/bar.log` | bar window (`index.html`) |
-| `%TEMP%/zenith/{date}/settings.log` | settings window (`settings.html`) |
-| `%TEMP%/zenith/{date}/widgets.log` | widget manager (`widgets.html`) |
-| `%TEMP%/zenith/{date}/dialog.log` | unified dialog window (`dialog.html`) |
+| `%TEMP%/zenith/{date}/bar.log` | bar window (`src/windows/bar/index.html`) |
+| `%TEMP%/zenith/{date}/settings.log` | settings window (`src/windows/settings/settings.html`) |
+| `%TEMP%/zenith/{date}/widgets.log` | widget manager (`src/windows/manager/widgets.html`) |
+| `%TEMP%/zenith/{date}/dialog.log` | unified dialog window (`src/windows/dialog/dialog.html`) |
 
 Each entry: `[elapsed_seconds.mmm] [LEVEL] message`. Elapsed is relative to process start (not
 wall clock). Open the files in any text editor, or tail them during dev.

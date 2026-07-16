@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="/zenith-icon.png" type="image/png" />
-    <title>Zenith — Web App</title>
+    <style>.zen-window__content{animation:zf 400ms ease-out}@keyframes zf{from{opacity:0}to{opacity:1}}</style>
+    <title>Weather</title>
     <script>document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";</script>
   </head>
-  <body data-window="webapp">
+  <body data-window="weather">
     <div id="root"></div>
-    <script type="module" src="/src/windows/webapp-window/main.ts"></script>
+    <script type="module" src="/widgets/weather/window/main.ts"></script>
   </body>
 </html>

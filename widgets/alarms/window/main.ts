@@ -1,9 +1,9 @@
-import "../../styles/globals.css";
+import "../../../src/styles/globals.css";
 import "./alarm-popup.css";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { mountWindow } from "../../shared/window";
-import { initLog, logInfo } from "../../shared/log";
-import { setIcon } from "../../shared/icon";
+import { mountWindow } from "../../../src/shared/window";
+import { initLog, logInfo } from "../../../src/shared/log";
+import { setIcon } from "../../../src/shared/icon";
 
 void (async () => {
   await initLog();

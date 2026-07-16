@@ -1,14 +1,14 @@
-import "../../styles/globals.css";
+import "../../../src/styles/globals.css";
 import "./git-manager.css";
-import { mountWindow } from "../../shared/window";
-import { mountTabs } from "../../shared/tabs";
-import { mountFilterPills } from "../../shared/filter-pills";
-import { setIcon } from "../../shared/icon";
-import { initLog, logInfo, logMemory } from "../../shared/log";
+import { mountWindow } from "../../../src/shared/window";
+import { mountTabs } from "../../../src/shared/tabs";
+import { mountFilterPills } from "../../../src/shared/filter-pills";
+import { setIcon } from "../../../src/shared/icon";
+import { initLog, logInfo, logMemory } from "../../../src/shared/log";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CMD } from "../../shared/ipc";
-import { EVENT } from "../../shared/events";
+import { CMD } from "../../../src/shared/ipc";
+import { EVENT } from "../../../src/shared/events";
 import type {
   AcctInventory,
   Config,
@@ -17,7 +17,7 @@ import type {
   GitWidgetConfig,
   OpenPull,
   RepoSummary,
-} from "../../shared/types";
+} from "../../../src/shared/types";
 
 interface GitManagerGlobals {
   __ZENITH_GIT_ACCOUNT_ID: string | null;

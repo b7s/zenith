@@ -20,7 +20,7 @@
 | AppBar | ✅ | `SHAppBarMessage` work-area reservation |
 | System tray | ✅ | Context menu (Settings/Widgets/Restart/Close) |
 | Build pipeline | ✅ | `npm run check` / `cargo check` clean, git pushed |
-| Dialog system | ✅ | Unified dialog window (`dialog.html` + `mountDialog` + builder registry); no `prompt`/`confirm`/`alert` |
+| Dialog system | ✅ | Unified dialog window (`src/windows/dialog/dialog.html` + `mountDialog` + builder registry); no `prompt`/`confirm`/`alert` |
 | AppBar explorer-restart monitor | ✅ | Message-only window detects `TaskbarCreated`, re-registers AppBar automatically |
 | Workspace domain | ✅ | `winvd`-based virtual desktop management; rename, delete, create, switch via unified dialog; move/pin gated off |
 | Window creation pattern | ✅ | `visible(false)` → apply material → `set_disable_transitions(DWMWA_TRANSITIONS_FORCEDISABLED)` → `SetWindowPos` with `SWP_NOSIZE\|SWP_NOMOVE` → `set_focus()` (white-flash + OS animation fix); synchronous `data-theme` via inline `<script>` (no theme flash) |

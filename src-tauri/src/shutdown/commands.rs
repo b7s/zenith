@@ -130,7 +130,7 @@ fn create_shutdown_popup_window(app: &tauri::AppHandle, x: f64, y: f64) -> Resul
     let win = tauri::WebviewWindowBuilder::new(
         app,
         SHUTDOWN_LABEL,
-        tauri::WebviewUrl::App("shutdown-popup.html".into()),
+        tauri::WebviewUrl::App("widgets/shutdown/window/shutdown-popup.html".into()),
     )
     .title("Shutdown")
     .inner_size(cw as f64, ch as f64)

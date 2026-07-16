@@ -1,12 +1,12 @@
-import "../../styles/globals.css";
+import "../../../src/styles/globals.css";
 import "./volume-popup.css";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
-import { setIcon } from "../../shared/icon";
-import { CMD } from "../../shared/ipc";
-import { applyTheme } from "../../shared/window";
-import { initLog, logInfo } from "../../shared/log";
-import type { AppSessionInfo } from "../../shared/types";
+import { setIcon } from "../../../src/shared/icon";
+import { CMD } from "../../../src/shared/ipc";
+import { applyTheme } from "../../../src/shared/window";
+import { initLog, logInfo } from "../../../src/shared/log";
+import type { AppSessionInfo } from "../../../src/shared/types";
 
 // Window geometry contract — mirrors the Rust `inner_size` / `max_inner_size`
 // constants in `create_volume_popup_window`. The collapsed popup keeps the

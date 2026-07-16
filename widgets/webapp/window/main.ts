@@ -1,6 +1,6 @@
-import "../../styles/globals.css";
-import { mountWindow } from "../../shared/window";
-import { initLog } from "../../shared/log";
+import "../../../src/styles/globals.css";
+import { mountWindow } from "../../../src/shared/window";
+import { initLog } from "../../../src/shared/log";
 
 const linkUrl =
   (window as unknown as { __ZENITH_LINK_URL?: string }).__ZENITH_LINK_URL;

@@ -458,7 +458,7 @@ fn create_weather_window(app: &tauri::AppHandle, x: f64, y: f64) -> Result<(), S
     let win = tauri::WebviewWindowBuilder::new(
         app,
         WEATHER_LABEL,
-        tauri::WebviewUrl::App("weather.html".into()),
+        tauri::WebviewUrl::App("widgets/weather/window/weather.html".into()),
     )
     .title("Weather")
     .inner_size(cw as f64, ch as f64)

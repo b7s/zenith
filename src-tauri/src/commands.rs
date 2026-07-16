@@ -326,7 +326,7 @@ Object.freeze(window.__ZENITH_DIALOG_FIXED);"#,
     let win = tauri::WebviewWindowBuilder::new(
         app,
         &label,
-        tauri::WebviewUrl::App("dialog.html".into()),
+        tauri::WebviewUrl::App("src/windows/dialog/dialog.html".into()),
     )
     .title(&spec.kind)
     .inner_size(w as f64, h as f64)
@@ -380,7 +380,7 @@ fn create_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
         let win = tauri::WebviewWindowBuilder::new(
             app,
             "settings",
-            tauri::WebviewUrl::App("settings.html".into()),
+            tauri::WebviewUrl::App("src/windows/settings/settings.html".into()),
         )
         .title("Zenith — Settings")
         .inner_size(435.0, 600.0)
@@ -424,7 +424,7 @@ fn create_widgets_window(app: &tauri::AppHandle) -> Result<(), String> {
         let win = tauri::WebviewWindowBuilder::new(
             app,
             "widgets",
-            tauri::WebviewUrl::App("widgets.html".into()),
+            tauri::WebviewUrl::App("src/windows/manager/widgets.html".into()),
         )
         .title("Zenith — Widgets")
         .inner_size(800.0, 600.0)
@@ -509,7 +509,7 @@ pub async fn open_widget_config(app: tauri::AppHandle, widget_id: String) -> Res
         let win = tauri::WebviewWindowBuilder::new(
             &app,
             &label,
-            tauri::WebviewUrl::App("widget-config.html".into()),
+            tauri::WebviewUrl::App("src/windows/widget-config/widget-config.html".into()),
         )
         .title("Widget Settings")
         .inner_size(400.0, 600.0)

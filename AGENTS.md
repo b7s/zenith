@@ -62,7 +62,7 @@ Core ideas:
 | Frontend | **plain TypeScript** (no React, no Vue) + **plain CSS** |
 | Icons | **Lucide** |
 | Design system | **shadcn design tokens** implemented in CSS (oklch on `:root`, `.dark`, `.light`) — *not* the React library |
-| Build / bundler | **Vite 5** |
+| Build / bundler | **Vite 8** |
 | Config format | JSON at `%APPDATA%\zenith\config.json` |
 
 > **No React.** shadcn's *look* is reproduced with design tokens + reusable `.zen-*` CSS classes

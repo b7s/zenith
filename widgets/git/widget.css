@@ -61,7 +61,7 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--primary);
+  background: var(--info);
   display: none;
   flex: 0 0 auto;
   pointer-events: none;

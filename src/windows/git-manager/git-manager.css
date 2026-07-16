@@ -382,6 +382,8 @@ body[data-window="git-manager"] .zen-window__title-wrap {
 .gm-tile.is-danger .gm-tile-val { color: var(--danger, #ef4444); }
 .gm-tile.is-warn { border-color: color-mix(in oklch, var(--warning, #eab308) 55%, transparent); }
 .gm-tile.is-warn .gm-tile-val { color: var(--warning, #eab308); }
+.gm-tile.is-info { border-color: color-mix(in oklch, var(--info) 55%, transparent); }
+.gm-tile.is-info .gm-tile-val { color: var(--info); }
 .gm-tile--clickable { cursor: pointer; }
 .gm-tile--clickable:hover { transform: translateY(-1px); border-color: color-mix(in oklch, var(--primary) 55%, transparent); }
 .gm-tile--clickable:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }

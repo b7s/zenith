@@ -51,6 +51,13 @@
 .zen-button.is-destructive:hover {
   background: color-mix(in oklch, var(--destructive) 78%, transparent);
 }
+.zen-button.is-info {
+  background: color-mix(in oklch, var(--info) 60%, transparent);
+  color: var(--info-foreground);
+}
+.zen-button.is-info:hover {
+  background: color-mix(in oklch, var(--info) 78%, transparent);
+}
 .zen-button.is-sm {
   height: 2rem;
   padding: 0 0.625rem;

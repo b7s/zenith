@@ -7,8 +7,8 @@
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  padding: 0 0.35rem;
-  border-radius: 0.35rem;
+  padding: .25rem .35rem;
+  border-radius: var(--radius);
   transition: background 120ms ease;
 }
 .wx-wrap:hover {

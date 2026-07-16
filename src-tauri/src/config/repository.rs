@@ -20,22 +20,29 @@ pub fn config_path() -> PathBuf {
 
 /// The safe getter. Always returns a usable `Config`.
 ///
-/// - file missing        -> Config::default()
+/// - file missing        -> writes defaults to disk, returns Config::default()
 /// - file unreadable     -> Config::default()  (logs)
 /// - file invalid JSON   -> Config::default()  (logs)
 /// - file valid          -> parsed, missing keys filled by serde defaults
 ///
 /// Never panics, never returns Result. Call this everywhere config is needed.
 pub fn load() -> Config {
-    load_at(&config_path())
+    load_or_seed(&config_path())
 }
 
-pub fn load_at(path: &Path) -> Config {
-    match try_load_at(path) {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            eprintln!("[zenith] config load failed ({e}); using defaults");
-            Config::default()
+/// Load or create seed config at the given path.
+pub fn load_or_seed(path: &Path) -> Config {
+    if !path.exists() {
+        let cfg = Config::default();
+        let _ = save_at(path, &cfg);
+        cfg
+    } else {
+        match try_load_at(path) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                eprintln!("[zenith] config load failed ({e}); using defaults");
+                Config::default()
+            }
         }
     }
 }
@@ -119,17 +126,31 @@ mod tests {
     #[test]
     fn missing_file_yields_defaults() {
         let path = unique_path("missing");
-        let cfg = load_at(&path);
-        assert_eq!(cfg.appearance.background.mode, "acrylic");
+        let cfg = load_or_seed(&path);
+        assert_eq!(cfg.appearance.background.mode, "gradient");
+        assert_eq!(cfg.appearance.background.color_top, "#1f2541");
+        assert_eq!(cfg.appearance.background.color_bottom, "#1a1a1a");
+        assert_eq!(cfg.appearance.background.alpha_top, 60);
+        assert_eq!(cfg.appearance.background.alpha_bottom, 0);
+        assert_eq!(cfg.appearance.tint_alpha, 61);
         assert_eq!(cfg.appearance.bar_height, 40);
+    }
+
+    #[test]
+    fn load_or_seed_creates_file() {
+        let path = unique_path("seed");
+        assert!(!path.exists());
+        let cfg = load_or_seed(&path);
+        assert!(path.exists());
+        assert_eq!(cfg.appearance.background.mode, "gradient");
     }
 
     #[test]
     fn malformed_json_yields_defaults() {
         let path = unique_path("malformed");
         fs::write(&path, b"{ not json").unwrap();
-        let cfg = load_at(&path);
-        assert_eq!(cfg.appearance.background.mode, "acrylic");
+        let cfg = load_or_seed(&path);
+        assert_eq!(cfg.appearance.background.mode, "gradient");
     }
 
     #[test]
@@ -144,10 +165,10 @@ mod tests {
             ..Default::default()
         };
         save_at(&path, &original).unwrap();
-        let loaded = load_at(&path);
+        let loaded = load_or_seed(&path);
         assert_eq!(loaded.appearance.background.mode, "mica");
         assert_eq!(loaded.appearance.bar_height, 52);
-        assert_eq!(loaded.appearance.theme, "auto");
+        assert_eq!(loaded.appearance.theme, "dark");
     }
 
     #[test]

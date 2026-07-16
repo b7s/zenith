@@ -69,7 +69,7 @@ pub struct AppearanceConfig {
 }
 
 fn default_tint_alpha() -> u8 {
-    102
+    61
 }
 fn default_corner_radius() -> u32 {
     0
@@ -81,7 +81,7 @@ fn default_bar_height() -> u32 {
     40
 }
 fn default_theme() -> String {
-    "auto".into()
+    "dark".into()
 }
 
 impl Default for AppearanceConfig {
@@ -111,34 +111,40 @@ impl Default for AppearanceConfig {
 pub struct BackgroundConfig {
     #[serde(default = "default_bg_mode")]
     pub mode: String,
-    #[serde(default = "default_bg_color")]
+    #[serde(default = "default_bg_color_top")]
     pub color_top: String,
     #[serde(default = "default_bg_color")]
     pub color_bottom: String,
-    #[serde(default = "default_alpha")]
+    #[serde(default = "default_alpha_top")]
     pub alpha_top: u8,
-    #[serde(default = "default_alpha")]
+    #[serde(default = "default_alpha_bottom")]
     pub alpha_bottom: u8,
 }
 
 fn default_bg_mode() -> String {
-    "acrylic".into()
+    "gradient".into()
 }
 fn default_bg_color() -> String {
     "#1a1a1a".into()
 }
-fn default_alpha() -> u8 {
-    100
+fn default_bg_color_top() -> String {
+    "#1f2541".into()
+}
+fn default_alpha_top() -> u8 {
+    60
+}
+fn default_alpha_bottom() -> u8 {
+    0
 }
 
 impl Default for BackgroundConfig {
     fn default() -> Self {
         Self {
             mode: default_bg_mode(),
-            color_top: default_bg_color(),
+            color_top: default_bg_color_top(),
             color_bottom: default_bg_color(),
-            alpha_top: default_alpha(),
-            alpha_bottom: default_alpha(),
+            alpha_top: default_alpha_top(),
+            alpha_bottom: default_alpha_bottom(),
         }
     }
 }
@@ -173,14 +179,90 @@ pub struct WidgetsConfig {
 
 impl Default for WidgetsConfig {
     fn default() -> Self {
-        Self {
-            enabled: vec!["workspace".into(), "clock".into(), "volume".into()],
-            positions: std::collections::HashMap::from([
-                ("clock".into(), "center".into()),
-                ("workspace".into(), "left".into()),
-                ("volume".into(), "right".into()),
+        let mut config = std::collections::HashMap::new();
+        config.insert(
+            "datetime".into(),
+            std::collections::HashMap::from([
+                ("show_events".into(), serde_json::Value::Bool(false)),
+                ("onedrive_sync_enabled".into(), serde_json::Value::Bool(false)),
+                ("show_date".into(), serde_json::Value::Bool(true)),
+                ("show_year".into(), serde_json::Value::Bool(false)),
+                ("show_next_month".into(), serde_json::Value::Bool(false)),
+                ("format".into(), serde_json::Value::String("24h".into())),
+                ("timezone".into(), serde_json::Value::String("".into())),
             ]),
-            config: std::collections::HashMap::new(),
+        );
+        config.insert(
+            "alarms".into(),
+            std::collections::HashMap::from([
+                ("show_relative_time".into(), serde_json::Value::Bool(true)),
+            ]),
+        );
+        config.insert(
+            "media".into(),
+            std::collections::HashMap::from([
+                ("compact".into(), serde_json::Value::Bool(false)),
+                ("scroll_label".into(), serde_json::Value::Bool(false)),
+                ("thumb_style".into(), serde_json::Value::String("background".into())),
+            ]),
+        );
+        config.insert(
+            "links".into(),
+            std::collections::HashMap::from([
+                ("links".into(), serde_json::Value::Array(vec![])),
+            ]),
+        );
+        config.insert(
+            "system_stats".into(),
+            std::collections::HashMap::from([
+                ("style".into(), serde_json::Value::String("bar".into())),
+                ("format".into(), serde_json::Value::String("percent".into())),
+                ("history_size".into(), serde_json::Value::Number(20.into())),
+                ("refresh_seconds".into(), serde_json::Value::Number(3.into())),
+                ("show_cpu".into(), serde_json::Value::Bool(true)),
+                ("show_ram".into(), serde_json::Value::Bool(true)),
+                ("show_gpu".into(), serde_json::Value::Bool(true)),
+                ("show_hd".into(), serde_json::Value::Bool(true)),
+                ("show_network".into(), serde_json::Value::Bool(false)),
+                ("selected_gpus".into(), serde_json::Value::Array(vec![serde_json::Value::String("GPU0".into())])),
+                ("selected_hds".into(), serde_json::Value::Array(vec![serde_json::Value::String("C:".into())])),
+                ("selected_networks".into(), serde_json::Value::Array(vec![serde_json::Value::String("Ethernet".into())])),
+            ]),
+        );
+        config.insert(
+            "quick_toggle".into(),
+            std::collections::HashMap::from([
+                ("compact".into(), serde_json::Value::Bool(true)),
+                ("show_wifi".into(), serde_json::Value::Bool(true)),
+                ("show_bluetooth".into(), serde_json::Value::Bool(true)),
+                ("show_dark_mode".into(), serde_json::Value::Bool(true)),
+                ("show_focus_assist".into(), serde_json::Value::Bool(true)),
+                ("show_night_light".into(), serde_json::Value::Bool(true)),
+                ("show_airplane".into(), serde_json::Value::Bool(false)),
+            ]),
+        );
+        Self {
+            enabled: vec![
+                "workspace".into(),
+                "media".into(),
+                "links".into(),
+                "datetime".into(),
+                "alarms".into(),
+                "system_stats".into(),
+                "volume".into(),
+                "shutdown".into(),
+            ],
+            positions: std::collections::HashMap::from([
+                ("workspace".into(), "left".into()),
+                ("media".into(), "left".into()),
+                ("links".into(), "left".into()),
+                ("datetime".into(), "center".into()),
+                ("alarms".into(), "center".into()),
+                ("system_stats".into(), "right".into()),
+                ("volume".into(), "right".into()),
+                ("shutdown".into(), "right".into()),
+            ]),
+            config,
         }
     }
 }
@@ -262,7 +344,12 @@ mod tests {
     #[test]
     fn missing_file_yields_defaults() {
         let cfg = Config::default();
-        assert_eq!(cfg.appearance.background.mode, "acrylic");
+        assert_eq!(cfg.appearance.background.mode, "gradient");
+        assert_eq!(cfg.appearance.background.color_top, "#1f2541");
+        assert_eq!(cfg.appearance.background.color_bottom, "#1a1a1a");
+        assert_eq!(cfg.appearance.background.alpha_top, 60);
+        assert_eq!(cfg.appearance.background.alpha_bottom, 0);
+        assert_eq!(cfg.appearance.tint_alpha, 61);
         assert_eq!(cfg.appearance.bar_height, 40);
         assert_eq!(cfg.appearance.margin_bottom, 0);
         assert_eq!(cfg.layout.position, "top");
@@ -275,12 +362,12 @@ mod tests {
     fn partial_json_fills_missing_with_defaults() {
         let raw = r#"{
             "appearance": { "background": { "mode": "mica" } },
-            "widgets": { "enabled": ["clock"] }
+            "widgets": { "enabled": ["datetime"] }
         }"#;
         let cfg: Config = serde_json::from_str(raw).unwrap();
         assert_eq!(cfg.appearance.background.mode, "mica");
         assert_eq!(cfg.appearance.bar_height, 40);
-        assert_eq!(cfg.widgets.enabled, vec!["clock".to_string()]);
+        assert_eq!(cfg.widgets.enabled, vec!["datetime".to_string()]);
         assert_eq!(cfg.layout.position, "top");
     }
 }

@@ -16,6 +16,8 @@ pub struct Config {
     pub css: CssConfig,
     #[serde(default)]
     pub calendar_oauth: CalendarOauthConfig,
+    #[serde(default)]
+    pub updates: UpdatesConfig,
 }
 
 fn default_monitors() -> MonitorsSelection {
@@ -230,6 +232,27 @@ pub struct CalendarOauthConfig {
     pub google_client_id: String,
     #[serde(default)]
     pub outlook_client_id: String,
+}
+
+/// Update-checker settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatesConfig {
+    /// When true, Zenith checks GitHub releases once every 12 hours and
+    /// emits `zenith:update-available` when a newer version exists.
+    #[serde(default = "default_auto_update")]
+    pub auto_update: bool,
+}
+
+fn default_auto_update() -> bool {
+    true
+}
+
+impl Default for UpdatesConfig {
+    fn default() -> Self {
+        Self {
+            auto_update: default_auto_update(),
+        }
+    }
 }
 
 #[cfg(test)]

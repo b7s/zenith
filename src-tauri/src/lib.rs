@@ -12,6 +12,7 @@ mod shared;
 mod shutdown;
 mod system_stats;
 mod tray;
+mod updates;
 mod volume;
 mod weather;
 mod widgets;
@@ -107,6 +108,9 @@ pub fn run() {
             webapp::commands::close_link,
             webapp::commands::reload_link,
             webapp::commands::show_link_menu,
+            updates::get_update_status,
+            updates::check_update,
+            updates::open_releases_page,
             calendar_sync::commands::calendar_accounts_list,
             calendar_sync::commands::calendar_connect,
             calendar_sync::commands::calendar_poll_auth,
@@ -160,6 +164,9 @@ pub fn run() {
             // Calendar sync — background periodic sync of connected Google /
             // Outlook accounts into the shared events store.
             calendar_sync::poll::start();
+
+            // Update checker — background 12h poll (gated by config.auto_update).
+            updates::spawn(handle.clone());
 
             let h = handle.clone();
             std::thread::spawn(move || {

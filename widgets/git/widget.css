@@ -45,7 +45,7 @@
 }
 
 .git-dots * {
-  border:1px solid color-mix(in oklch, var(--foreground) 55%, transparent);
+  border:1px solid color-mix(in oklch, var(--foreground) 65%, transparent);
 }
 
 .git-dot {

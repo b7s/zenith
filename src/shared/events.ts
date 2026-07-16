@@ -22,6 +22,8 @@ export const EVENT = {
   mediaChanged: "zenith:media-changed",
   gitChanged: "zenith:git-changed",
   calendarView: "zenith:calendar-view",
+  updateAvailable: "zenith:update-available",
+  updateChecked: "zenith:update-checked",
 } as const;
 
 export type EventName = (typeof EVENT)[keyof typeof EVENT];

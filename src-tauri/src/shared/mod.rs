@@ -56,6 +56,12 @@ pub const EVENT_CALENDAR_VIEW: &str = "zenith:calendar-view";
 /// Emitted by the webapp site webview (via WebView2 title-badge heuristic)
 /// when a site's unread state changes. Payload: `{ id: String, has: bool }`.
 pub const EVENT_LINK_NOTIFICATION: &str = "zenith:link-notification";
+/// Emitted by the updates domain when a newer GitHub release than the running
+/// build is detected. Payload: `{ "version": String, "url": String }`.
+pub const EVENT_UPDATE_AVAILABLE: &str = "zenith:update-available";
+/// Emitted by the updates domain after every completed check (manual or the
+/// 12h loop). Payload is the full `UpdateStatus`.
+pub const EVENT_UPDATE_CHECKED: &str = "zenith:update-checked";
 
 pub mod known_folders;
 pub mod shell;

@@ -2,6 +2,8 @@ import { createElement, type IconNode } from "lucide";
 import {
   Activity,
   AlarmClock,
+  ArrowDown,
+  ArrowUp,
   Battery,
   BatteryCharging,
   BatteryFull,
@@ -157,6 +159,8 @@ const ICON_REGISTRY: Record<string, IconNode> = {
   "chevron-down": ChevronDown,
   "chevron-left": ChevronLeft,
   "chevron-right": ChevronRight,
+  "arrow-up": ArrowUp,
+  "arrow-down": ArrowDown,
   calendar: Calendar,
   "calendar-search": CalendarSearch,
   "refresh-cw": RefreshCw,

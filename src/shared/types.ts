@@ -49,6 +49,10 @@ export interface CssConfig {
   custom_enabled: boolean;
 }
 
+export interface UpdatesConfig {
+  auto_update: boolean;
+}
+
 export interface CalendarOauthConfig {
   google_client_id: string;
   outlook_client_id: string;
@@ -62,6 +66,7 @@ export interface Config {
   motion: MotionConfig;
   css: CssConfig;
   calendar_oauth: CalendarOauthConfig;
+  updates: UpdatesConfig;
 }
 
 export interface WidgetManifest {
@@ -124,6 +129,15 @@ export interface WidgetSource {
   html: string;
   css: string;
   js: string;
+}
+
+/** Mirrored in `src-tauri/src/updates/mod.rs::UpdateStatus`. */
+export interface UpdateStatus {
+  update_available: boolean;
+  latest_version: string;
+  current_version: string;
+  message: string;
+  checked_at: number;
 }
 
 export type EventKind = "event" | "alarm";

@@ -66,6 +66,9 @@ export const CMD = {
   calendarSyncNow: "calendar_sync_now",
   calendarSaveAccounts: "calendar_save_accounts",
   calendarSetEnabled: "calendar_set_enabled",
+  getUpdateStatus: "get_update_status",
+  checkUpdate: "check_update",
+  openReleasesPage: "open_releases_page",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

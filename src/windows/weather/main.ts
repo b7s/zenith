@@ -119,6 +119,36 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
   const t = cur.temp !== undefined && cur.temp !== null ? Math.round(cur.temp) : "--";
   tempEl.textContent = t + unit;
 
+  // Today's high/low from the first daily forecast row
+  const todayHi = daily[0]?.temp?.max;
+  const todayLo = daily[0]?.temp?.min;
+  let hiLoEl: HTMLElement | null = null;
+  if (todayHi !== undefined && todayHi !== null && todayLo !== undefined && todayLo !== null) {
+    hiLoEl = document.createElement("div");
+    hiLoEl.className = "weather-current__hilo";
+    hiLoEl.style.cssText = "display:flex;gap:0.75rem;align-items:center;font-variant-numeric:tabular-nums;font-size:0.85rem;color:var(--muted-foreground);margin-top:0.15rem;";
+
+    const hi = document.createElement("span");
+    hi.style.cssText = "display:inline-flex;align-items:center;gap:0.2rem;";
+    const hiIcon = document.createElement("span");
+    hiIcon.className = "zen-icon";
+    hiIcon.dataset.icon = "arrow-up";
+    hiIcon.dataset.size = "12";
+    setIcon(hiIcon, "arrow-up", { size: 12 });
+    hi.append(hiIcon, document.createTextNode(Math.round(todayHi) + unit));
+
+    const lo = document.createElement("span");
+    lo.style.cssText = "display:inline-flex;align-items:center;gap:0.2rem;";
+    const loIcon = document.createElement("span");
+    loIcon.className = "zen-icon";
+    loIcon.dataset.icon = "arrow-down";
+    loIcon.dataset.size = "12";
+    setIcon(loIcon, "arrow-down", { size: 12 });
+    lo.append(loIcon, document.createTextNode(Math.round(todayLo) + unit));
+
+    hiLoEl.append(hi, lo);
+  }
+
   const metaEl = document.createElement("div");
   metaEl.className = "weather-current__meta";
   metaEl.style.cssText = "font-size:0.75rem;color:var(--muted-foreground);display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.25rem;";
@@ -128,7 +158,9 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
   const desc = cur.weather?.[0]?.description || "";
   metaEl.textContent = [desc, feels, hum, wind].filter(Boolean).join(" \u00B7 ");
 
-  info.append(cityEl, tempEl, metaEl);
+  info.append(cityEl, tempEl);
+  if (hiLoEl) info.append(hiLoEl);
+  info.append(metaEl);
   currentCard.append(iconWrap, info);
   content.append(currentCard);
 

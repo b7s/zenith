@@ -7,7 +7,7 @@ import { initLog, logMemory, logInfo } from "../../shared/log";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
-import type { Config, AppearanceConfig, BackgroundMode } from "../../shared/types";
+import type { Config, AppearanceConfig, BackgroundMode, UpdateStatus } from "../../shared/types";
 import { CMD } from "../../shared/ipc";
 import { EVENT } from "../../shared/events";
 
@@ -38,7 +38,10 @@ void (async () => {
 
   let config: Config = await loadConfig();
 
-  buildGeneralTab(tabs.panes.general);
+  buildGeneralTab(tabs.panes.general, (patch: Partial<Config>) => {
+    config = { ...config, updates: { ...config.updates, ...patch.updates } };
+    void saveConfig(config);
+  });
 
   buildBarTab(tabs.panes.bar, (patch) => {
     config = { ...config, appearance: { ...config.appearance, ...patch } };
@@ -414,15 +417,18 @@ void (async () => {
     gh.href = "https://github.com/b7s/zenith";
     gh.target = "_blank";
     gh.rel = "noopener";
-    gh.className = "zen-hint";
-    gh.style.cssText = "color:var(--primary);text-decoration:none;margin-top:0.5rem";
+    gh.className = "zen-link";
+    gh.style.cssText = "margin-top:0.5rem";
     gh.textContent = "github.com/b7s/zenith";
     section.append(gh);
 
     pane.append(section);
   }
 
-  async function buildGeneralTab(pane: HTMLElement) {
+  async function buildGeneralTab(
+    pane: HTMLElement,
+    update: (patch: Partial<Config>) => void
+  ) {
     const section = document.createElement("div");
     section.className = "zen-section";
 
@@ -454,6 +460,59 @@ void (async () => {
     row.append(switchEl);
 
     section.append(row);
+
+    // --- Auto update ---
+    const updRow = document.createElement("label");
+    updRow.className = "zen-checkbox";
+
+    const updText = document.createElement("span");
+    updText.className = "zen-checkbox__text";
+    const updLbl = document.createElement("span");
+    updLbl.className = "zen-checkbox__label";
+    updLbl.textContent = "Automatic update check";
+    const updDesc = document.createElement("span");
+    updDesc.className = "zen-checkbox__desc";
+    updDesc.append("Checks for new versions every 12 hours. View releases at ");
+    const relLink = document.createElement("a");
+    relLink.href = "https://github.com/b7s/zenith/releases";
+    relLink.target = "_blank";
+    relLink.rel = "noopener";
+    relLink.className = "zen-link";
+    relLink.textContent = "GitHub releases";
+    updDesc.append(relLink);
+    updText.append(updLbl, updDesc);
+    updRow.append(updText);
+
+    const updSwitchEl = document.createElement("span");
+    updSwitchEl.className = "zen-checkbox__switch";
+    const updInput = document.createElement("input");
+    updInput.type = "checkbox";
+    updInput.checked = config.updates.auto_update;
+    updSwitchEl.append(updInput);
+    const updTrack = document.createElement("span");
+    updTrack.className = "zen-checkbox__track";
+    const updThumb = document.createElement("span");
+    updThumb.className = "zen-checkbox__thumb";
+    updTrack.append(updThumb);
+    updSwitchEl.append(updTrack);
+    updRow.append(updSwitchEl);
+
+    section.append(updRow);
+
+    // --- Status + check-now ---
+    const statusRow = document.createElement("div");
+    statusRow.style.cssText = "display:flex;align-items:center;justify-content:flex-end;gap:0.75rem;margin-top:0.5rem;flex-wrap:wrap";
+
+    const statusHint = document.createElement("span");
+    statusHint.className = "zen-update-status";
+    statusHint.textContent = "Checking for updates…";
+
+    const checkBtn = document.createElement("button");
+    checkBtn.className = "zen-button zen-button--outline zen-button--sm";
+    checkBtn.textContent = "Check now";
+    statusRow.append(statusHint, checkBtn);
+    section.append(statusRow);
+
     pane.append(section);
 
     try {
@@ -464,5 +523,41 @@ void (async () => {
     input.addEventListener("change", () => {
       void invoke(CMD.setStartWithWindows, { enabled: input.checked });
     });
+
+    const setStatus = (s: UpdateStatus) => {
+      statusHint.classList.remove("is-available", "is-error");
+      if (s.update_available) {
+        statusHint.textContent = `New version available: ${s.latest_version}`;
+        statusHint.classList.add("is-available");
+      } else if (s.message.startsWith("Check failed")) {
+        statusHint.textContent = s.message;
+        statusHint.classList.add("is-error");
+      } else {
+        statusHint.textContent = s.message || "Up to date";
+      }
+    };
+
+    updInput.addEventListener("change", () => {
+      update({ updates: { auto_update: updInput.checked } });
+    });
+
+    checkBtn.addEventListener("click", async () => {
+      checkBtn.disabled = true;
+      checkBtn.textContent = "Checking…";
+      try {
+        const s = await invoke<UpdateStatus>(CMD.checkUpdate);
+        setStatus(s);
+      } catch {
+        statusHint.textContent = "Check failed";
+      } finally {
+        checkBtn.disabled = false;
+        checkBtn.textContent = "Check now";
+      }
+    });
+
+    try {
+      const s = await invoke<UpdateStatus>(CMD.getUpdateStatus);
+      setStatus(s);
+    } catch { /* ignore */ }
   }
 })();

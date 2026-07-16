@@ -44,15 +44,18 @@
   pointer-events: none;
 }
 
+.git-dots * {
+  border:1px solid color-mix(in oklch, var(--foreground) 55%, transparent);
+}
+
 .git-dot {
   width: 5px;
   height: 5px;
-  border: 1px solid color-mix(in oklch, var(--foreground) 50%, transparent);
-  border-radius: 50%;
   background: var(--danger, #ef4444);
   display: none;
   flex: 0 0 auto;
   pointer-events: none;
+  border-radius: 100%;
 }
 
 .git-wrap.is-active .git-dot {

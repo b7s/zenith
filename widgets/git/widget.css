@@ -45,21 +45,23 @@
 }
 
 .git-dot {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 50%, transparent);
   border-radius: 50%;
   background: var(--danger, #ef4444);
   display: none;
   flex: 0 0 auto;
   pointer-events: none;
 }
+
 .git-wrap.is-active .git-dot {
   display: block;
 }
 
 .git-pr-dot {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--info);
   display: none;

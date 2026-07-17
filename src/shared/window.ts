@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { applyIcons } from "./icon";
+import { installContextMenuGuard } from "./context-menu";
 import { logInfo } from "./log";
 
 export function isSystemDark(): boolean {
@@ -15,6 +16,7 @@ export function isSystemDark(): boolean {
  * the dialog/window chrome can paint.
  */
 export async function applyTheme(): Promise<"dark" | "light"> {
+  installContextMenuGuard();
   const sys = isSystemDark() ? "dark" : "light";
   document.documentElement.dataset.theme = sys;
   // Best-effort refinement from config; if it fails or differs, repaint.
@@ -77,6 +79,7 @@ export function enableDrag(header: HTMLElement): void {
 }
 
 export async function mountWindow(opts: MountOptions): Promise<MountedWindow> {
+  installContextMenuGuard();
   const t0 = performance.now();
   await applyTheme();
   logInfo(`mountWindow: applyTheme ${Math.round(performance.now() - t0)}ms`);

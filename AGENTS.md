@@ -8,8 +8,7 @@
 ## 1. What is Zenith?
 
 Zenith is a **top bar for Windows 11** — a custom, always-available status bar that docks to
-the top edge of the screen. It is inspired visually by **Cooldock** (macOS) and structurally by
-**yasb** (Windows status bar).
+the top edge of the screen.
 
 **Required Windows build: Windows 11 24H2 (build ≥ 26100.2605).** Zenith uses the
 [`winvd`](https://docs.rs/winvd) crate to drive the virtual-desktop API, which only supports

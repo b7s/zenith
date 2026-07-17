@@ -34,7 +34,7 @@ export const DEFAULT_CONFIG: Config = {
   motion: { backend: "auto", reduced_motion: false },
   css: { custom_enabled: true },
   calendar_oauth: { google_client_id: "", outlook_client_id: "" },
-  updates: { auto_update: true },
+  updates: { auto_update: true, start_with_windows: true },
 };
 
 let cache: Config | null = null;

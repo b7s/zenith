@@ -1,12 +1,12 @@
 //! Update checker — polls the GitHub "latest release" API for the
 //! `b7s/zenith` repo and compares the returned tag against the running
-//! build version. The check runs once every 12 hours (when `auto_update`
+//! build version. The check runs once every 24 hours (when `auto_update`
 //! is on) and on demand via `check_update`. When a newer version exists,
 //! the `zenith:update-available` event is emitted with the latest tag.
 //!
 //! `ureq` (blocking) is the project's existing HTTP client. Commands run
 //! on Tauri's worker threads, so the blocking call never stalls the main
-//! IPC channel. The 12h loop runs on its own thread and reads config
+//! IPC channel. The 24h loop runs on its own thread and reads config
 //! each cycle, so toggling `auto_update` takes effect without a restart.
 
 use std::sync::{Mutex, OnceLock};
@@ -147,7 +147,7 @@ pub fn check_update(app: AppHandle) -> UpdateStatus {
     run_check(&app)
 }
 
-/// Spawn the 12-hour background loop. Each cycle re-reads config, so the
+/// Spawn the 24-hour background loop. Each cycle re-reads config, so the
 /// `auto_update` toggle (saved to config) takes effect immediately.
 pub fn spawn(app: AppHandle) {
     std::thread::spawn(move || {
@@ -159,8 +159,8 @@ pub fn spawn(app: AppHandle) {
                 continue;
             }
             let now = now_secs();
-            // First run shortly after launch, then every 12h.
-            if last_check == 0 || now - last_check >= 12 * 3600 {
+            // First run shortly after launch, then every 24h.
+            if last_check == 0 || now - last_check >= 24 * 3600 {
                 last_check = now;
                 run_check(&app);
             }

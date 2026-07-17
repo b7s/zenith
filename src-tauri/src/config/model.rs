@@ -319,13 +319,20 @@ pub struct CalendarOauthConfig {
 /// Update-checker settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdatesConfig {
-    /// When true, Zenith checks GitHub releases once every 12 hours and
+    /// When true, Zenith checks GitHub releases once every 24 hours and
     /// emits `zenith:update-available` when a newer version exists.
     #[serde(default = "default_auto_update")]
     pub auto_update: bool,
+    /// When true, Zenith launches automatically when the user signs in.
+    #[serde(default = "default_start_with_windows")]
+    pub start_with_windows: bool,
 }
 
 fn default_auto_update() -> bool {
+    true
+}
+
+fn default_start_with_windows() -> bool {
     true
 }
 
@@ -333,6 +340,7 @@ impl Default for UpdatesConfig {
     fn default() -> Self {
         Self {
             auto_update: default_auto_update(),
+            start_with_windows: default_start_with_windows(),
         }
     }
 }

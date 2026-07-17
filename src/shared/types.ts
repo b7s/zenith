@@ -51,6 +51,7 @@ export interface CssConfig {
 
 export interface UpdatesConfig {
   auto_update: boolean;
+  start_with_windows: boolean;
 }
 
 export interface CalendarOauthConfig {

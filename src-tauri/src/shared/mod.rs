@@ -60,7 +60,7 @@ pub const EVENT_LINK_NOTIFICATION: &str = "zenith:link-notification";
 /// build is detected. Payload: `{ "version": String, "url": String }`.
 pub const EVENT_UPDATE_AVAILABLE: &str = "zenith:update-available";
 /// Emitted by the updates domain after every completed check (manual or the
-/// 12h loop). Payload is the full `UpdateStatus`.
+/// 24h loop). Payload is the full `UpdateStatus`.
 pub const EVENT_UPDATE_CHECKED: &str = "zenith:update-checked";
 
 pub mod known_folders;

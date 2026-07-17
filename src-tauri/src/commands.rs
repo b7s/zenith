@@ -459,18 +459,42 @@ fn create_widgets_window(app: &tauri::AppHandle) -> Result<(), String> {
 pub fn set_start_with_windows(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     use tauri_plugin_autostart::ManagerExt;
     let mgr = app.autolaunch();
-    if enabled {
+    let res = if enabled {
         mgr.enable()
     } else {
         mgr.disable()
+    };
+    res.map_err(|e| e.to_string())?;
+
+    // Persist the user's intent so we don't re-enable autostart on next launch
+    // after the user explicitly disabled it.
+    let mut cfg = crate::config::repository::load();
+    if cfg.updates.start_with_windows != enabled {
+        cfg.updates.start_with_windows = enabled;
+        let _ = crate::config::repository::save(&cfg);
     }
-    .map_err(|e| e.to_string())
+    Ok(())
 }
 
 #[tauri::command]
 pub fn is_start_with_windows(app: tauri::AppHandle) -> Result<bool, String> {
     use tauri_plugin_autostart::ManagerExt;
     app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
+/// Reconcile the OS autostart state with the persisted config intent.
+/// On first run the config defaults `start_with_windows` to true, so Zenith
+/// is enabled to launch at sign-in; if the user later disables it, the
+/// persisted flag is false and we keep it disabled.
+pub fn sync_start_with_windows(app: &tauri::AppHandle) {
+    use tauri_plugin_autostart::ManagerExt;
+    let cfg = crate::config::repository::load();
+    let mgr = app.autolaunch();
+    let desired = cfg.updates.start_with_windows;
+    let current = mgr.is_enabled().unwrap_or(false);
+    if desired != current {
+        let _ = if desired { mgr.enable() } else { mgr.disable() };
+    }
 }
 
 #[tauri::command]

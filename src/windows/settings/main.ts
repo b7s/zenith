@@ -472,7 +472,7 @@ void (async () => {
     updLbl.textContent = "Automatic update check";
     const updDesc = document.createElement("span");
     updDesc.className = "zen-checkbox__desc";
-    updDesc.append("Checks for new versions every 12 hours. View releases at ");
+    updDesc.append("Checks for new versions every 24 hours. View releases at ");
     const relLink = document.createElement("a");
     relLink.href = "https://github.com/b7s/zenith/releases";
     relLink.target = "_blank";
@@ -515,13 +515,12 @@ void (async () => {
 
     pane.append(section);
 
-    try {
-      const enabled = await invoke<boolean>(CMD.isStartWithWindows);
-      input.checked = enabled;
-    } catch { /* ignore */ }
+    // Reflect the persisted config intent (defaults to true on first run).
+    input.checked = config.updates.start_with_windows;
 
     input.addEventListener("change", () => {
       void invoke(CMD.setStartWithWindows, { enabled: input.checked });
+      update({ updates: { start_with_windows: input.checked, auto_update: config.updates.auto_update } });
     });
 
     const setStatus = (s: UpdateStatus) => {
@@ -538,7 +537,7 @@ void (async () => {
     };
 
     updInput.addEventListener("change", () => {
-      update({ updates: { auto_update: updInput.checked } });
+      update({ updates: { auto_update: updInput.checked, start_with_windows: config.updates.start_with_windows } });
     });
 
     checkBtn.addEventListener("click", async () => {

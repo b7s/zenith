@@ -125,6 +125,11 @@ pub fn run() {
             unsafe { let _ = windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_APARTMENTTHREADED); }
             let handle = app.handle().clone();
             crate::shared::set_app_handle(handle.clone());
+
+            // Reconcile OS autostart with the persisted config intent
+            // (defaults to true on first run).
+            commands::sync_start_with_windows(&handle);
+
             if let Some(bar) = handle.get_webview_window("bar") {
                 let h = handle.clone();
                 bar.on_menu_event(move |_window, event| {
@@ -146,7 +151,7 @@ pub fn run() {
 
             // Events domain — startup sync picks newer of local vs OneDrive,
             // then spawn the alarm-firing thread (every 30s) and the cleanup
-            // thread (every 12h).
+            // thread (every 24h).
             events::repository::startup_sync(&handle);
             events::alarm_fire::spawn(handle.clone());
             events::cleanup::spawn(handle.clone());
@@ -165,7 +170,7 @@ pub fn run() {
             // Outlook accounts into the shared events store.
             calendar_sync::poll::start();
 
-            // Update checker — background 12h poll (gated by config.auto_update).
+            // Update checker — background 24h poll (gated by config.auto_update).
             updates::spawn(handle.clone());
 
             let h = handle.clone();

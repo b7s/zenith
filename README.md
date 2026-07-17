@@ -10,6 +10,9 @@
 
 <p align="center">A customizable, always-on-top status bar for Windows&nbsp;11, docked to the top edge of your screen.</p>
 
+
+<img src="public/bar-example.webp" alt="bar example">
+
 <p align="center">
   <a href="#download">Download</a> &middot; <a href="#build-from-source">Build from source</a> &middot; <a href="#widgets">Widgets</a> &middot; <a href="#configuration">Configuration</a> &middot; <a href="#license">License</a>
 </p>

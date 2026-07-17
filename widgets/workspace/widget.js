@@ -11,6 +11,15 @@
   var workspaces = [];
   var activeId = 0;
 
+  // Always target the *currently mounted* container. `layoutBar` wipes the
+  // bar DOM on every config change, so the container captured at first run
+  // may be detached — re-resolve it before each render.
+  function liveContainer() {
+    var c = document.querySelector(".ws-desktops");
+    if (c) container = c;
+    return container;
+  }
+
   function render() {
     container.innerHTML = "";
     for (var i = 0; i < workspaces.length; i++) {
@@ -40,13 +49,14 @@
 
   function setActive(id) {
     activeId = id;
-    var dots = container.querySelectorAll(".ws-dot");
+    var dots = liveContainer().querySelectorAll(".ws-dot");
     for (var i = 0; i < dots.length; i++) {
       dots[i].className = "ws-dot" + (String(dots[i].dataset.index) === String(id) ? " is-active" : "");
     }
   }
 
   function load() {
+    liveContainer();
     invoke("get_workspaces")
       .then(function (ws) {
         workspaces = ws;

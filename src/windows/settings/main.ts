@@ -7,7 +7,7 @@ import { initLog, logMemory, logInfo } from "../../shared/log";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
-import type { Config, AppearanceConfig, BackgroundMode, UpdateStatus } from "../../shared/types";
+import type { Config, AppearanceConfig, BackgroundMode } from "../../shared/types";
 import { CMD } from "../../shared/ipc";
 import { EVENT } from "../../shared/events";
 
@@ -510,7 +510,13 @@ void (async () => {
     const checkBtn = document.createElement("button");
     checkBtn.className = "zen-button zen-button--outline zen-button--sm";
     checkBtn.textContent = "Check now";
-    statusRow.append(statusHint, checkBtn);
+
+    const installBtn = document.createElement("button");
+    installBtn.className = "zen-button zen-button--primary zen-button--sm";
+    installBtn.textContent = "Install update";
+    installBtn.style.display = "none";
+
+    statusRow.append(statusHint, checkBtn, installBtn);
     section.append(statusRow);
 
     pane.append(section);
@@ -523,19 +529,6 @@ void (async () => {
       update({ updates: { start_with_windows: input.checked, auto_update: config.updates.auto_update } });
     });
 
-    const setStatus = (s: UpdateStatus) => {
-      statusHint.classList.remove("is-available", "is-error");
-      if (s.update_available) {
-        statusHint.textContent = `New version available: ${s.latest_version}`;
-        statusHint.classList.add("is-available");
-      } else if (s.message.startsWith("Check failed")) {
-        statusHint.textContent = s.message;
-        statusHint.classList.add("is-error");
-      } else {
-        statusHint.textContent = s.message || "Up to date";
-      }
-    };
-
     updInput.addEventListener("change", () => {
       update({ updates: { auto_update: updInput.checked, start_with_windows: config.updates.start_with_windows } });
     });
@@ -543,20 +536,78 @@ void (async () => {
     checkBtn.addEventListener("click", async () => {
       checkBtn.disabled = true;
       checkBtn.textContent = "Checking…";
+      installBtn.style.display = "none";
       try {
-        const s = await invoke<UpdateStatus>(CMD.checkUpdate);
-        setStatus(s);
-      } catch {
+        const { check } = await import("@tauri-apps/plugin-updater");
+        const update = await check();
+        if (update) {
+          statusHint.textContent = `New version available: v${update.version}`;
+          statusHint.classList.add("is-available");
+          pendingUpdate = update;
+          installBtn.style.display = "";
+        } else {
+          statusHint.textContent = "Up to date";
+          statusHint.classList.remove("is-available");
+          statusHint.classList.remove("is-error");
+        }
+      } catch (e) {
         statusHint.textContent = "Check failed";
+        statusHint.classList.add("is-error");
       } finally {
         checkBtn.disabled = false;
         checkBtn.textContent = "Check now";
       }
     });
 
+    let pendingUpdate: Awaited<ReturnType<typeof import("@tauri-apps/plugin-updater")["check"]>> | null = null;
+    installBtn.addEventListener("click", async () => {
+      if (!pendingUpdate) {
+        const { check } = await import("@tauri-apps/plugin-updater");
+        pendingUpdate = await check();
+      }
+      if (!pendingUpdate) {
+        statusHint.textContent = "Up to date";
+        statusHint.classList.remove("is-available", "is-error");
+        installBtn.style.display = "none";
+        return;
+      }
+      installBtn.disabled = true;
+      checkBtn.disabled = true;
+      installBtn.textContent = "Downloading…";
+      let downloaded = 0;
+      try {
+        await pendingUpdate.downloadAndInstall((event) => {
+          if (event.event === "Started") {
+            installBtn.textContent = "Downloading…";
+          } else if (event.event === "Progress") {
+            downloaded += event.data.chunkLength;
+            installBtn.textContent = `Downloading… ${Math.round(downloaded / 1024)} KB`;
+          }
+        });
+        installBtn.textContent = "Restarting…";
+        const { relaunch } = await import("@tauri-apps/plugin-process");
+        await relaunch();
+      } catch {
+        statusHint.textContent = "Install failed";
+        statusHint.classList.add("is-error");
+        installBtn.disabled = false;
+        checkBtn.disabled = false;
+        installBtn.textContent = "Install update";
+      }
+    });
+
     try {
-      const s = await invoke<UpdateStatus>(CMD.getUpdateStatus);
-      setStatus(s);
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const update = await check();
+      if (update) {
+        statusHint.textContent = `New version available: v${update.version}`;
+        statusHint.classList.add("is-available");
+        pendingUpdate = update;
+        installBtn.style.display = "";
+      } else {
+        statusHint.textContent = "Up to date";
+        statusHint.classList.remove("is-available", "is-error");
+      }
     } catch { /* ignore */ }
   }
 })();

@@ -87,11 +87,11 @@ void (async () => {
   const leftGroup = document.createElement("div");
   leftGroup.className = "cal-hleft";
 
-  const prevBtn = makeIconButton("chevron-left", "Previous month");
+  const prevBtn = makeIconButton("caret-left", "Previous month");
   prevBtn.addEventListener("click", () => stepMonth(-1));
   leftGroup.append(prevBtn);
 
-  const nextBtn = makeIconButton("chevron-right", "Next month");
+  const nextBtn = makeIconButton("caret-right", "Next month");
   nextBtn.addEventListener("click", () => stepMonth(1));
   leftGroup.append(nextBtn);
 

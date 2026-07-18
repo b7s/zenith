@@ -132,18 +132,18 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
     hi.style.cssText = "display:inline-flex;align-items:center;gap:0.2rem;";
     const hiIcon = document.createElement("span");
     hiIcon.className = "zen-icon";
-    hiIcon.dataset.icon = "arrow-up";
+    hiIcon.dataset.icon = "arrow-line-up";
     hiIcon.dataset.size = "12";
-    setIcon(hiIcon, "arrow-up", { size: 12 });
+    setIcon(hiIcon, "arrow-line-up", { size: 12 });
     hi.append(hiIcon, document.createTextNode(Math.round(todayHi) + unit));
 
     const lo = document.createElement("span");
     lo.style.cssText = "display:inline-flex;align-items:center;gap:0.2rem;";
     const loIcon = document.createElement("span");
     loIcon.className = "zen-icon";
-    loIcon.dataset.icon = "arrow-down";
+    loIcon.dataset.icon = "arrow-line-down";
     loIcon.dataset.size = "12";
-    setIcon(loIcon, "arrow-down", { size: 12 });
+    setIcon(loIcon, "arrow-line-down", { size: 12 });
     lo.append(loIcon, document.createTextNode(Math.round(todayLo) + unit));
 
     hiLoEl.append(hi, lo);

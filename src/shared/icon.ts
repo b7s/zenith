@@ -2,7 +2,6 @@ import gearSvg from "@phosphor-icons/core/assets/duotone/gear-duotone.svg?raw";
 import squaresFourSvg from "@phosphor-icons/core/assets/duotone/squares-four-duotone.svg?raw";
 import lockSvg from "@phosphor-icons/core/assets/duotone/lock-duotone.svg?raw";
 import signOutSvg from "@phosphor-icons/core/assets/duotone/sign-out-duotone.svg?raw";
-import xSvg from "@phosphor-icons/core/assets/duotone/x-duotone.svg?raw";
 import arrowCounterClockwiseSvg from "@phosphor-icons/core/assets/duotone/arrow-counter-clockwise-duotone.svg?raw";
 import magnifyingGlassSvg from "@phosphor-icons/core/assets/duotone/magnifying-glass-duotone.svg?raw";
 import powerSvg from "@phosphor-icons/core/assets/duotone/power-duotone.svg?raw";
@@ -45,8 +44,8 @@ import caretUpSvg from "@phosphor-icons/core/assets/duotone/caret-up-duotone.svg
 import caretDownSvg from "@phosphor-icons/core/assets/duotone/caret-down-duotone.svg?raw";
 import caretLeftSvg from "@phosphor-icons/core/assets/duotone/caret-left-duotone.svg?raw";
 import caretRightSvg from "@phosphor-icons/core/assets/duotone/caret-right-duotone.svg?raw";
-import arrowUpSvg from "@phosphor-icons/core/assets/duotone/arrow-up-duotone.svg?raw";
-import arrowDownSvg from "@phosphor-icons/core/assets/duotone/arrow-down-duotone.svg?raw";
+import caretLeftRegularSvg from "@phosphor-icons/core/assets/regular/caret-left.svg?raw";
+import caretRightRegularSvg from "@phosphor-icons/core/assets/regular/caret-right.svg?raw";
 import calendarBlankSvg from "@phosphor-icons/core/assets/duotone/calendar-blank-duotone.svg?raw";
 import calendarSvg from "@phosphor-icons/core/assets/duotone/calendar-duotone.svg?raw";
 import arrowClockwiseSvg from "@phosphor-icons/core/assets/duotone/arrow-clockwise-duotone.svg?raw";
@@ -60,7 +59,6 @@ import circleHalfTiltSvg from "@phosphor-icons/core/assets/duotone/circle-half-t
 import slidersSvg from "@phosphor-icons/core/assets/duotone/sliders-duotone.svg?raw";
 import toggleRightSvg from "@phosphor-icons/core/assets/duotone/toggle-right-duotone.svg?raw";
 import sparkleSvg from "@phosphor-icons/core/assets/duotone/sparkle-duotone.svg?raw";
-import plusSvg from "@phosphor-icons/core/assets/duotone/plus-duotone.svg?raw";
 import plusCircleSvg from "@phosphor-icons/core/assets/duotone/plus-circle-duotone.svg?raw";
 import trashSvg from "@phosphor-icons/core/assets/duotone/trash-duotone.svg?raw";
 import pencilSimpleSvg from "@phosphor-icons/core/assets/duotone/pencil-simple-duotone.svg?raw";
@@ -76,6 +74,12 @@ import checkSvg from "@phosphor-icons/core/assets/duotone/check-duotone.svg?raw"
 import copySvg from "@phosphor-icons/core/assets/duotone/copy-duotone.svg?raw";
 import spinnerSvg from "@phosphor-icons/core/assets/duotone/spinner-duotone.svg?raw";
 import gearSixSvg from "@phosphor-icons/core/assets/duotone/gear-six-duotone.svg?raw";
+import arrowCircleLeftSvg from "@phosphor-icons/core/assets/duotone/arrow-circle-left-duotone.svg?raw";
+import arrowCircleRightSvg from "@phosphor-icons/core/assets/duotone/arrow-circle-right-duotone.svg?raw";
+import arrowLineUpSvg from "@phosphor-icons/core/assets/duotone/arrow-line-up-duotone.svg?raw";
+import arrowLineDownSvg from "@phosphor-icons/core/assets/duotone/arrow-line-down-duotone.svg?raw";
+import xRegularSvg from "@phosphor-icons/core/assets/regular/x.svg?raw";
+import plusRegularSvg from "@phosphor-icons/core/assets/regular/plus.svg?raw";
 
 const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><rect x="72" y="72" width="112" height="112" rx="16" opacity="0.25"/></svg>`;
 
@@ -84,7 +88,7 @@ const ICON_REGISTRY: Record<string, string> = {
   "layout-grid": squaresFourSvg,
   lock: lockSvg,
   "log-out": signOutSvg,
-  x: xSvg,
+  x: xRegularSvg,
   "rotate-ccw": arrowCounterClockwiseSvg,
   search: magnifyingGlassSvg,
   power: powerSvg,
@@ -138,8 +142,12 @@ const ICON_REGISTRY: Record<string, string> = {
   "chevron-down": caretDownSvg,
   "chevron-left": caretLeftSvg,
   "chevron-right": caretRightSvg,
-  "arrow-up": arrowUpSvg,
-  "arrow-down": arrowDownSvg,
+  "circle-left": arrowCircleLeftSvg,
+  "circle-right": arrowCircleRightSvg,
+  "caret-left": caretLeftRegularSvg,
+  "caret-right": caretRightRegularSvg,
+  "arrow-line-up": arrowLineUpSvg,
+  "arrow-line-down": arrowLineDownSvg,
   calendar: calendarBlankSvg,
   "calendar-search": calendarSvg,
   events: calendarBlankSvg,
@@ -154,7 +162,7 @@ const ICON_REGISTRY: Record<string, string> = {
   "sliders-horizontal": slidersSvg,
   "toggle-right": toggleRightSvg,
   sparkles: sparkleSvg,
-  plus: plusSvg,
+  plus: plusRegularSvg,
   "plus-circle": plusCircleSvg,
   "trash-2": trashSvg,
   trash: trashSvg,

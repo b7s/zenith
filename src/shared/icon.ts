@@ -1,194 +1,178 @@
-import { createElement, type IconNode } from "lucide";
-import {
-  Activity,
-  AlarmClock,
-  ArrowDown,
-  ArrowUp,
-  Battery,
-  BatteryCharging,
-  BatteryFull,
-  BatteryLow,
-  BatteryMedium,
-  BatteryWarning,
-  Bluetooth,
-  Calendar,
-  CalendarSearch,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  Check,
-  Clock,
-  Cloud,
-  CloudDrizzle,
-  CloudFog,
-  CloudLightning,
-  CloudMoon,
-  CloudRain,
-  CloudSnow,
-  CloudSun,
-  Cloudy,
-  Copy,
-  Droplets,
-  ExternalLink,
-  Eye,
-  Focus,
-  Gauge,
-  Globe,
-  Image,
-  GitBranch,
-  GitPullRequest,
-  GitPullRequestDraft,
-  Github,
-  LayoutGrid,
-  List,
-  Loader2,
-  Lock,
-  LogOut,
-  MonitorSmartphone,
-  Moon,
-  Music,
-  Navigation,
-  Plane,
-  Pencil,
-  Plus,
-  Power,
-  RefreshCw,
-  Repeat,
-  RotateCcw,
-  Search,
-  Settings,
-  SkipBack,
-  SkipForward,
-  SlidersHorizontal,
-  Sparkles,
-  Sun,
-  SunMoon,
-  Sunrise,
-  Sunset,
-  Thermometer,
-  ToggleRight,
-  Trash2,
-  TriangleAlert,
-  Umbrella,
-  Upload,
-  Volume,
-  Volume1,
-  Volume2,
-  VolumeX,
-  Waves,
-  Wifi,
-  Wind,
-  X,
-} from "lucide";
+import gearSvg from "@phosphor-icons/core/assets/duotone/gear-duotone.svg?raw";
+import squaresFourSvg from "@phosphor-icons/core/assets/duotone/squares-four-duotone.svg?raw";
+import lockSvg from "@phosphor-icons/core/assets/duotone/lock-duotone.svg?raw";
+import signOutSvg from "@phosphor-icons/core/assets/duotone/sign-out-duotone.svg?raw";
+import xSvg from "@phosphor-icons/core/assets/duotone/x-duotone.svg?raw";
+import arrowCounterClockwiseSvg from "@phosphor-icons/core/assets/duotone/arrow-counter-clockwise-duotone.svg?raw";
+import magnifyingGlassSvg from "@phosphor-icons/core/assets/duotone/magnifying-glass-duotone.svg?raw";
+import powerSvg from "@phosphor-icons/core/assets/duotone/power-duotone.svg?raw";
+import clockSvg from "@phosphor-icons/core/assets/duotone/clock-duotone.svg?raw";
+import alarmSvg from "@phosphor-icons/core/assets/duotone/alarm-duotone.svg?raw";
+import batteryFullSvg from "@phosphor-icons/core/assets/duotone/battery-full-duotone.svg?raw";
+import batteryChargingSvg from "@phosphor-icons/core/assets/duotone/battery-charging-duotone.svg?raw";
+import batteryLowSvg from "@phosphor-icons/core/assets/duotone/battery-low-duotone.svg?raw";
+import batteryMediumSvg from "@phosphor-icons/core/assets/duotone/battery-medium-duotone.svg?raw";
+import batteryWarningSvg from "@phosphor-icons/core/assets/duotone/battery-warning-duotone.svg?raw";
+import musicNotesSvg from "@phosphor-icons/core/assets/duotone/music-notes-duotone.svg?raw";
+import speakerHighSvg from "@phosphor-icons/core/assets/duotone/speaker-high-duotone.svg?raw";
+import speakerLowSvg from "@phosphor-icons/core/assets/duotone/speaker-low-duotone.svg?raw";
+import speakerXSvg from "@phosphor-icons/core/assets/duotone/speaker-x-duotone.svg?raw";
+import pulseSvg from "@phosphor-icons/core/assets/duotone/pulse-duotone.svg?raw";
+import cloudSunSvg from "@phosphor-icons/core/assets/duotone/cloud-sun-duotone.svg?raw";
+import cloudMoonSvg from "@phosphor-icons/core/assets/duotone/cloud-moon-duotone.svg?raw";
+import cloudSvg from "@phosphor-icons/core/assets/duotone/cloud-duotone.svg?raw";
+import cloudRainSvg from "@phosphor-icons/core/assets/duotone/cloud-rain-duotone.svg?raw";
+import cloudLightningSvg from "@phosphor-icons/core/assets/duotone/cloud-lightning-duotone.svg?raw";
+import cloudSnowSvg from "@phosphor-icons/core/assets/duotone/cloud-snow-duotone.svg?raw";
+import cloudFogSvg from "@phosphor-icons/core/assets/duotone/cloud-fog-duotone.svg?raw";
+import sunSvg from "@phosphor-icons/core/assets/duotone/sun-duotone.svg?raw";
+import moonSvg from "@phosphor-icons/core/assets/duotone/moon-duotone.svg?raw";
+import windSvg from "@phosphor-icons/core/assets/duotone/wind-duotone.svg?raw";
+import dropSvg from "@phosphor-icons/core/assets/duotone/drop-duotone.svg?raw";
+import eyeSvg from "@phosphor-icons/core/assets/duotone/eye-duotone.svg?raw";
+import gaugeSvg from "@phosphor-icons/core/assets/duotone/gauge-duotone.svg?raw";
+import sunHorizonSvg from "@phosphor-icons/core/assets/duotone/sun-horizon-duotone.svg?raw";
+import thermometerSvg from "@phosphor-icons/core/assets/duotone/thermometer-duotone.svg?raw";
+import umbrellaSvg from "@phosphor-icons/core/assets/duotone/umbrella-duotone.svg?raw";
+import navigationArrowSvg from "@phosphor-icons/core/assets/duotone/navigation-arrow-duotone.svg?raw";
+import wavesSvg from "@phosphor-icons/core/assets/duotone/waves-duotone.svg?raw";
+import devicesSvg from "@phosphor-icons/core/assets/duotone/devices-duotone.svg?raw";
+import arrowSquareOutSvg from "@phosphor-icons/core/assets/duotone/arrow-square-out-duotone.svg?raw";
+import globeSvg from "@phosphor-icons/core/assets/duotone/globe-duotone.svg?raw";
+import uploadSvg from "@phosphor-icons/core/assets/duotone/upload-duotone.svg?raw";
+import imageSvg from "@phosphor-icons/core/assets/duotone/image-duotone.svg?raw";
+import caretUpSvg from "@phosphor-icons/core/assets/duotone/caret-up-duotone.svg?raw";
+import caretDownSvg from "@phosphor-icons/core/assets/duotone/caret-down-duotone.svg?raw";
+import caretLeftSvg from "@phosphor-icons/core/assets/duotone/caret-left-duotone.svg?raw";
+import caretRightSvg from "@phosphor-icons/core/assets/duotone/caret-right-duotone.svg?raw";
+import arrowUpSvg from "@phosphor-icons/core/assets/duotone/arrow-up-duotone.svg?raw";
+import arrowDownSvg from "@phosphor-icons/core/assets/duotone/arrow-down-duotone.svg?raw";
+import calendarBlankSvg from "@phosphor-icons/core/assets/duotone/calendar-blank-duotone.svg?raw";
+import calendarSvg from "@phosphor-icons/core/assets/duotone/calendar-duotone.svg?raw";
+import arrowClockwiseSvg from "@phosphor-icons/core/assets/duotone/arrow-clockwise-duotone.svg?raw";
+import repeatSvg from "@phosphor-icons/core/assets/duotone/repeat-duotone.svg?raw";
+import warningSvg from "@phosphor-icons/core/assets/duotone/warning-duotone.svg?raw";
+import wifiHighSvg from "@phosphor-icons/core/assets/duotone/wifi-high-duotone.svg?raw";
+import bluetoothSvg from "@phosphor-icons/core/assets/duotone/bluetooth-duotone.svg?raw";
+import crosshairSvg from "@phosphor-icons/core/assets/duotone/crosshair-duotone.svg?raw";
+import airplaneSvg from "@phosphor-icons/core/assets/duotone/airplane-duotone.svg?raw";
+import circleHalfTiltSvg from "@phosphor-icons/core/assets/duotone/circle-half-tilt-duotone.svg?raw";
+import slidersSvg from "@phosphor-icons/core/assets/duotone/sliders-duotone.svg?raw";
+import toggleRightSvg from "@phosphor-icons/core/assets/duotone/toggle-right-duotone.svg?raw";
+import sparkleSvg from "@phosphor-icons/core/assets/duotone/sparkle-duotone.svg?raw";
+import plusSvg from "@phosphor-icons/core/assets/duotone/plus-duotone.svg?raw";
+import plusCircleSvg from "@phosphor-icons/core/assets/duotone/plus-circle-duotone.svg?raw";
+import trashSvg from "@phosphor-icons/core/assets/duotone/trash-duotone.svg?raw";
+import pencilSimpleSvg from "@phosphor-icons/core/assets/duotone/pencil-simple-duotone.svg?raw";
+import listBulletsSvg from "@phosphor-icons/core/assets/duotone/list-bullets-duotone.svg?raw";
+import playSvg from "@phosphor-icons/core/assets/duotone/play-duotone.svg?raw";
+import pauseSvg from "@phosphor-icons/core/assets/duotone/pause-duotone.svg?raw";
+import skipBackSvg from "@phosphor-icons/core/assets/duotone/skip-back-duotone.svg?raw";
+import skipForwardSvg from "@phosphor-icons/core/assets/duotone/skip-forward-duotone.svg?raw";
+import gitBranchSvg from "@phosphor-icons/core/assets/duotone/git-branch-duotone.svg?raw";
+import gitPullRequestSvg from "@phosphor-icons/core/assets/duotone/git-pull-request-duotone.svg?raw";
+import githubLogoSvg from "@phosphor-icons/core/assets/duotone/github-logo-duotone.svg?raw";
+import checkSvg from "@phosphor-icons/core/assets/duotone/check-duotone.svg?raw";
+import copySvg from "@phosphor-icons/core/assets/duotone/copy-duotone.svg?raw";
+import spinnerSvg from "@phosphor-icons/core/assets/duotone/spinner-duotone.svg?raw";
+import gearSixSvg from "@phosphor-icons/core/assets/duotone/gear-six-duotone.svg?raw";
 
-import { DEFAULT_WIN_GLYPH, WIN_GLYPHS } from "./win-icons";
+const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><rect x="72" y="72" width="112" height="112" rx="16" opacity="0.25"/></svg>`;
 
-const OCTAGON_NODE: IconNode = [
-  "svg",
-  { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" },
-  [["polygon", { points: "20.3,15.4 15.4,20.3 8.6,20.3 3.7,15.4 3.7,8.6 8.6,3.7 15.4,3.7 20.3,8.6" }], ["circle", { cx: "12", cy: "12", r: "3" }]],
-];
-
-const SOLID_PLAY: IconNode = [
-  "svg",
-  { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24" },
-  [["path", { d: "M5 3l16 9-16 9V3z", fill: "currentColor" }]],
-];
-
-const SOLID_PAUSE: IconNode = [
-  "svg",
-  { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24" },
-  [
-    ["rect", { x: "5", y: "3", width: "5.5", height: "18", rx: "1.25", fill: "currentColor" }],
-    ["rect", { x: "13.5", y: "3", width: "5.5", height: "18", rx: "1.25", fill: "currentColor" }],
-  ],
-];
-
-const ICON_REGISTRY: Record<string, IconNode> = {
-  settings: Settings,
-  "layout-grid": LayoutGrid,
-  lock: Lock,
-  "log-out": LogOut,
-  x: X,
-  "rotate-ccw": RotateCcw,
-  search: Search,
-  power: Power,
-  clock: Clock,
-  "alarm-clock": AlarmClock,
-  battery: Battery,
-  "battery-charging": BatteryCharging,
-  "battery-full": BatteryFull,
-  "battery-low": BatteryLow,
-  "battery-medium": BatteryMedium,
-  "battery-warning": BatteryWarning,
-  "settings-octa": OCTAGON_NODE,
-  volume: Volume,
-  "volume-1": Volume1,
-  "volume-2": Volume2,
-  "volume-x": VolumeX,
-  music: Music,
-  activity: Activity,
-  "cloud-sun": CloudSun,
-  "cloud-moon": CloudMoon,
-  cloud: Cloud,
-  "cloud-rain": CloudRain,
-  "cloud-drizzle": CloudDrizzle,
-  "cloud-lightning": CloudLightning,
-  "cloud-snow": CloudSnow,
-  "cloud-fog": CloudFog,
-  cloudy: Cloudy,
-  sun: Sun,
-  moon: Moon,
-  wind: Wind,
-  droplets: Droplets,
-  eye: Eye,
-  gauge: Gauge,
-  sunrise: Sunrise,
-  sunset: Sunset,
-  thermometer: Thermometer,
-  umbrella: Umbrella,
-  navigation: Navigation,
-  waves: Waves,
-  "monitor-smartphone": MonitorSmartphone,
-  "external-link": ExternalLink,
-  globe: Globe,
-  upload: Upload,
-  image: Image,
-  "chevron-up": ChevronUp,
-  "chevron-down": ChevronDown,
-  "chevron-left": ChevronLeft,
-  "chevron-right": ChevronRight,
-  "arrow-up": ArrowUp,
-  "arrow-down": ArrowDown,
-  calendar: Calendar,
-  "calendar-search": CalendarSearch,
-  "refresh-cw": RefreshCw,
-  repeat: Repeat,
-  "triangle-alert": TriangleAlert,
-  wifi: Wifi,
-  bluetooth: Bluetooth,
-  focus: Focus,
-  plane: Plane,
-  "sun-moon": SunMoon,
-  "sliders-horizontal": SlidersHorizontal,
-  "toggle-right": ToggleRight,
-  sparkles: Sparkles,
-  plus: Plus,
-  "trash-2": Trash2,
-  pencil: Pencil,
-  list: List,
-  play: SOLID_PLAY,
-  pause: SOLID_PAUSE,
-  "skip-back": SkipBack,
-  "skip-forward": SkipForward,
-  "git-branch": GitBranch,
-  "git-pull-request": GitPullRequest,
-  "git-pull-request-draft": GitPullRequestDraft,
-  github: Github,
-  check: Check,
-  copy: Copy,
-  loader: Loader2,
+const ICON_REGISTRY: Record<string, string> = {
+  settings: gearSvg,
+  "layout-grid": squaresFourSvg,
+  lock: lockSvg,
+  "log-out": signOutSvg,
+  x: xSvg,
+  "rotate-ccw": arrowCounterClockwiseSvg,
+  search: magnifyingGlassSvg,
+  power: powerSvg,
+  clock: clockSvg,
+  "alarm-clock": alarmSvg,
+  battery: batteryFullSvg,
+  "battery-charging": batteryChargingSvg,
+  "battery-full": batteryFullSvg,
+  "battery-low": batteryLowSvg,
+  "battery-medium": batteryMediumSvg,
+  "battery-warning": batteryWarningSvg,
+  "config": gearSixSvg,
+  music: musicNotesSvg,
+  "now-playing": musicNotesSvg,
+  volume: speakerHighSvg,
+  "volume-1": speakerLowSvg,
+  "volume-2": speakerHighSvg,
+  "volume-x": speakerXSvg,
+  activity: pulseSvg,
+  "system-stats": pulseSvg,
+  "cloud-sun": cloudSunSvg,
+  "cloud-moon": cloudMoonSvg,
+  cloud: cloudSvg,
+  "cloud-rain": cloudRainSvg,
+  "cloud-drizzle": cloudRainSvg,
+  "cloud-lightning": cloudLightningSvg,
+  "cloud-snow": cloudSnowSvg,
+  "cloud-fog": cloudFogSvg,
+  cloudy: cloudSvg,
+  weather: cloudSunSvg,
+  sun: sunSvg,
+  moon: moonSvg,
+  wind: windSvg,
+  droplets: dropSvg,
+  eye: eyeSvg,
+  gauge: gaugeSvg,
+  sunrise: sunHorizonSvg,
+  sunset: sunHorizonSvg,
+  thermometer: thermometerSvg,
+  umbrella: umbrellaSvg,
+  navigation: navigationArrowSvg,
+  waves: wavesSvg,
+  "monitor-smartphone": devicesSvg,
+  "monitor": devicesSvg,
+  workspace: devicesSvg,
+  "external-link": arrowSquareOutSvg,
+  globe: globeSvg,
+  upload: uploadSvg,
+  image: imageSvg,
+  "chevron-up": caretUpSvg,
+  "chevron-down": caretDownSvg,
+  "chevron-left": caretLeftSvg,
+  "chevron-right": caretRightSvg,
+  "arrow-up": arrowUpSvg,
+  "arrow-down": arrowDownSvg,
+  calendar: calendarBlankSvg,
+  "calendar-search": calendarSvg,
+  events: calendarBlankSvg,
+  "refresh-cw": arrowClockwiseSvg,
+  repeat: repeatSvg,
+  "triangle-alert": warningSvg,
+  wifi: wifiHighSvg,
+  bluetooth: bluetoothSvg,
+  focus: crosshairSvg,
+  plane: airplaneSvg,
+  "sun-moon": circleHalfTiltSvg,
+  "sliders-horizontal": slidersSvg,
+  "toggle-right": toggleRightSvg,
+  sparkles: sparkleSvg,
+  plus: plusSvg,
+  "plus-circle": plusCircleSvg,
+  "trash-2": trashSvg,
+  trash: trashSvg,
+  pencil: pencilSimpleSvg,
+  edit: pencilSimpleSvg,
+  list: listBulletsSvg,
+  play: playSvg,
+  pause: pauseSvg,
+  "skip-back": skipBackSvg,
+  "skip-forward": skipForwardSvg,
+  "git-branch": gitBranchSvg,
+  git: gitBranchSvg,
+  "git-pull-request": gitPullRequestSvg,
+  "git-pull-request-draft": gitPullRequestSvg,
+  github: githubLogoSvg,
+  check: checkSvg,
+  copy: copySvg,
+  loader: spinnerSvg,
 };
 
 const ALIASES: Record<string, string> = {
@@ -197,18 +181,11 @@ const ALIASES: Record<string, string> = {
   restart: "rotate-ccw",
   refresh: "rotate-ccw",
   widgets: "layout-grid",
-  volume: "volume",
-  "now-playing": "music",
-  "system-stats": "activity",
-  weather: "cloud-sun",
-  workspace: "monitor-smartphone",
-  config: "settings-octa",
-  git: "git-branch",
 };
 
-export function registerIcons(map: Record<string, IconNode>): void {
-  for (const [name, node] of Object.entries(map)) {
-    ICON_REGISTRY[toKebab(name)] = node;
+export function registerIcons(map: Record<string, string>): void {
+  for (const [name, svg] of Object.entries(map)) {
+    ICON_REGISTRY[toKebab(name)] = svg;
   }
 }
 
@@ -223,20 +200,17 @@ function resolveAlias(name: string): string {
   return ALIASES[name] ?? name;
 }
 
-function winGlyph(kebab: string, aliased: string): string {
-  return WIN_GLYPHS[aliased] ?? WIN_GLYPHS[kebab] ?? DEFAULT_WIN_GLYPH;
+export interface ResolvedIcon {
+  key: string;
+  svg: string;
 }
 
-export type ResolvedIcon =
-  | { kind: "svg"; node: IconNode }
-  | { kind: "font"; glyph: string };
-
-export function resolveIcon(name: string): ResolvedIcon {
+export function resolveIcon(name: string): ResolvedIcon | null {
   const kebab = toKebab(name);
   const aliased = resolveAlias(kebab);
-  const node = ICON_REGISTRY[aliased] ?? ICON_REGISTRY[kebab];
-  if (node) return { kind: "svg", node };
-  return { kind: "font", glyph: winGlyph(kebab, aliased) };
+  const svg = ICON_REGISTRY[aliased] ?? ICON_REGISTRY[kebab];
+  if (svg) return { key: ICON_REGISTRY[aliased] ? aliased : kebab, svg };
+  return null;
 }
 
 export interface IconOptions {
@@ -261,22 +235,20 @@ function ensureSprite(): SVGElement {
   return sprite;
 }
 
-function ensureSymbol(canonical: string, node: IconNode): string {
+function ensureSymbol(canonical: string, raw: string): string {
   const id = `zen-i-${canonical}`;
   const sprite = ensureSprite();
   if (sprite.querySelector(`#${id}`)) return id;
 
-  const full = createElement(node);
+  const doc = new DOMParser().parseFromString(raw, "image/svg+xml");
+  const srcSvg = doc.querySelector("svg");
+  const viewBox = srcSvg?.getAttribute("viewBox") ?? "0 0 256 256";
+
   const symbol = document.createElementNS(SVG_NS, "symbol");
   symbol.id = id;
-
-  for (const attr of full.getAttributeNames()) {
-    if (attr === "id" || attr === "width" || attr === "height" || attr === "xmlns") continue;
-    const val = full.getAttribute(attr);
-    if (val !== null) symbol.setAttribute(attr, val);
-  }
-
-  symbol.innerHTML = full.innerHTML;
+  symbol.setAttribute("viewBox", viewBox);
+  symbol.setAttribute("fill", "currentColor");
+  if (srcSvg) symbol.innerHTML = srcSvg.innerHTML;
   sprite.appendChild(symbol);
   return id;
 }
@@ -299,29 +271,23 @@ export function setIcon(el: HTMLElement, name: string, opts: IconOptions = {}): 
     container = el;
   }
 
-  const resolved = resolveIcon(name);
-  if (resolved.kind === "svg") {
-    const kebab = toKebab(name);
-    const aliased = resolveAlias(kebab);
-    const canonical = ICON_REGISTRY[aliased] ? aliased : kebab;
-    const symbolId = ensureSymbol(canonical, resolved.node);
+  container.classList.remove("zen-icon--font");
 
+  const resolved = resolveIcon(name);
+  if (resolved) {
+    const symbolId = ensureSymbol(resolved.key, resolved.svg);
     const svgEl = document.createElementNS(SVG_NS, "svg");
     svgEl.setAttribute("width", String(size));
     svgEl.setAttribute("height", String(size));
-    if (opts.strokeWidth !== undefined) {
-      svgEl.setAttribute("stroke-width", String(opts.strokeWidth));
-    }
+    if (resolved.key === "loader") svgEl.classList.add("zen-icon--spin");
 
     const useEl = document.createElementNS(SVG_NS, "use");
     useEl.setAttribute("href", `#${symbolId}`);
     svgEl.appendChild(useEl);
 
-    container.classList.remove("zen-icon--font");
     container.replaceChildren(svgEl);
   } else {
-    container.classList.add("zen-icon--font");
-    container.textContent = resolved.glyph;
+    container.innerHTML = PLACEHOLDER_SVG;
   }
 }
 
@@ -336,7 +302,7 @@ export function applyIcons(root: ParentNode = document): void {
 }
 
 /// Map an OpenWeatherMap condition code (weather[0].id) + day/night
-/// (weather[0].icon suffix 'd'/'n') to a Lucide icon name. Falls back to
+/// (weather[0].icon suffix 'd'/'n') to a Phosphor duotone icon name. Falls back to
 /// "cloud" when no specific mapping exists. Single home — the popup window
 /// and the bar widget both use this via `window.__zenith_weatherIcon`.
 export function weatherIcon(code: number, icon?: string): string {

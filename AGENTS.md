@@ -59,7 +59,7 @@ Core ideas:
 | App framework | **Tauri 2** |
 | Windows interop | `windows` crate **0.61** (`Win32_UI_Shell` for AppBar, `Win32_Graphics_Dwm` for corners, `Win32_Graphics_Gdi` for monitors, `SetWindowCompositionAttribute` for Mica/Acrylic) + **`winvd` 0.0.49** for the virtual-desktop COM API (IVirtualDesktopManagerInternal / IVirtualDesktop). Requires a thin alias crate `windows_058 = { package = "windows", version = "0.58", features = ["Win32_Foundation"] }` to construct the HWND type `winvd` expects. |
 | Frontend | **plain TypeScript** (no React, no Vue) + **plain CSS** |
-| Icons | **Lucide** |
+| Icons | **Phosphor Icons (duotone)** |
 | Design system | **shadcn design tokens** implemented in CSS (oklch on `:root`, `.dark`, `.light`) — *not* the React library |
 | Build / bundler | **Vite 8** |
 | Config format | JSON at `%APPDATA%\zenith\config.json` |
@@ -596,30 +596,30 @@ or use composition (`class="zen-icon-button cal-window__close"`).
 
 ---
 
-## 6.1 Icon system (Lucide + Windows font fallback)
+## 6.1 Icon system (Phosphor duotone)
 
-All icons flow through **one** module: `src/shared/icon.ts`.
+All icons flow through **one** module: `src/shared/icon.ts`. Every icon is a **Phosphor duotone**
+SVG (<https://phosphoricons.com/>), so each glyph is two-tone (a primary `currentColor` layer plus
+a secondary layer at reduced opacity) and adapts to the window theme automatically. There is **no
+Windows font fallback** — unknown names render a placeholder square, never a blank.
 
 - **Render:** either declarative `<i data-icon="battery" data-size="16"></i>` then `applyIcons(root)`,
-  or programmatic `setIcon(el, "battery", { size: 16 })`.
-- **Only icons in use are bundled.** `icon.ts` imports a small named set from `lucide` (app chrome +
-  shipped widgets). This is tree-shaken — **never** `import { icons } from 'lucide'` (pulls all
-  3000+ into memory). A new widget that needs an extra icon adds a named import to the registry, or
-  calls `registerIcons({ name: node })` at runtime. (Per Lucide's own guidance:
-  <https://lucide.dev/guide/installation> — "Recommended way, to include only the icons you need.")
-- **Resolution order:** static registry → alias map → **Windows font fallback** using the glyph map
-  in `src/shared/win-icons.ts`, rendered with the Segoe Fluent Icons → Segoe MDL2 Assets → Segoe UI
-  Symbol font stack (in `src/styles/icons.css`). An unknown name always renders *something* (a
-  placeholder square), never a blank.
-- **Size** is honored for both SVG (`width`/`height`) and font glyphs (`font-size`). Default 16 px;
-  pass `{ size }` or `data-size`.
-- **Do not** deep-import `lucide/dist/esm/icons/<name>.js` at runtime. Those files are not shipped to
-   `dist/`, so such imports 404 and silently fall back to the Windows glyph. Resolution must go
-    through the registry / `registerIcons` so it stays tree-shaken and reliable.
+  or programmatic `setIcon(el, "battery", { size: 16 })`. The icon name is a *semantic* key
+  (e.g. `battery`, `volume-2`, `cloud-sun`) that the registry maps to a Phosphor duotone SVG.
+- **Only icons in use are bundled.** `icon.ts` imports each needed duotone SVG as a raw string via
+  `import xSvg from "@phosphor-icons/core/assets/duotone/<name>-duotone.svg?raw"`. Vite inlines only
+  the files that are imported, so **never** import the whole catalog (`import { icons } from
+  "@phosphor-icons/core"`) — that pulls every icon into the bundle and bloats RAM/startup.
+- **Resolution order:** alias map → static registry (Phosphor duotone raw SVG) → placeholder square.
+  An unknown name always renders *something* (a placeholder square), never a blank.
+- **Size** is honored for the SVG (`width`/`height`). Default 16 px; pass `{ size }` or `data-size`.
+- **Do not** deep-import `@phosphor-icons/core` internals at runtime. Add a new icon by importing its
+  duotone SVG into the registry in `src/shared/icon.ts` (or call `registerIcons({ name: svgString })`
+  at runtime). The `?raw` import keeps it tree-shaken and reliable.
 
 #### Widget icons: avoid duplicating SVG paths
 
-When a widget needs a custom SVG icon (not a Lucide icon):
+When a widget needs a custom SVG icon (not a Phosphor duotone icon):
 
 1. **Define the SVG in `widget.js`** using `document.createElementNS`. Build the SVG node tree
    programmatically in the widget's IIFE and append it to the container. This keeps the SVG path
@@ -656,7 +656,7 @@ component must use `.zen-*` CSS classes exclusively.
 | `window.ts` | `mountWindow(opts)` | Builds header + content; returns `{ root, content, search }` |
 | `tabs.ts` | `mountTabs(parent, TabDef[], initialId?)` | Builds tab bar + panes; returns `{ container, panes, switchTo, activeId }` |
 | `filter-pills.ts` | `mountFilterPills(parent, PillDef[], initialId?)` | Segmented pill toggle (All / X / Y); returns `{ container, switchTo, activeId }` |
-| `icon.ts` | `setIcon(el, name, opts?)`, `applyIcons(root?)` | Renders Lucide SVG sprite or Win32 glyph |
+| `icon.ts` | `setIcon(el, name, opts?)`, `applyIcons(root?)` | Renders Phosphor duotone SVG sprite |
 | `config.ts` | `loadConfig()`, `saveConfig(cfg)`, `getConfigValue()` | Typed config client |
 | `log.ts` | `initLog()`, `logInfo/Warn/Error()`, `logMemory()`, `time()` | Per-window file logging |
 | `widgets.ts` | `loadWidgets()`, `renderWidget(manifest, zone)`, `layoutBar(config)` | Widget loading |
@@ -836,7 +836,7 @@ widgets/<name>/
 ```
 
 - `manifest.json` fields: `name`, `id`, `version`, `description`, `default_zone` (`left|center|right`),
-  `icon` (Lucide name), `min_width`, `preview` (static HTML fragment — fake sample content shown
+  `icon` (a Phosphor duotone name), `min_width`, `preview` (static HTML fragment — fake sample content shown
   in the Widget Manager card only; never rendered in the bar). The preview reuses the widget's own
   `widget.css` classes so it looks identical to the live widget, but **no `widget.js` runs** and the
   container has `pointer-events: none`, so the preview is fully inert. Example: the clock manifest
@@ -1247,10 +1247,11 @@ Accumulating timers (e.g., re-layout loops) will exhaust the WebView's event loo
 
 ### 13.4 Icon loading: tree-shaken, never wildcard
 
-- Import icons by name only: `import { X, Settings } from "lucide"`.
-- **Never** `import { icons } from "lucide"` — this pulls all 3000+ icons into the bundle,
+- Import icons by raw SVG subpath only:
+  `import xSvg from "@phosphor-icons/core/assets/duotone/x-duotone.svg?raw"`.
+- **Never** `import { icons } from "@phosphor-icons/core"` — this pulls every icon into the bundle,
   bloating RAM and startup time.
-- Register new icons via `registerIcons` or add a named import to the registry in
+- Register new icons via `registerIcons` or add a raw `?raw` duotone import to the registry in
   `src/shared/icon.ts`. See §6.1.
 
 ### 13.5 Config is always safe, never unwrapped
@@ -1267,9 +1268,9 @@ Accumulating timers (e.g., re-layout loops) will exhaust the WebView's event loo
 
 ### 13.7 SVG icons: sprite, never duplicate path data
 
-Each Lucide icon's SVG path data is stored **once** in a hidden `<svg>` sprite as a `<symbol>`,
-then rendered via `<use href="#zen-i-<name>">`. This means N instances of the same icon share one
-copy of the path data instead of cloning N SVG subtrees.
+Each Phosphor duotone icon's SVG path data is stored **once** in a hidden `<svg>` sprite as a
+`<symbol>`, then rendered via `<use href="#zen-i-<name>">`. This means N instances of the same icon
+share one copy of the path data instead of cloning N SVG subtrees.
 
 - The sprite lives at `document.documentElement` level, created lazily by `ensureSprite()` in
   `src/shared/icon.ts`.

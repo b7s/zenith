@@ -6,7 +6,6 @@
   width: var(--zen-icon-size);
   height: var(--zen-icon-size);
   line-height: 1;
-  color: currentColor;
   contain: strict;
 }
 
@@ -18,8 +17,15 @@
 }
 
 .zen-icon--font {
-  font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol", sans-serif;
   font-size: var(--zen-icon-size);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+}
+
+@keyframes zen-icon-spin {
+  to { transform: rotate(360deg); }
+}
+
+.zen-icon--spin {
+  animation: zen-icon-spin 0.9s linear infinite;
+  transform-origin: center;
+  will-change: transform;
 }

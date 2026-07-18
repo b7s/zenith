@@ -29,7 +29,7 @@ void (async () => {
   (window as any).__zenith_listen = listen;
   (window as any).__zenith_applyIcons = applyIcons;
   (window as any).__zenith_setIcon = setIcon;
-  // Used by the weather widget to map OWM condition codes -> Lucide names.
+  // Used by the weather widget to map OWM condition codes -> Phosphor duotone icon names.
   (window as any).__zenith_weatherIcon = (code: number, icon?: string) =>
     weatherIcon(code, icon);
 

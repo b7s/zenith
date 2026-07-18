@@ -4,7 +4,7 @@
 //! `WEATHER_STATE` mutex. The bar widget calls `weather_refresh` on the
 //! configured interval; on success the combined payload is cached here and
 //! returned, on failure the previous good cache is preserved and an error
-//! snapshot is returned instead (the bar + popup render a Lucide error icon +
+//! snapshot is returned instead (the bar + popup render a Phosphor duotone error icon +
 //! message). The popup window only ever calls `weather_get_cache` — it never
 //! refetches, so opening it costs zero API calls and never flickers.
 //!
@@ -59,7 +59,7 @@ pub struct WeatherSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub air: Option<Value>,
     /// Last fetch error message (empty when healthy). Surfaced to the UI
-    /// alongside a Lucide `triangle-alert` icon so the user sees the reason.
+    /// alongside a Phosphor duotone `triangle-alert` icon so the user sees the reason.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     /// Unix seconds of the last **successful** fetch. 0 when never fetched.

@@ -179,7 +179,7 @@ widgets/<name>/
 ```
 
 - `manifest.json` fields: `name`, `id`, `version`, `description`, `default_zone`
-  (`left|center|right`), `icon` (a [Lucide](https://lucide.dev) icon name), `min_width`,
+  (`left|center|right`), `icon` (a [Phosphor duotone](https://phosphoricons.com) icon name), `min_width`,
   `preview` (static HTML fragment shown in the Widget Manager card only — never rendered live),
   and optionally `config` (user-configurable settings, see the contract in `AGENTS.md` §9.4a).
 - `widget.js` uses `window.__zenith_invoke` (set by the bar) to call Tauri commands — never
@@ -213,7 +213,7 @@ Custom CSS. It is hot-reloaded — save the file and the bar restyles live.
 | App framework | **Tauri 2** |
 | Windows interop | `windows` crate 0.61 + **`winvd` 0.0.49** (virtual-desktop COM API) |
 | Frontend | Plain **TypeScript** + plain **CSS** (no React, no Vue) |
-| Icons | [Lucide](https://lucide.dev) |
+| Icons | [Phosphor Icons (duotone)](https://phosphoricons.com) |
 | Design system | shadcn design tokens implemented in CSS (oklch) |
 | Build / bundler | Vite 8 |
 | Config format | JSON at `%APPDATA%\zenith\config.json` |

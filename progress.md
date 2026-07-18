@@ -12,7 +12,7 @@
 | AGENTS.md contract | ✅ | 14 sections, all conventions codified |
 | Config domain (Rust) | ✅ | Safe getter, 6 tests pass, `#[serde(default)]` everywhere |
 | Config client (TS) | ✅ | `loadConfig()`, `getConfigValue()`, `saveConfig()` |
-| Icon system | ✅ | Static Lucide registry + Windows font fallback, sync API |
+| Icon system | ✅ | Phosphor duotone registry (raw `?raw` SVG, tree-shaken), sync API |
 | Window chrome | ✅ | `mountWindow()`, custom header, drag region, theme bootstrap |
 | CSS library | ✅ | tokens (shadcn oklch) + base + components + icons + window |
 | Base HTML (3 windows) | ✅ | bar, settings, widgets — shared skeleton |

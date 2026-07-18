@@ -28,6 +28,7 @@ import sunSvg from "@phosphor-icons/core/assets/duotone/sun-duotone.svg?raw";
 import moonSvg from "@phosphor-icons/core/assets/duotone/moon-duotone.svg?raw";
 import windSvg from "@phosphor-icons/core/assets/duotone/wind-duotone.svg?raw";
 import dropSvg from "@phosphor-icons/core/assets/duotone/drop-duotone.svg?raw";
+import dropHalfBottomSvg from "@phosphor-icons/core/assets/duotone/drop-half-bottom-duotone.svg?raw";
 import eyeSvg from "@phosphor-icons/core/assets/duotone/eye-duotone.svg?raw";
 import gaugeSvg from "@phosphor-icons/core/assets/duotone/gauge-duotone.svg?raw";
 import sunHorizonSvg from "@phosphor-icons/core/assets/duotone/sun-horizon-duotone.svg?raw";
@@ -47,6 +48,7 @@ import caretRightSvg from "@phosphor-icons/core/assets/duotone/caret-right-duoto
 import caretLeftRegularSvg from "@phosphor-icons/core/assets/regular/caret-left.svg?raw";
 import caretRightRegularSvg from "@phosphor-icons/core/assets/regular/caret-right.svg?raw";
 import calendarBlankSvg from "@phosphor-icons/core/assets/duotone/calendar-blank-duotone.svg?raw";
+import calendarDotsSvg from "@phosphor-icons/core/assets/duotone/calendar-dots-duotone.svg?raw";
 import calendarSvg from "@phosphor-icons/core/assets/duotone/calendar-duotone.svg?raw";
 import arrowClockwiseSvg from "@phosphor-icons/core/assets/duotone/arrow-clockwise-duotone.svg?raw";
 import repeatSvg from "@phosphor-icons/core/assets/duotone/repeat-duotone.svg?raw";
@@ -59,6 +61,7 @@ import circleHalfTiltSvg from "@phosphor-icons/core/assets/duotone/circle-half-t
 import slidersSvg from "@phosphor-icons/core/assets/duotone/sliders-duotone.svg?raw";
 import toggleRightSvg from "@phosphor-icons/core/assets/duotone/toggle-right-duotone.svg?raw";
 import sparkleSvg from "@phosphor-icons/core/assets/duotone/sparkle-duotone.svg?raw";
+import flowerLotusSvg from "@phosphor-icons/core/assets/duotone/flower-lotus-duotone.svg?raw";
 import plusCircleSvg from "@phosphor-icons/core/assets/duotone/plus-circle-duotone.svg?raw";
 import trashSvg from "@phosphor-icons/core/assets/duotone/trash-duotone.svg?raw";
 import pencilSimpleSvg from "@phosphor-icons/core/assets/duotone/pencil-simple-duotone.svg?raw";
@@ -76,8 +79,8 @@ import spinnerSvg from "@phosphor-icons/core/assets/duotone/spinner-duotone.svg?
 import gearSixSvg from "@phosphor-icons/core/assets/duotone/gear-six-duotone.svg?raw";
 import arrowCircleLeftSvg from "@phosphor-icons/core/assets/duotone/arrow-circle-left-duotone.svg?raw";
 import arrowCircleRightSvg from "@phosphor-icons/core/assets/duotone/arrow-circle-right-duotone.svg?raw";
-import arrowLineUpSvg from "@phosphor-icons/core/assets/duotone/arrow-line-up-duotone.svg?raw";
-import arrowLineDownSvg from "@phosphor-icons/core/assets/duotone/arrow-line-down-duotone.svg?raw";
+import arrowUpRegularSvg from "@phosphor-icons/core/assets/regular/arrow-up.svg?raw";
+import arrowDownRegularSvg from "@phosphor-icons/core/assets/regular/arrow-down.svg?raw";
 import xRegularSvg from "@phosphor-icons/core/assets/regular/x.svg?raw";
 import plusRegularSvg from "@phosphor-icons/core/assets/regular/plus.svg?raw";
 
@@ -123,6 +126,7 @@ const ICON_REGISTRY: Record<string, string> = {
   moon: moonSvg,
   wind: windSvg,
   droplets: dropSvg,
+  "drop-half-bottom": dropHalfBottomSvg,
   eye: eyeSvg,
   gauge: gaugeSvg,
   sunrise: sunHorizonSvg,
@@ -146,9 +150,9 @@ const ICON_REGISTRY: Record<string, string> = {
   "circle-right": arrowCircleRightSvg,
   "caret-left": caretLeftRegularSvg,
   "caret-right": caretRightRegularSvg,
-  "arrow-line-up": arrowLineUpSvg,
-  "arrow-line-down": arrowLineDownSvg,
-  calendar: calendarBlankSvg,
+  "arrow-up": arrowUpRegularSvg,
+  "arrow-down": arrowDownRegularSvg,
+  calendar: calendarDotsSvg,
   "calendar-search": calendarSvg,
   events: calendarBlankSvg,
   "refresh-cw": arrowClockwiseSvg,
@@ -162,6 +166,7 @@ const ICON_REGISTRY: Record<string, string> = {
   "sliders-horizontal": slidersSvg,
   "toggle-right": toggleRightSvg,
   sparkles: sparkleSvg,
+  "flower-lotus": flowerLotusSvg,
   plus: plusRegularSvg,
   "plus-circle": plusCircleSvg,
   "trash-2": trashSvg,

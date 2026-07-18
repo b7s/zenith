@@ -132,18 +132,18 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
     hi.style.cssText = "display:inline-flex;align-items:center;gap:0.2rem;";
     const hiIcon = document.createElement("span");
     hiIcon.className = "zen-icon";
-    hiIcon.dataset.icon = "arrow-line-up";
+    hiIcon.dataset.icon = "arrow-up";
     hiIcon.dataset.size = "12";
-    setIcon(hiIcon, "arrow-line-up", { size: 12 });
+    setIcon(hiIcon, "arrow-up", { size: 12 });
     hi.append(hiIcon, document.createTextNode(Math.round(todayHi) + unit));
 
     const lo = document.createElement("span");
     lo.style.cssText = "display:inline-flex;align-items:center;gap:0.2rem;";
     const loIcon = document.createElement("span");
     loIcon.className = "zen-icon";
-    loIcon.dataset.icon = "arrow-line-down";
+    loIcon.dataset.icon = "arrow-down";
     loIcon.dataset.size = "12";
-    setIcon(loIcon, "arrow-line-down", { size: 12 });
+    setIcon(loIcon, "arrow-down", { size: 12 });
     lo.append(loIcon, document.createTextNode(Math.round(todayLo) + unit));
 
     hiLoEl.append(hi, lo);
@@ -371,7 +371,7 @@ function buildMetricsGrid(
 
   if (cur) {
     if (cur.humidity !== undefined && cur.humidity !== null)
-      metrics.push({ icon: "droplets", label: "Humidity", value: fmt(cur.humidity) + "%" });
+      metrics.push({ icon: "drop-half-bottom", label: "Humidity", value: fmt(cur.humidity) + "%" });
     if (cur.wind_speed !== undefined && cur.wind_speed !== null) {
       const dir = cur.wind_deg !== undefined ? degToCardinal(cur.wind_deg) : "";
       metrics.push({ icon: "wind", label: "Wind", value: Math.round(cur.wind_speed) + (isImperial ? " mph" : " m/s") + (dir ? " " + dir : "") });
@@ -389,7 +389,7 @@ function buildMetricsGrid(
   if (air?.main?.aqi !== undefined && air.main.aqi !== null) {
     const aqiLabels = ["Good", "Fair", "Moderate", "Poor", "Very Poor"];
     const aqiLabel = aqiLabels[air.main.aqi - 1] || "Unknown";
-    metrics.push({ icon: "activity", label: "Air Quality", value: "AQI " + fmt(air.main.aqi) + " (" + aqiLabel + ")" });
+    metrics.push({ icon: "flower-lotus", label: "Air Quality", value: "AQI " + fmt(air.main.aqi) + " (" + aqiLabel + ")" });
   }
 
   // Sunrise/sunset from daily[0]

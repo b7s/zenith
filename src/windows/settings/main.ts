@@ -516,7 +516,12 @@ void (async () => {
     installBtn.textContent = "Install update";
     installBtn.style.display = "none";
 
-    statusRow.append(statusHint, checkBtn, installBtn);
+    const openReleasesBtn = document.createElement("button");
+    openReleasesBtn.className = "zen-button zen-button--outline zen-button--sm";
+    openReleasesBtn.textContent = "Open releases page";
+    openReleasesBtn.style.display = "none";
+
+    statusRow.append(statusHint, checkBtn, installBtn, openReleasesBtn);
     section.append(statusRow);
 
     pane.append(section);
@@ -537,6 +542,7 @@ void (async () => {
       checkBtn.disabled = true;
       checkBtn.textContent = "Checking…";
       installBtn.style.display = "none";
+      openReleasesBtn.style.display = "none";
       try {
         const { check } = await import("@tauri-apps/plugin-updater");
         const update = await check();
@@ -551,12 +557,19 @@ void (async () => {
           statusHint.classList.remove("is-error");
         }
       } catch (e) {
-        statusHint.textContent = "Check failed";
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("Update check failed:", e);
+        statusHint.textContent = `Check failed: ${msg}`;
         statusHint.classList.add("is-error");
+        openReleasesBtn.style.display = "";
       } finally {
         checkBtn.disabled = false;
         checkBtn.textContent = "Check now";
       }
+    });
+
+    openReleasesBtn.addEventListener("click", () => {
+      void invoke("open_releases_page");
     });
 
     let pendingUpdate: Awaited<ReturnType<typeof import("@tauri-apps/plugin-updater")["check"]>> | null = null;
@@ -587,12 +600,15 @@ void (async () => {
         installBtn.textContent = "Restarting…";
         const { relaunch } = await import("@tauri-apps/plugin-process");
         await relaunch();
-      } catch {
-        statusHint.textContent = "Install failed";
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("Update install failed:", e);
+        statusHint.textContent = `Install failed: ${msg}`;
         statusHint.classList.add("is-error");
         installBtn.disabled = false;
         checkBtn.disabled = false;
         installBtn.textContent = "Install update";
+        openReleasesBtn.style.display = "";
       }
     });
 

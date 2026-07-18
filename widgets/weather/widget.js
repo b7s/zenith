@@ -11,7 +11,16 @@
   var wrap = el.querySelector(".wx-wrap");
   var tempEl = el.querySelector(".wx-temp");
   var iconEl = el.querySelector(".wx-ic");
+  var retryBtn = el.querySelector(".wx-retry");
   if (!wrap || !tempEl || !iconEl) return;
+
+  if (retryBtn) {
+    if (typeof window.__zenith_setIcon === "function") {
+      window.__zenith_setIcon(retryBtn, "arrow-clockwise", { size: 14 });
+    } else if (applyIcons) {
+      applyIcons(retryBtn);
+    }
+  }
 
   var lastGoodSnapshot = null;
 
@@ -29,7 +38,7 @@
 
   // Fetch latest weather via the Rust backend (handles DPAPI key + cache).
   function refresh() {
-    invoke("weather_refresh")
+    return invoke("weather_refresh")
       .then(function (snap) {
         if (snap && snap.ok) {
           lastGoodSnapshot = snap;
@@ -89,6 +98,20 @@
     if (document.body.classList.contains("is-arranging")) return;
     try { openWeather(wrap); } catch (err) { /* swallow */ }
   });
+
+  // Retry button: re-run refresh on demand (e.g. after PC sleep / DNS drop).
+  // Stops propagation so the wrap click (open forecast) does not fire.
+  if (retryBtn) {
+    retryBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (wrap.classList.contains("is-retrying")) return;
+      wrap.classList.add("is-retrying");
+      refresh().finally(function () {
+        wrap.classList.remove("is-retrying");
+      });
+    });
+  }
 
   loadCache();
   refresh();

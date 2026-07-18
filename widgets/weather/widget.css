@@ -25,6 +25,33 @@
   color: var(--destructive);
 }
 
+.wx-retry {
+  display: none;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  padding: 0.15rem;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+  line-height: 0;
+  align-self: center;
+  transition: background 120ms ease;
+}
+.wx-wrap.is-error .wx-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.wx-retry:hover {
+  background: color-mix(in oklch, var(--accent) 50%, transparent);
+}
+.wx-wrap.is-retrying .wx-retry {
+  animation: wx-spin 0.9s linear infinite;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .wx-temp {
   font-variant-numeric: tabular-nums;
   color: var(--foreground);

@@ -1,0 +1,11 @@
+{
+  "identifier": "update",
+  "description": "Capability to check/install updates from bar and settings windows",
+  "windows": ["bar", "settings"],
+  "webviews": ["bar", "settings"],
+  "permissions": [
+    "core:default",
+    "updater:default",
+    "process:default"
+  ]
+}

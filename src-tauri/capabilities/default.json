@@ -15,8 +15,6 @@
     "core:window:allow-is-visible",
     "core:webview:allow-create-webview-window",
     "core:event:default",
-    "core:event:allow-listen",
-    "updater:default",
-    "process:default"
+    "core:event:allow-listen"
   ]
 }

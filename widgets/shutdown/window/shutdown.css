@@ -17,7 +17,7 @@
   background: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  color: var(--foreground);
+  color: var(--foreground) !important;
 }
 
 .sd-btn:hover {
@@ -26,7 +26,7 @@
 
 .sd-btn.is-destructive {
   border-color: color-mix(in oklch, var(--destructive) 50%, transparent);
-  color: color-mix(in oklch, var(--destructive) 85%, var(--foreground));
+  color: color-mix(in oklch, var(--destructive) 85%, var(--foreground)) !important;
 }
 
 .sd-btn.is-destructive:hover {

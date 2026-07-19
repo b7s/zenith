@@ -5420,7 +5420,7 @@ dependencies = [
 
 [[package]]
 name = "zenith"
-version = "0.1.11"
+version = "0.1.13"
 dependencies = [
  "base64 0.22.1",
  "chrono",

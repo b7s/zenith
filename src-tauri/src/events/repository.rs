@@ -8,21 +8,23 @@
 //! the freshest of the two (by max `updated_at`) and saves the loser side. Both
 //! the in-memory Vec and the file are always-merging-friendly: unknown keys
 //! are preserved, missing events append to the existing list.
+//!
+//! File IO + remote-path resolution are shared with the `config` domain via
+//! `crate::shared::sync` so the atomic-write + OneDrive primitives live in
+//! exactly one place.
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
 
 use super::model::{CalendarEvent, Recurrence};
 use crate::config::repository as cfg_repo;
-use crate::shared::known_folders;
+use crate::shared::sync;
 
-/// One config key path used to read the onedrive sync toggle.
-const CFG_KEY_ONEDRIVE: &str = "/widgets/config/datetime/onedrive_sync_enabled";
+/// Top-level config key that gates OneDrive sync for ALL Zenith data files
+/// (events + config). Mirrored in `config/model.rs::StorageConfig`.
+const CFG_KEY_ONEDRIVE: &str = "/storage/onedrive_sync_enabled";
 
-const ONEDRIVE_SUBFOLDER: &str = "Zenith";
 const FILE_NAME: &str = "calendar-events.json";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -44,8 +46,7 @@ pub fn local_path() -> PathBuf {
 }
 
 pub fn onedrive_path() -> Option<PathBuf> {
-    known_folders::onedrive_path()
-        .map(|p| p.join(ONEDRIVE_SUBFOLDER).join(FILE_NAME))
+    sync::onedrive_path_for(FILE_NAME)
 }
 
 #[allow(dead_code)]
@@ -53,38 +54,11 @@ pub fn events_path() -> PathBuf {
     onedrive_path().unwrap_or_else(local_path)
 }
 
-// ----- IO -------------------------------------------------------------------
-
-fn read_file(path: &Path) -> Result<Option<EventsFile>, String> {
-    if !path.exists() {
-        return Ok(None);
-    }
-    let raw = fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))?;
-    let v: EventsFile = serde_json::from_str(&raw)
-        .map_err(|e| format!("parse {}: {e}", path.display()))?;
-    Ok(Some(v))
-}
-
-fn write_file(path: &Path, file: &EventsFile) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
-    }
-    let json = serde_json::to_string_pretty(file).map_err(|e| e.to_string())?;
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, json).map_err(|e| format!("write {}: {e}", tmp.display()))?;
-    fs::rename(&tmp, path).map_err(|e| format!("rename → {}: {e}", path.display()))?;
-    Ok(())
-}
-
-fn max_updated(events: &[CalendarEvent]) -> i64 {
-    events.iter().map(|e| e.updated_at).max().unwrap_or(0)
-}
-
 // ----- public API -----------------------------------------------------------
 
 /// Load all events, preferring local file. Always returns a usable Vec.
 pub fn load() -> Vec<CalendarEvent> {
-    match read_file(&local_path()) {
+    match sync::read_json::<EventsFile>(&local_path()) {
         Ok(Some(file)) => file.events,
         _ => Vec::new(),
     }
@@ -98,7 +72,7 @@ pub fn upsert(event: CalendarEvent) -> Result<(), String> {
 /// sync, which pulls a batch per account). Matching is by `id`; new ids
 /// are appended. The list is re-sorted by date/time afterwards.
 pub fn upsert_many(events: impl IntoIterator<Item = CalendarEvent>) -> Result<(), String> {
-    let mut file = read_file(&local_path())?.unwrap_or_default();
+    let mut file = sync::read_json::<EventsFile>(&local_path())?.unwrap_or_default();
     for event in events {
         if let Some(slot) = file.events.iter_mut().find(|e| e.id == event.id) {
             *slot = event;
@@ -107,12 +81,13 @@ pub fn upsert_many(events: impl IntoIterator<Item = CalendarEvent>) -> Result<()
         }
     }
     file.events.sort_by(|a, b| a.date.cmp(&b.date).then(a.time.cmp(&b.time)));
-    write_file(&local_path(), &file)?;
+    sync::write_json(&local_path(), &file)?;
+    push_onedrive_if_enabled(&file)?;
     Ok(())
 }
 
 pub fn delete_by_id(id: &str) -> Result<bool, String> {
-    let mut file = match read_file(&local_path())? {
+    let mut file = match sync::read_json::<EventsFile>(&local_path())? {
         Some(f) => f,
         None => return Ok(false),
     };
@@ -121,7 +96,8 @@ pub fn delete_by_id(id: &str) -> Result<bool, String> {
     if file.events.len() == before {
         return Ok(false);
     }
-    write_file(&local_path(), &file)?;
+    sync::write_json(&local_path(), &file)?;
+    push_onedrive_if_enabled(&file)?;
     Ok(true)
 }
 
@@ -129,13 +105,14 @@ pub fn delete_by_id(id: &str) -> Result<bool, String> {
 /// the user disconnects that account, so its synced events don't linger
 /// on the calendar grid / alarms widget). Returns the number removed.
 pub fn delete_by_source_account(account_id: &str) -> usize {
-    match read_file(&local_path()) {
+    match sync::read_json::<EventsFile>(&local_path()) {
         Ok(Some(mut file)) => {
             let before = file.events.len();
             file.events.retain(|e| e.source_account_id != account_id);
             let removed = before - file.events.len();
             if removed > 0 {
-                let _ = write_file(&local_path(), &file);
+                let _ = sync::write_json(&local_path(), &file);
+                let _ = push_onedrive_if_enabled(&file);
             }
             removed
         }
@@ -147,13 +124,14 @@ pub fn delete_by_source_account(account_id: &str) -> usize {
 /// `"outlook"`). Used during development / manual resets.
 #[allow(dead_code)]
 pub fn delete_by_source(source: &str) -> usize {
-    match read_file(&local_path()) {
+    match sync::read_json::<EventsFile>(&local_path()) {
         Ok(Some(mut file)) => {
             let before = file.events.len();
             file.events.retain(|e| e.source != source);
             let removed = before - file.events.len();
             if removed > 0 {
-                let _ = write_file(&local_path(), &file);
+                let _ = sync::write_json(&local_path(), &file);
+                let _ = push_onedrive_if_enabled(&file);
             }
             removed
         }
@@ -166,7 +144,7 @@ pub fn delete_by_source(source: &str) -> usize {
 /// fired for this occurrence, so the next 30-second tick won't
 /// re-popup the same row.
 pub fn mark_event_notified(id: &str, when_secs: i64) -> Result<bool, String> {
-    let mut file = match read_file(&local_path())? {
+    let mut file = match sync::read_json::<EventsFile>(&local_path())? {
         Some(f) => f,
         None => return Ok(false),
     };
@@ -181,7 +159,7 @@ pub fn mark_event_notified(id: &str, when_secs: i64) -> Result<bool, String> {
     if !touched {
         return Ok(false);
     }
-    write_file(&local_path(), &file)?;
+    sync::write_json(&local_path(), &file)?;
     Ok(true)
 }
 
@@ -193,12 +171,12 @@ pub fn mark_event_notified(id: &str, when_secs: i64) -> Result<bool, String> {
 ///   2. Only one exists → use that one, push to other (if enabled).
 ///
 ///   3. Neither → leave empty.
-pub fn startup_sync(app: &AppHandle) {
-    let _ = run_startup_sync(app);
+pub fn startup_sync() {
+    let _ = run_startup_sync();
 }
 
-fn run_startup_sync(app: &AppHandle) -> Result<(), String> {
-    let local = match read_file(&local_path()) {
+fn run_startup_sync() -> Result<(), String> {
+    let local = match sync::read_json::<EventsFile>(&local_path()) {
         Ok(opt) => opt,
         Err(e) => {
             eprintln!("[zenith:events] local read failed: {e}");
@@ -206,11 +184,11 @@ fn run_startup_sync(app: &AppHandle) -> Result<(), String> {
         }
     };
     let remote_path = onedrive_path();
-    let remote_enabled = onedrive_enabled(app);
+    let remote_enabled = onedrive_enabled();
     let remote = if remote_enabled {
         remote_path
             .as_ref()
-            .and_then(|p| match read_file(p) {
+            .and_then(|p| match sync::read_json::<EventsFile>(p) {
                 Ok(Some(f)) => Some((p.clone(), f)),
                 Ok(None) => None,
                 Err(e) => {
@@ -227,25 +205,22 @@ fn run_startup_sync(app: &AppHandle) -> Result<(), String> {
             let lu = max_updated(&loc.events);
             let ru = max_updated(&rem.events);
             if lu >= ru {
-                // local is newer (or equal)
-                write_file(&path, &loc)?;
+                sync::write_json(&path, &loc)?;
             } else {
-                // remote is newer
-                write_file(&local_path(), &rem)?;
+                sync::write_json(&local_path(), &rem)?;
             }
         }
         (Some(loc), None) => {
-            // Push local to OneDrive if sync enabled.
             if remote_enabled {
                 if let Some(path) = remote_path {
-                    let _ = write_file(&path, &loc);
+                    let _ = sync::write_json(&path, &loc);
                 }
             }
         }
         (None, Some((path, rem))) => {
-            // Remote only; copy to local.
-            write_file(&local_path(), &rem)?;
-            let _ = path; // silence unused
+            // Remote only; copy to local. (`path` already consumed above.)
+            sync::write_json(&local_path(), &rem)?;
+            let _ = path;
         }
         (None, None) => {
             // Nothing exists anywhere. Leave empty.
@@ -256,21 +231,36 @@ fn run_startup_sync(app: &AppHandle) -> Result<(), String> {
 
 /// Force a push to OneDrive (caller already wrote the local).
 /// Returns false if sync disabled or OneDrive unavailable.
-pub fn force_sync(app: &AppHandle) -> Result<bool, String> {
-    if !onedrive_enabled(app) {
+pub fn force_sync() -> Result<bool, String> {
+    if !onedrive_enabled() {
         return Ok(false);
     }
-    let path = match onedrive_path() {
-        Some(p) => p,
-        None => return Ok(false),
-    };
-    let local = read_file(&local_path())?.unwrap_or_default();
-    write_file(&path, &local)?;
-    Ok(true)
+    let local = sync::read_json::<EventsFile>(&local_path())?.unwrap_or_default();
+    sync::push_to_onedrive(FILE_NAME, &local, true)
 }
 
-fn onedrive_enabled(_app: &AppHandle) -> bool {
+/// Write the file to OneDrive iff sync is enabled. Best-effort — failures
+/// are logged and swallowed so a missing/unmounted OneDrive never breaks
+/// the local write.
+fn push_onedrive_if_enabled(file: &EventsFile) -> Result<(), String> {
+    if !onedrive_enabled() {
+        return Ok(());
+    }
+    match sync::push_to_onedrive(FILE_NAME, file, true) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            eprintln!("[zenith:events] onedrive push failed: {e}");
+            Ok(())
+        }
+    }
+}
+
+fn onedrive_enabled() -> bool {
     cfg_repo::get_or(CFG_KEY_ONEDRIVE, false)
+}
+
+fn max_updated(events: &[CalendarEvent]) -> i64 {
+    events.iter().map(|e| e.updated_at).max().unwrap_or(0)
 }
 
 // ----- mutations used by background tasks -----------------------------------
@@ -281,7 +271,7 @@ fn onedrive_enabled(_app: &AppHandle) -> bool {
 /// kept regardless of age — the user may want to keep weekly repeating
 /// events long-term. Returns the number of events removed.
 pub fn cleanup_old_events(max_age_days: u32) -> Result<usize, String> {
-    let mut file = match read_file(&local_path())? {
+    let mut file = match sync::read_json::<EventsFile>(&local_path())? {
         Some(f) => f,
         None => return Ok(0),
     };
@@ -297,7 +287,7 @@ pub fn cleanup_old_events(max_age_days: u32) -> Result<usize, String> {
     });
     let removed = before - file.events.len();
     if removed > 0 {
-        write_file(&local_path(), &file)?;
+        sync::write_json(&local_path(), &file)?;
     }
     Ok(removed)
 }

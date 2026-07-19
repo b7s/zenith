@@ -39,7 +39,12 @@ void (async () => {
   let config: Config = await loadConfig();
 
   buildGeneralTab(tabs.panes.general, (patch: Partial<Config>) => {
-    config = { ...config, updates: { ...config.updates, ...patch.updates } };
+    if (patch.updates) {
+      config = { ...config, updates: { ...config.updates, ...patch.updates } };
+    }
+    if (patch.storage) {
+      config = { ...config, storage: { ...config.storage, ...patch.storage } };
+    }
     void saveConfig(config);
   });
 
@@ -432,46 +437,74 @@ void (async () => {
     const section = document.createElement("div");
     section.className = "zen-section";
 
-    const row = document.createElement("label");
-    row.className = "zen-checkbox";
+    // One Apple-style toggle row. Extracted so every switch on this tab
+    // shares one DOM shape (DRY — was duplicated 2x before this).
+    function buildSwitch(opts: {
+      label: string;
+      desc: Node | string;
+      checked: boolean;
+      onChange: (checked: boolean) => void;
+    }): HTMLLabelElement {
+      const row = document.createElement("label");
+      row.className = "zen-checkbox";
 
-    const text = document.createElement("span");
-    text.className = "zen-checkbox__text";
-    const lbl = document.createElement("span");
-    lbl.className = "zen-checkbox__label";
-    lbl.textContent = "Start with Windows";
-    const desc = document.createElement("span");
-    desc.className = "zen-checkbox__desc";
-    desc.textContent = "Launch Zenith automatically when you sign in.";
-    text.append(lbl, desc);
-    row.append(text);
+      const text = document.createElement("span");
+      text.className = "zen-checkbox__text";
+      const lbl = document.createElement("span");
+      lbl.className = "zen-checkbox__label";
+      lbl.textContent = opts.label;
+      const desc = document.createElement("span");
+      desc.className = "zen-checkbox__desc";
+      desc.append(opts.desc);
+      text.append(lbl, desc);
+      row.append(text);
 
-    const switchEl = document.createElement("span");
-    switchEl.className = "zen-checkbox__switch";
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    switchEl.append(input);
-    const track = document.createElement("span");
-    track.className = "zen-checkbox__track";
-    const thumb = document.createElement("span");
-    thumb.className = "zen-checkbox__thumb";
-    track.append(thumb);
-    switchEl.append(track);
-    row.append(switchEl);
+      const switchEl = document.createElement("span");
+      switchEl.className = "zen-checkbox__switch";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = opts.checked;
+      switchEl.append(input);
+      const track = document.createElement("span");
+      track.className = "zen-checkbox__track";
+      const thumb = document.createElement("span");
+      thumb.className = "zen-checkbox__thumb";
+      track.append(thumb);
+      switchEl.append(track);
+      row.append(switchEl);
 
-    section.append(row);
+      input.addEventListener("change", () => opts.onChange(input.checked));
+      return row;
+    }
+
+    // --- OneDrive sync (first option) ---
+    section.append(
+      buildSwitch({
+        label: "Sync to OneDrive",
+        desc: "Back up Zenith's config and calendar events to <OneDrive>\\Zenith\\. Turn on once and every save is mirrored automatically.",
+        checked: config.storage.onedrive_sync_enabled,
+        onChange: (checked) => {
+          update({ storage: { onedrive_sync_enabled: checked } });
+        },
+      })
+    );
+
+    // --- Start with Windows ---
+    const startRow = buildSwitch({
+      label: "Start with Windows",
+      desc: "Launch Zenith automatically when you sign in.",
+      checked: config.updates.start_with_windows,
+      onChange: (checked) => {
+        void invoke(CMD.setStartWithWindows, { enabled: checked });
+        update({
+          updates: { start_with_windows: checked, auto_update: config.updates.auto_update },
+        });
+      },
+    });
+    section.append(startRow);
 
     // --- Auto update ---
-    const updRow = document.createElement("label");
-    updRow.className = "zen-checkbox";
-
-    const updText = document.createElement("span");
-    updText.className = "zen-checkbox__text";
-    const updLbl = document.createElement("span");
-    updLbl.className = "zen-checkbox__label";
-    updLbl.textContent = "Automatic update check";
     const updDesc = document.createElement("span");
-    updDesc.className = "zen-checkbox__desc";
     updDesc.append("Checks for new versions every 24 hours. View releases at ");
     const relLink = document.createElement("a");
     relLink.href = "https://github.com/b7s/zenith/releases";
@@ -480,24 +513,19 @@ void (async () => {
     relLink.className = "zen-link";
     relLink.textContent = "GitHub releases";
     updDesc.append(relLink);
-    updText.append(updLbl, updDesc);
-    updRow.append(updText);
 
-    const updSwitchEl = document.createElement("span");
-    updSwitchEl.className = "zen-checkbox__switch";
-    const updInput = document.createElement("input");
-    updInput.type = "checkbox";
-    updInput.checked = config.updates.auto_update;
-    updSwitchEl.append(updInput);
-    const updTrack = document.createElement("span");
-    updTrack.className = "zen-checkbox__track";
-    const updThumb = document.createElement("span");
-    updThumb.className = "zen-checkbox__thumb";
-    updTrack.append(updThumb);
-    updSwitchEl.append(updTrack);
-    updRow.append(updSwitchEl);
-
-    section.append(updRow);
+    section.append(
+      buildSwitch({
+        label: "Automatic update check",
+        desc: updDesc,
+        checked: config.updates.auto_update,
+        onChange: (checked) => {
+          update({
+            updates: { auto_update: checked, start_with_windows: config.updates.start_with_windows },
+          });
+        },
+      })
+    );
 
     // --- Status + check-now ---
     const statusRow = document.createElement("div");
@@ -525,18 +553,6 @@ void (async () => {
     section.append(statusRow);
 
     pane.append(section);
-
-    // Reflect the persisted config intent (defaults to true on first run).
-    input.checked = config.updates.start_with_windows;
-
-    input.addEventListener("change", () => {
-      void invoke(CMD.setStartWithWindows, { enabled: input.checked });
-      update({ updates: { start_with_windows: input.checked, auto_update: config.updates.auto_update } });
-    });
-
-    updInput.addEventListener("change", () => {
-      update({ updates: { auto_update: updInput.checked, start_with_windows: config.updates.start_with_windows } });
-    });
 
     checkBtn.addEventListener("click", async () => {
       checkBtn.disabled = true;

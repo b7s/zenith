@@ -65,6 +65,7 @@ pub const EVENT_UPDATE_CHECKED: &str = "zenith:update-checked";
 
 pub mod known_folders;
 pub mod shell;
+pub mod sync;
 
 use std::sync::OnceLock;
 use tauri::AppHandle;

@@ -54,12 +54,13 @@ pub fn spawn(_app: AppHandle) {
 }
 
 fn run_cycle(app: &AppHandle) -> Result<(), String> {
+    let _ = app;
     let days = delete_days();
     match repository::cleanup_old_events(days) {
         Ok(0) => Ok(()),
         Ok(n) => {
             eprintln!("[zenith:events] cleanup removed {n} events older than {days} days");
-            let _ = repository::force_sync(app);
+            let _ = repository::force_sync();
             Ok(())
         }
         Err(e) => {

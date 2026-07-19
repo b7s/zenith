@@ -18,6 +18,8 @@ pub struct Config {
     pub calendar_oauth: CalendarOauthConfig,
     #[serde(default)]
     pub updates: UpdatesConfig,
+    #[serde(default)]
+    pub storage: StorageConfig,
 }
 
 fn default_monitors() -> MonitorsSelection {
@@ -184,7 +186,6 @@ impl Default for WidgetsConfig {
             "datetime".into(),
             std::collections::HashMap::from([
                 ("show_events".into(), serde_json::Value::Bool(false)),
-                ("onedrive_sync_enabled".into(), serde_json::Value::Bool(false)),
                 ("show_date".into(), serde_json::Value::Bool(true)),
                 ("show_year".into(), serde_json::Value::Bool(false)),
                 ("show_next_month".into(), serde_json::Value::Bool(false)),
@@ -345,6 +346,29 @@ impl Default for UpdatesConfig {
     }
 }
 
+/// Top-level toggle for OneDrive sync of Zenith data files. When enabled,
+/// `config.json` and `calendar-events.json` are mirrored to
+/// `<OneDrive>\Zenith\` on every save. Read by both the `config` domain
+/// (config sync) and the `events` domain (events sync) via the shared
+/// JSON pointer `/storage/onedrive_sync_enabled`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageConfig {
+    #[serde(default = "default_onedrive_sync_enabled")]
+    pub onedrive_sync_enabled: bool,
+}
+
+fn default_onedrive_sync_enabled() -> bool {
+    false
+}
+
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            onedrive_sync_enabled: default_onedrive_sync_enabled(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -364,6 +388,7 @@ mod tests {
         assert_eq!(cfg.motion.backend, "auto");
         assert!(cfg.css.custom_enabled);
         assert_eq!(cfg.monitors, MonitorsSelection::All);
+        assert!(!cfg.storage.onedrive_sync_enabled);
     }
 
     #[test]

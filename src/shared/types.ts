@@ -54,6 +54,13 @@ export interface UpdatesConfig {
   start_with_windows: boolean;
 }
 
+/** Mirrored in `src-tauri/src/config/model.rs::StorageConfig`.
+ *  Top-level OneDrive sync toggle for ALL Zenith data files
+ *  (config.json + calendar-events.json). */
+export interface StorageConfig {
+  onedrive_sync_enabled: boolean;
+}
+
 export interface CalendarOauthConfig {
   google_client_id: string;
   outlook_client_id: string;
@@ -68,6 +75,7 @@ export interface Config {
   css: CssConfig;
   calendar_oauth: CalendarOauthConfig;
   updates: UpdatesConfig;
+  storage: StorageConfig;
 }
 
 export interface WidgetManifest {

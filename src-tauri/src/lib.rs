@@ -154,7 +154,7 @@ pub fn run() {
             // Events domain — startup sync picks newer of local vs OneDrive,
             // then spawn the alarm-firing thread (every 30s) and the cleanup
             // thread (every 24h).
-            events::repository::startup_sync(&handle);
+            events::repository::startup_sync();
             events::alarm_fire::spawn(handle.clone());
             events::cleanup::spawn(handle.clone());
 

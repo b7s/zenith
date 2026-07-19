@@ -50,12 +50,6 @@
       "value": 90,
       "label": "Delete past events after (days)",
       "hint": "One-shot events older than this are removed automatically"
-    },
-    "onedrive_sync_enabled": {
-      "type": "bool",
-      "value": false,
-      "label": "Sync events to OneDrive",
-      "hint": "Back up your events to <OneDrive>/Zenith/calendar-events.json"
     }
   }
 }

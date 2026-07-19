@@ -35,6 +35,7 @@ export const DEFAULT_CONFIG: Config = {
   css: { custom_enabled: true },
   calendar_oauth: { google_client_id: "", outlook_client_id: "" },
   updates: { auto_update: true, start_with_windows: true },
+  storage: { onedrive_sync_enabled: false },
 };
 
 let cache: Config | null = null;

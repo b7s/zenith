@@ -49,7 +49,8 @@ pub fn delete_event(app: AppHandle, id: String) -> Result<bool, String> {
 /// Force a sync with OneDrive (if enabled in config).
 #[tauri::command]
 pub fn sync_events(app: AppHandle) -> Result<(), String> {
-    repository::force_sync(&app).map_err(|e| e.to_string())?;
+    let _ = &app;
+    repository::force_sync().map_err(|e| e.to_string())?;
     emit_updated(&app);
     Ok(())
 }

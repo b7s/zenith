@@ -86,10 +86,13 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
   const isImperial = units === "imperial";
   const unit = isImperial ? "\u00B0F" : "\u00B0C";
 
+  let wxIndex = 0;
+
   // Current conditions card
   const currentCard = document.createElement("div");
-  currentCard.className = "zen-card weather-current";
+  currentCard.className = "zen-card weather-current wx-enter";
   currentCard.style.cssText = "margin-bottom:1rem;padding:1rem;";
+  currentCard.style.setProperty("--wx-i", String(wxIndex++));
 
   const code = cur.weather?.[0]?.id;
   const iconCode = cur.weather?.[0]?.icon;
@@ -166,12 +169,15 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
 
   // 7-day chart
   if (daily.length > 0) {
-    content.append(buildChart(daily));
+    const chart = buildChart(daily);
+    chart.classList.add("wx-enter");
+    chart.style.setProperty("--wx-i", String(wxIndex++));
+    content.append(chart);
   }
 
   // Metrics grid
   if (cur || air) {
-    content.append(buildMetricsGrid(cur, air, daily, isImperial));
+    content.append(buildMetricsGrid(cur, air, daily, isImperial, wxIndex));
   }
 }
 
@@ -355,6 +361,7 @@ function buildMetricsGrid(
   air: any,
   daily: any[],
   isImperial: boolean,
+  startIndex: number = 0,
 ): HTMLElement {
   const grid = document.createElement("div");
   grid.className = "weather-metrics";
@@ -403,8 +410,9 @@ function buildMetricsGrid(
 
   for (const m of metrics) {
     const card = document.createElement("div");
-    card.className = "zen-card weather-metric";
+    card.className = "zen-card weather-metric wx-enter";
     card.style.cssText = "display:flex;flex-direction:column;align-items:center;padding:0.6rem 0.4rem;gap:0.25rem;text-align:center;min-width:0;";
+    card.style.setProperty("--wx-i", String(startIndex++));
 
     const ic = document.createElement("span");
     ic.className = "zen-icon weather-metric__icon";

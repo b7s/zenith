@@ -19,6 +19,24 @@
   if (!invoke) return;
 
   var icons = {};
+  // Per-layout icon cache: link.id → data-URL-string | null. Avoids re-IPC'ing
+  // the same PNG bytes on every render. The cache is recreated on every
+  // layoutBar (IIFE re-runs), so config changes get a fresh fetch.
+  var iconCache = {};
+
+  function getIconForLink(id, cb) {
+    if (iconCache[id] !== undefined) {
+      cb(iconCache[id]);
+      return;
+    }
+    invoke("get_link_icon_data", { id: id }).then(function (dataUrl) {
+      iconCache[id] = dataUrl || null;
+      cb(iconCache[id]);
+    }).catch(function () {
+      iconCache[id] = null;
+      cb(null);
+    });
+  }
 
   function getDomain(url) {
     try {
@@ -53,15 +71,29 @@
     glyph.className = "lk-ic-glyph";
     btn.append(glyph);
 
-    if (link.icon && link.icon.indexOf("data:") === 0) {
+    function showGlobe() {
+      if (window.__zenith_setIcon) {
+        window.__zenith_setIcon(glyph, "globe", { size: 16 });
+      }
+    }
+
+    // Icons live on disk (one PNG per link); fetch via IPC. globe is the
+    // fallback when no icon is configured or the image fails to load.
+    getIconForLink(link.id, function (dataUrl) {
+      if (!dataUrl) {
+        showGlobe();
+        return;
+      }
       var img = document.createElement("img");
       img.className = "lk-ic-img";
-      img.src = link.icon;
+      img.src = dataUrl;
       img.alt = "";
+      img.addEventListener("error", function () {
+        if (img.parentNode) img.parentNode.removeChild(img);
+        showGlobe();
+      });
       glyph.append(img);
-    } else if (window.__zenith_setIcon) {
-      window.__zenith_setIcon(glyph, "globe", { size: 16 });
-    }
+    });
 
     var dot = document.createElement("span");
     dot.className = "lk-dot";

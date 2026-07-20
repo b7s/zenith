@@ -15,7 +15,7 @@ const CALENDAR_LABEL: &str = "calendar";
 // Single-month popup. Mirror of `CALENDAR_POPUP_CSS_*` in
 // `src/shared/widget-popup.ts` — keep the two languages in sync.
 const CALENDAR_W: i32 = 360;
-const CALENDAR_H: i32 = 410;
+const CALENDAR_H: i32 = 380;
 // Two-month popup: same height, ~2× width. Activated by the widget's
 // `show_next_month` config option. Same vertical alignment so the bar
 // widget stays visually centred below both panels.

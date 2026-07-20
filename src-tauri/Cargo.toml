@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "0.1.14"
+version = "0.1.15"
 edition = "2021"
 description = "A customizable top bar for Windows 11"
 
@@ -57,5 +57,6 @@ url = "2"
 ureq = { version = "2", features = ["json", "tls"] }
 base64 = "0.22"
 sha2 = "0.10"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "ico"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }

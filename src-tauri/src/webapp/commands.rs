@@ -1,8 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use base64::Engine;
-
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::{Manager, WindowEvent};
 
@@ -72,23 +70,14 @@ pub fn open_link_inner(app: &tauri::AppHandle, id: &str, x: f64, y: f64) -> Resu
     let pos_x = link.pos_x.unwrap_or_else(|| x.round() as i32);
     let pos_y = link.pos_y.unwrap_or_else(|| y.round() as i32);
 
-    create_link_window(app, id, pos_x as f64, pos_y as f64, w, h, &url, &label, persistent, link.icon.clone())
+    create_link_window(app, id, pos_x as f64, pos_y as f64, w, h, &url, &label, persistent)
 }
 
-/// Decode a link's `data:` URL icon into a Tauri `Image`.
-///
-/// Only `;base64` data URLs are supported. Raster formats (PNG/JPEG/ICO/GIF)
-/// are accepted by `Image::from_bytes`; SVG data URLs can't be a Win32 window
-/// icon, so `from_bytes` fails there and the caller falls back to the default.
-fn link_icon_image(icon: &Option<String>) -> Option<tauri::image::Image<'_>> {
-    let url = icon.as_ref()?;
-    let rest = url.strip_prefix("data:")?;
-    let (meta, data) = rest.split_once(',')?;
-    if !meta.to_ascii_lowercase().contains(";base64") {
-        return None;
-    }
-    let bytes = base64::engine::general_purpose::STANDARD.decode(data).ok()?;
-    tauri::image::Image::from_bytes(&bytes).ok()
+/// Load the link's icon from disk as a Tauri `Image`. Returns None when no
+/// icon is configured for this link (caller falls back to the default
+/// window icon). See `webapp::icons` for storage / format details.
+fn link_icon_image(id: &str) -> Option<tauri::image::Image<'static>> {
+    crate::webapp::icons::load_link_icon_image(id)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -102,7 +91,6 @@ fn create_link_window(
     url: &str,
     label: &str,
     persistent: bool,
-    icon: Option<String>,
 ) -> Result<(), String> {
     eprintln!("[webapp] create_link_window id={id} url={url} w={w} h={h} x={x} y={y} persistent={persistent}");
 
@@ -138,14 +126,13 @@ fn create_link_window(
         .map_err(|e| e.to_string())?;
     eprintln!("[webapp] build() succeeded");
 
-    // Use the link's configured icon (a `data:` URL) as the window icon; fall
-    // back to Zenith's default icon when none is set or it can't be decoded.
-    // SVG data URLs can't be a Win32 window icon, so `from_bytes` failing there
-    // correctly falls through to the default.
-    match link_icon_image(&icon) {
+    // Use the link's configured icon (loaded from disk as PNG); fall back to
+    // Zenith's default icon when none is set. See `webapp::icons` for why
+    // icons are stored on disk instead of inline in config.json.
+    match link_icon_image(id) {
         Some(img) => {
             let _ = win.set_icon(img);
-            eprintln!("[webapp] icon set from link config");
+            eprintln!("[webapp] icon set from disk");
         }
         None => {
             if let Some(def) = app.default_window_icon() {
@@ -322,4 +309,26 @@ pub fn handle_link_menu_event(app: &tauri::AppHandle, id: &str) {
     } else if let Some(wid) = id.strip_prefix(LK_CLOSE) {
         let _ = close_link(app.clone(), wid.to_string());
     }
+}
+
+/// Persist a link's icon to disk as PNG (converted from any supported source
+/// format: PNG/JPEG/WebP/GIF/BMP/ICO). Called from the widget-config window
+/// on Save — icons never go in config.json (which would bloat every load).
+#[tauri::command]
+pub fn save_link_icon(id: String, data_url: String) -> Result<bool, String> {
+    crate::webapp::icons::save_link_icon(&id, &data_url)?;
+    Ok(true)
+}
+
+/// Remove a link's icon from disk. Idempotent — no-op when no icon exists.
+#[tauri::command]
+pub fn delete_link_icon(id: String) -> Result<(), String> {
+    crate::webapp::icons::delete_link_icon(&id)
+}
+
+/// Return the link's icon as a `data:image/png;base64,...` URL for use as
+/// `<img src>` in the bar widget. None when the link has no configured icon.
+#[tauri::command]
+pub fn get_link_icon_data(id: String) -> Option<String> {
+    crate::webapp::icons::read_link_icon_data_url(&id)
 }

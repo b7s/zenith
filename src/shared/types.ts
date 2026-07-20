@@ -117,7 +117,9 @@ export interface LinkItem {
   height: number;
   /** Keep the window alive (hidden) when closed, instead of destroying it. */
   persistent: boolean;
-  /** Uploaded logo as a `data:` URL, or null → site favicon → globe icon. */
+  /** @deprecated Icons now live on disk at `<APPDATA>\zenith\icons\<id>.png`.
+   *  This field is only kept so the startup migration can move any legacy
+   *  `data:` URL out of config.json. Always `null` for new configs. */
   icon: string | null;
   headers: LinkHeader[];
   /** Saved window position (set by Rust on window move). */

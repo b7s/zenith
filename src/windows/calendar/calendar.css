@@ -301,10 +301,30 @@
   display: inline-block;
 }
 
+/* ----- Month-change slide animation -----
+ * New-month slide-in only (per §8 motion contract — transform + opacity).
+ * Direction is set by JS via `is-slide-next` / `is-slide-prev` on the
+ * freshly-built `.cal-grid-wrap`. The class is consumed once and the
+ * element is replaced on the next render, so the animation replays
+ * automatically — no reflow trick needed. */
+@keyframes cal-slide-in-next {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes cal-slide-in-prev {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.cal-grid-wrap.is-slide-next {
+  animation: cal-slide-in-next 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.cal-grid-wrap.is-slide-prev {
+  animation: cal-slide-in-prev 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
 /* Calendar view: month grid fills the available space (and scrolls if a
-   long month would overflow) + a fixed "Today" footer at the bottom.
-   This keeps the Today button at the same screen position regardless of
-   how many day rows the grid needs. */
+   long month would overflow). The "Today" button lives in the header
+   next to the prev/next chevrons. */
 .cal-view--calendar {
   display: flex;
   flex-direction: column;
@@ -317,10 +337,6 @@
   min-height: 0;
   overflow-y: auto;
 }
-.cal-view--calendar > .cal-today {
-  flex: 0 0 auto;
-  align-self: center;
-}
 
 /* ----- Event list (full-screen inside the popup) ----- */
 .cal-event-list {
@@ -329,6 +345,21 @@
   gap: 0.375rem;
   overflow: auto;
   padding: 0.25rem 0.125rem;
+}
+
+/* Staggered entrance for list rows + empty state. Triggered on every
+ *   renderEventsView() rebuild — covers list appear, filter pill change
+ *   (all/event/alarm), day filter, and add/edit/delete refresh. Per §8
+ *   motion contract: transform + opacity only. `--cal-row-i` is set in
+ *   JS; capped at 8 so long lists don't drag (9+ items share delay 8). */
+@keyframes cal-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cal-event-row,
+.cal-event-empty {
+  animation: cal-row-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-delay: calc(var(--cal-row-i, 0) * 45ms);
 }
 
 .cal-day-filter-chip {

@@ -82,8 +82,7 @@ void (async () => {
   const header = document.createElement("header");
   header.className = "zen-window__header cal-window__header";
 
-  // Left group — calendar view: [‹][›]. "Today" now lives at the bottom
-  // of the calendar grid (centered) — see `renderCalendarView()`.
+  // Left group — calendar view: [‹][›][Today].
   const leftGroup = document.createElement("div");
   leftGroup.className = "cal-hleft";
 
@@ -94,6 +93,19 @@ void (async () => {
   const nextBtn = makeIconButton("caret-right", "Next month");
   nextBtn.addEventListener("click", () => stepMonth(1));
   leftGroup.append(nextBtn);
+
+  // "Today" button lives in the header, right after the "Next month"
+  // chevron. Visibility is driven by `mountCalendar`'s `opts.todayBtn`:
+  // it hides the button when the current view already equals today.
+  const todayBtn = document.createElement("button");
+  todayBtn.type = "button";
+  todayBtn.className = "cal-today";
+  todayBtn.textContent = "Today";
+  todayBtn.addEventListener("click", () => {
+    state = todayLocal();
+    render();
+  });
+  leftGroup.append(todayBtn);
 
   header.append(leftGroup);
 
@@ -205,22 +217,11 @@ void (async () => {
 
   // ----- State -----
   let state: CalendarState = todayLocal();
-
-  // The "Today" button is rendered at the bottom of the calendar grid
-  // (centered) — a self-contained element with its own click handler.
-  // Visibility is driven by `mountCalendar`'s `opts.todayBtn`:
-  // it hides the button when the current view already equals today.
-  const todayBtn = document.createElement("button");
-  todayBtn.type = "button";
-  todayBtn.className = "cal-today";
-  todayBtn.textContent = "Today";
-  todayBtn.addEventListener("click", () => {
-    state = todayLocal();
-    render();
-  });
+  let slideDir: 0 | 1 | -1 = 0;
 
   function stepMonth(delta: number): void {
     state = addMonths(state, delta);
+    slideDir = delta > 0 ? 1 : -1;
     const newestOption = yearSelect.options[0]?.value;
     const oldestOption = yearSelect.options[yearSelect.options.length - 1]?.value;
     if (
@@ -290,6 +291,8 @@ void (async () => {
 
     const grid = document.createElement("div");
     grid.className = "cal-grid-wrap";
+    if (slideDir === 1) grid.classList.add("is-slide-next");
+    else if (slideDir === -1) grid.classList.add("is-slide-prev");
     mountCalendar(grid, state, (_next) => {
       state = _next;
       render();
@@ -304,13 +307,12 @@ void (async () => {
       },
     });
 
-    // Wrap the grid + bottom-centered "Today" button so the button
-    // sits at the bottom of the calendar pane, not in the header.
     const body = document.createElement("div");
     body.className = "cal-view cal-view--calendar";
-    body.append(grid, todayBtn);
+    body.append(grid);
 
     content.replaceChildren(body);
+    slideDir = 0;
   }
 
   function renderEventsView(): void {
@@ -373,6 +375,7 @@ void (async () => {
     if (sorted.length === 0) {
       const empty = document.createElement("div");
       empty.className = "cal-event-empty";
+      empty.style.setProperty("--cal-row-i", "0");
       const iconWrap = document.createElement("span");
       iconWrap.className = "cal-event-empty-icon";
       setIcon(iconWrap, "calendar", { size: 22 });
@@ -388,8 +391,12 @@ void (async () => {
       empty.append(iconWrap, msg);
       list.append(empty);
     } else {
+      let i = 0;
       for (const ev of sorted) {
-        list.append(buildEventRow(ev, openEventEdit, doDelete));
+        const row = buildEventRow(ev, openEventEdit, doDelete);
+        row.style.setProperty("--cal-row-i", String(Math.min(i, 8)));
+        list.append(row);
+        i++;
       }
     }
 

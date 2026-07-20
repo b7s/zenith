@@ -1509,6 +1509,27 @@ async function collectLinks(key: string, stores: Record<string, LinkRow[]>): Pro
     }
   } catch { /* ignore */ }
 
+  // Persist icons to disk BEFORE serialising config. Icons live at
+  // <APPDATA>\zenith\icons\<id>.png (converted from any incoming format to
+  // PNG by Rust). They never go in config.json — base64 payloads there
+  // would bloat every config load and break Tauri's image-png-only window
+  // icon path (WebP/JPEG/etc. can't be decoded without the conversion).
+  await Promise.all(rows.map(async (row) => {
+    const files = row.fileUpload.getFiles();
+    const dataUrl = files[0]?.dataUrl;
+    if (dataUrl) {
+      try {
+        await invoke("save_link_icon", { id: row.id, dataUrl });
+      } catch (e) {
+        console.error("[links] save icon failed:", e);
+      }
+    } else {
+      try {
+        await invoke("delete_link_icon", { id: row.id });
+      } catch { /* ignore */ }
+    }
+  }));
+
   return rows.map((row) => {
     const saved = savedPositions[row.id] || {};
     return {
@@ -1519,7 +1540,7 @@ async function collectLinks(key: string, stores: Record<string, LinkRow[]>): Pro
       width: parseInt(row.widthInput.value, 10) || 1000,
       height: parseInt(row.heightInput.value, 10) || 700,
       persistent: row.persistentInput.checked,
-      icon: (row.fileUpload.getFiles()[0]?.dataUrl) ?? null,
+      icon: null, // lives on disk — see save_link_icon / get_link_icon_data
       headers: row.headerRows
         .map((hr) => ({ key: hr.key.value, value: hr.value.value }))
         .filter((h) => h.key.trim() !== ""),

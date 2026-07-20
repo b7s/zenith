@@ -110,6 +110,9 @@ pub fn run() {
             webapp::commands::close_link,
             webapp::commands::reload_link,
             webapp::commands::show_link_menu,
+            webapp::commands::save_link_icon,
+            webapp::commands::delete_link_icon,
+            webapp::commands::get_link_icon_data,
             updates::get_update_status,
             updates::check_update,
             updates::open_releases_page,
@@ -157,6 +160,10 @@ pub fn run() {
             events::repository::startup_sync();
             events::alarm_fire::spawn(handle.clone());
             events::cleanup::spawn(handle.clone());
+
+            // Webapp icons — migrate any legacy `data:` URLs in config.json
+            // to disk (one PNG per link), then clear the field. Idempotent.
+            webapp::icons::migrate_legacy_data_urls();
 
             // Media widget — poll SMTC current-session state every 2s and
             // emit `zenith:media-changed` when it actually changes.

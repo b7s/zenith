@@ -24,7 +24,11 @@ pub struct LinkItem {
     pub height: u32,
     #[serde(default)]
     pub persistent: bool,
-    /// Optional uploaded logo as a `data:` URL. Falls back to favicon, then `globe` icon.
+    /// Deprecated. Icons now live on disk at `<APPDATA>\zenith\icons\<id>.png`
+    /// (see `webapp::icons`). This field exists only so the one-time
+    /// `migrate_legacy_data_urls()` startup hook can move any old `data:`
+    /// URL out of config.json and onto disk. New configs always have this
+    /// set to `None`.
     #[serde(default)]
     pub icon: Option<String>,
     #[serde(default)]

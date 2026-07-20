@@ -1,26 +1,34 @@
 .ws-desktops {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   padding: 0 6px;
   height: 100%;
 }
 .ws-dot {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 100%;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.ws-dot::before {
+  content: "";
+  display: block;
   width: 10px;
   height: 10px;
   border-radius: 50%;
   border: 2px solid var(--muted-foreground);
   background: transparent;
-  cursor: pointer;
   transition: background 150ms ease, border-color 150ms ease;
-  flex: 0 0 auto;
 }
-.ws-dot:hover {
+.ws-dot:hover::before {
   border-color: var(--foreground);
   background: color-mix(in oklch, var(--foreground) 20%, transparent);
 }
-.ws-dot.is-active {
+.ws-dot.is-active::before {
   background: var(--foreground);
   border-color: var(--foreground);
 }

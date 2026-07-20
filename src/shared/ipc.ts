@@ -69,6 +69,14 @@ export const CMD = {
   getUpdateStatus: "get_update_status",
   checkUpdate: "check_update",
   openReleasesPage: "open_releases_page",
+  startEyedropper: "start_eyedropper",
+  eyedropperPixel: "eyedropper_pixel",
+  getEyedropperFrames: "get_eyedropper_frames",
+  endEyedropper: "end_eyedropper",
+  openEyedropper: "open_eyedropper",
+  openColorPicker: "open_color_picker",
+  getCursorPosition: "get_cursor_position",
+  readLivePixel: "read_live_pixel",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

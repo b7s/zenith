@@ -1,0 +1,191 @@
+/* Right-click color-picker window. Kept dependency-free; reuses `.zen-*`
+ * component classes from globals.css for inputs, radios, buttons. Only the
+ * picker-specific geometry (SV square, hue/alpha strips, swatches) lives here. */
+
+.cp-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem;
+}
+
+.cp-picker__top {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* SV (saturation × value) square ---------------------------------------- */
+.cp-sv {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: crosshair;
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--border) 55%, transparent);
+  touch-action: none;
+}
+.cp-sv__sat,
+.cp-sv__val {
+  position: absolute;
+  inset: 0;
+}
+.cp-sv__val {
+  pointer-events: none;
+}
+.cp-sv__pointer {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  will-change: left, top;
+}
+
+/* Right column: hue + alpha strips + current color ---------------------- */
+.cp-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cp-hue,
+.cp-alpha {
+  position: relative;
+  height: 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: none;
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--border) 55%, transparent);
+}
+.cp-hue {
+  background: linear-gradient(
+    to right,
+    #f00 0%,
+    #ff0 17%,
+    #0f0 33%,
+    #0ff 50%,
+    #00f 67%,
+    #f0f 83%,
+    #f00 100%
+  );
+}
+.cp-hue__pointer,
+.cp-alpha__pointer {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  will-change: left;
+}
+
+.cp-current {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto;
+}
+.cp-current__swatch {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--border) 55%, transparent);
+  flex: 0 0 auto;
+}
+.cp-current__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+.cp-current__readout {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cp-format-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
+  color: var(--foreground);
+  flex: 0 0 auto;
+  width: fit-content;
+}
+
+/* Text input ------------------------------------------------------------ */
+.cp-input {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+}
+
+/* Format radio cards ---------------------------------------------------- */
+.cp-formats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.4rem;
+}
+.cp-formats .zen-radio-card {
+  justify-content: center;
+  padding: 0.4rem 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Swatches -------------------------------------------------------------- */
+.cp-swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.4rem;
+}
+.cp-swatch {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 120ms ease;
+}
+.cp-swatch:hover {
+  transform: scale(1.08);
+}
+
+/* Actions --------------------------------------------------------------- */
+.cp-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.cp-act {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.cp-act i {
+  display: inline-flex;
+}

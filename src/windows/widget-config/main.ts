@@ -100,7 +100,7 @@ void (async () => {
         newValues[key] = parseInt(val, 10) || 0;
       } else if (field.type === "select") {
         const el = inputs[key];
-        if (field.options && field.options.length <= 3) {
+        if (field.options && field.options.length <= 6) {
           const checked = el?.querySelector?.("input:checked") as HTMLInputElement | null;
           newValues[key] = checked?.value ?? field.value;
         } else {
@@ -658,7 +658,7 @@ function buildControl(
   widgetId: string,
 ): void {
   if (field.type === "select" && field.options) {
-    if (field.options.length <= 3) {
+    if (field.options.length <= 6) {
       const group = document.createElement("div");
       group.className = "zen-radio-group";
       for (const opt of field.options) {

@@ -1,0 +1,28 @@
+.cp-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--foreground);
+  cursor: pointer;
+  user-select: none;
+  border-radius: 9999px;
+  background: transparent;
+  transition:
+    background 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 120ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.cp-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.cp-icon:hover {
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
+}
+.cp-icon:active {
+  transform: scale(0.92);
+}

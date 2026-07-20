@@ -119,6 +119,7 @@ pub fn build_event(
         created_at: start_secs,
         updated_at: start_secs,
         notes: notes.to_string(),
+        location: String::new(),
         source: source.to_string(),
         source_account_id: account_id.to_string(),
         external_id: external_id.to_string(),

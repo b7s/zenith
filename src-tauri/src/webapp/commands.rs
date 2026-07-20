@@ -192,6 +192,15 @@ fn create_link_window(
                             eprintln!("[webapp] {} minimize -> {:?}", min_label, r);
                         }
                     });
+                } else {
+                    // Non-persistent: intercept the close so we can drive the
+                    // page to `about:blank` before the controller is torn down.
+                    // Navigating away fires `unload` / `beforeunload` and
+                    // releases the JS heap, image cache, and DOM resources —
+                    // without this, WebView2's shared browser process retains
+                    // hundreds of MB of page caches after destroy().
+                    api.prevent_close();
+                    teardown_link_window(&ev_app, &ev_label);
                 }
             }
             _ => {}
@@ -259,11 +268,51 @@ fn save_link_window_state(app: &tauri::AppHandle, id: &str) {
     let _ = crate::config::repository::save(&cfg);
 }
 
+/// Tear down a link window so WebView2 actually releases the page's memory.
+///
+/// The shared browser process (it also serves the bar) retains the JS heap,
+/// image cache, GPU surfaces, and compiled bytecode for any page whose
+/// controller is closed while still loaded. Driving the page to `about:blank`
+/// first fires `unload` / `beforeunload` and drops those resources, so the
+/// browser process has nothing to cache.
+///
+/// Steps:
+///   1. `hide()` — get the window off-screen immediately so the user doesn't
+///      see the blank navigation.
+///   2. `eval("location.replace('about:blank')")` — trigger page unload in the
+///      hidden webview. The renderer keeps running, so the script executes.
+///   3. Wait 250 ms for the unload pipeline to flush.
+///   4. `destroy()` — now the controller closes against an empty document,
+///      so the browser process releases the page-specific memory.
+///
+/// Used by both close paths (the bar-widget right-click "Close" menu and the
+/// `CloseRequested` event for non-persistent links) so the cleanup contract
+/// lives in exactly one place. See §3 DRY.
+fn teardown_link_window(app: &tauri::AppHandle, label: &str) {
+    if let Some(win) = app.get_webview_window(label) {
+        let _ = win.hide();
+        let _ = win.eval("window.location.replace('about:blank');");
+    }
+    let app_clone = app.clone();
+    let label_clone = label.to_string();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        if let Some(w) = app_clone.get_webview_window(&label_clone) {
+            let _ = w.destroy();
+            eprintln!("[webapp] {} destroyed after about:blank teardown", label_clone);
+        }
+    });
+}
+
 #[tauri::command]
 pub fn close_link(app: tauri::AppHandle, id: String) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window(&window_label(&id)) {
-        let _ = win.destroy();
-    }
+    // Right-click bar widget → Close always force-destroys, even for
+    // `persistent` windows. (`destroy()` bypasses `CloseRequested`, so the
+    // persistent `prevent_close` doesn't apply.) `teardown_link_window`
+    // additionally drives the page to `about:blank` first so WebView2
+    // releases the JS heap + caches instead of retaining them in the
+    // shared browser process.
+    teardown_link_window(&app, &window_label(&id));
     Ok(())
 }
 

@@ -1,5 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
 import { applyIcons, setIcon } from "../../shared/icon";
 import type { CalendarEvent } from "../../shared/types";
+import { CMD } from "../../shared/ipc";
 
 export interface CalendarState {
   year: number;
@@ -278,6 +280,22 @@ export function buildEventRow(
   const actions = document.createElement("div");
   actions.className = "cal-event-actions";
 
+  // If the location holds a URL, show an "open link" button (external
+  // icon) before the edit button. Free-text addresses show no button.
+  if (ev.location && isLocationLink(ev.location)) {
+    const linkBtn = document.createElement("button");
+    linkBtn.type = "button";
+    linkBtn.className = "zen-icon-button cal-event-btn";
+    linkBtn.setAttribute("aria-label", "Open link");
+    linkBtn.title = ev.location;
+    setIcon(linkBtn, "external-link", { size: 13 });
+    linkBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void invoke(CMD.openUrl, { url: ev.location }).catch(() => {});
+    });
+    actions.append(linkBtn);
+  }
+
   const editBtn = document.createElement("button");
   editBtn.type = "button";
   editBtn.className = "zen-icon-button cal-event-btn";
@@ -306,5 +324,16 @@ function weekdayBitToLabel(mask: number): string {
     if (mask & (1 << b)) names.push(weekdayLabel(b));
   }
   return names.join(", ") || "—";
+}
+
+/** A location value is treated as a link (and given an "open link"
+ *  button) when it looks like a URL: http/https scheme or a "www." host. */
+function isLocationLink(loc: string): boolean {
+  const v = loc.trim().toLowerCase();
+  return (
+    v.startsWith("http://") ||
+    v.startsWith("https://") ||
+    v.startsWith("www.")
+  );
 }
 

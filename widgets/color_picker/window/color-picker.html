@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>.zen-window__content{animation:zf 300ms ease-out}@keyframes zf{from{opacity:0}to{opacity:1}}</style>
+    <title>Color Picker</title>
+    <script>document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";</script>
+  </head>
+  <body data-window="color-picker">
+    <div id="root"></div>
+    <script type="module" src="/widgets/color_picker/window/main.ts"></script>
+  </body>
+</html>

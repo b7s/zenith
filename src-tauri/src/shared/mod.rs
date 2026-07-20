@@ -62,6 +62,12 @@ pub const EVENT_UPDATE_AVAILABLE: &str = "zenith:update-available";
 /// Emitted by the updates domain after every completed check (manual or the
 /// 24h loop). Payload is the full `UpdateStatus`.
 pub const EVENT_UPDATE_CHECKED: &str = "zenith:update-checked";
+/// Emitted by the fullscreen eyedropper window when the user picks a pixel
+/// (or cancels). Payload: `{ r, g, b, a, cancelled }`. The right-click picker
+/// window listens for it to update its color; the bar widget ignores it and
+/// relies on clipboard copy done inside the eyedropper window.
+#[allow(dead_code)]
+pub const EVENT_EYEDROPPER_PICKED: &str = "zenith:eyedropper-picked";
 
 pub mod known_folders;
 pub mod shell;

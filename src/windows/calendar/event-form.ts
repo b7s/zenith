@@ -130,6 +130,15 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
   notesInput.value = existing?.notes ?? "";
   root.append(field("Notes", notesInput));
 
+  // Location — free text (address) or a link (URL). When a URL, the
+  // events list renders an "open link" button next to edit/delete.
+  const locationInput = document.createElement("input");
+  locationInput.type = "text";
+  locationInput.className = "zen-input";
+  locationInput.placeholder = "Location (address or link)";
+  locationInput.value = existing?.location ?? "";
+  root.append(field("Location", locationInput));
+
   const read = (): Omit<CalendarEvent, "id" | "created_at" | "updated_at"> | null => {
     const title = titleInput.value.trim();
     if (!title) return null;
@@ -143,6 +152,7 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
       weekdays: weekdayMask,
       enabled: enabledVal,
       notes: notesInput.value,
+      location: locationInput.value.trim(),
       source: "" as CalendarSource,
       source_account_id: "",
       external_id: "",

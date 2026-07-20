@@ -1,0 +1,17 @@
+{
+  "identifier": "eyedropper",
+  "description": "Capability for the fullscreen eyedropper overlay window",
+  "windows": ["eyedropper"],
+  "webviews": ["eyedropper"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-size",
+    "core:window:allow-set-effects",
+    "core:event:default",
+    "core:event:allow-listen",
+    "core:event:allow-emit"
+  ]
+}

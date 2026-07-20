@@ -24,6 +24,7 @@ export const EVENT = {
   calendarView: "zenith:calendar-view",
   updateAvailable: "zenith:update-available",
   updateChecked: "zenith:update-checked",
+  eyedropperPicked: "zenith:eyedropper-picked",
 } as const;
 
 export type EventName = (typeof EVENT)[keyof typeof EVENT];

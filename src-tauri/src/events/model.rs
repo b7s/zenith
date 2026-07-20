@@ -42,6 +42,11 @@ pub struct CalendarEvent {
     pub updated_at: i64,
     #[serde(default)]
     pub notes: String,
+    /// Optional location — free text (address) or a link (URL). Mirrored in
+    /// `src/shared/types.ts` as `location`. When the value is a URL the
+    /// events list renders an "open link" button.
+    #[serde(default)]
+    pub location: String,
     /// Origin of the event — empty for user-created, `"google"` or
     /// `"outlook"` for synced entries. Used by the sync domain to
     /// pick the right adapter on subsequent updates.

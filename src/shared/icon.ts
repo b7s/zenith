@@ -30,6 +30,8 @@ import windSvg from "@phosphor-icons/core/assets/duotone/wind-duotone.svg?raw";
 import dropSvg from "@phosphor-icons/core/assets/duotone/drop-duotone.svg?raw";
 import dropHalfBottomSvg from "@phosphor-icons/core/assets/duotone/drop-half-bottom-duotone.svg?raw";
 import eyeSvg from "@phosphor-icons/core/assets/duotone/eye-duotone.svg?raw";
+import eyedropperSvg from "@phosphor-icons/core/assets/duotone/eyedropper-duotone.svg?raw";
+import eyedropperSampleSvg from "@phosphor-icons/core/assets/duotone/eyedropper-sample-duotone.svg?raw";
 import gaugeSvg from "@phosphor-icons/core/assets/duotone/gauge-duotone.svg?raw";
 import sunHorizonSvg from "@phosphor-icons/core/assets/duotone/sun-horizon-duotone.svg?raw";
 import thermometerSvg from "@phosphor-icons/core/assets/duotone/thermometer-duotone.svg?raw";
@@ -128,6 +130,8 @@ const ICON_REGISTRY: Record<string, string> = {
   droplets: dropSvg,
   "drop-half-bottom": dropHalfBottomSvg,
   eye: eyeSvg,
+  eyedropper: eyedropperSvg,
+  "eyedropper-sample": eyedropperSampleSvg,
   gauge: gaugeSvg,
   sunrise: sunHorizonSvg,
   sunset: sunHorizonSvg,

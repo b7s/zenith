@@ -175,6 +175,8 @@ export interface CalendarEvent {
   updated_at: number;
   /** Free-text notes. */
   notes: string;
+  /** Optional location — free text (address) or a link (URL). Mirrored in Rust. */
+  location: string;
   /** Origin of the event — "" for user-created, "google" / "outlook" for
    *  synced entries. Mirrored in `src-tauri/src/events/model.rs::source`. */
   source: CalendarSource;

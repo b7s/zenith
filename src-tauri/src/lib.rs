@@ -3,6 +3,7 @@ mod commands;
 mod battery;
 mod calendar;
 mod calendar_sync;
+mod color_picker;
 mod config;
 mod git;
 mod log;
@@ -124,6 +125,14 @@ pub fn run() {
             calendar_sync::commands::calendar_sync_now,
             calendar_sync::commands::calendar_save_accounts,
             calendar_sync::commands::calendar_set_enabled,
+            color_picker::commands::start_eyedropper,
+            color_picker::commands::eyedropper_pixel,
+            color_picker::commands::get_eyedropper_frames,
+            color_picker::commands::end_eyedropper,
+            color_picker::commands::open_eyedropper,
+            color_picker::commands::open_color_picker,
+            color_picker::commands::get_cursor_position,
+            color_picker::commands::read_live_pixel,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)

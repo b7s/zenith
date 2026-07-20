@@ -1,0 +1,19 @@
+{
+  "id": "color_picker",
+  "name": "Color Picker",
+  "version": "1.0.0",
+  "description": "Eyedropper + full color picker. Click to sample any pixel; right-click for the picker window.",
+  "default_zone": "right",
+  "icon": "eyedropper",
+  "min_width": 28,
+  "preview": "<span class=\"cp-icon\"><i class=\"cp-glyph\" data-icon=\"eyedropper\" data-size=\"18\"></i></span>",
+  "config": {
+    "copy_format": {
+      "type": "select",
+      "value": "hex",
+      "label": "Copy format",
+      "hint": "Format used when the bar eyedropper samples a color (hex, rgb, hsl, oklch, hsv).",
+      "options": ["hex", "rgb", "hsl", "oklch", "hsv"]
+    }
+  }
+}

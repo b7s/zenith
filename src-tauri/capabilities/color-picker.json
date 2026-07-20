@@ -1,0 +1,17 @@
+{
+  "identifier": "color-picker",
+  "description": "Capability for the color-picker widget's right-click picker window",
+  "windows": ["color-picker"],
+  "webviews": ["color-picker"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-size",
+    "core:window:allow-set-effects",
+    "core:event:default",
+    "core:event:allow-listen"
+  ]
+}

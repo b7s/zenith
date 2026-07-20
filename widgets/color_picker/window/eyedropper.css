@@ -1,0 +1,85 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  cursor: crosshair;
+}
+#root {
+  position: fixed;
+  inset: 0;
+  cursor: crosshair;
+  outline: none;
+}
+
+/* Frozen per-monitor screenshots rendered as opaque images. These sit below
+ * the preview glass and make the overlay opaque over the desktop — this is
+ * what prevents hardware-composited video (MPO) from blacking out. */
+.cp-dropper-frames {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.cp-dropper-frame {
+  position: fixed;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Crosshair-centered color preview glass, offset above the hot spot so
+ * the crosshair is never obscured. Positioned via `transform` from JS. */
+.cp-dropper-glass {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--card) 78%, transparent);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 1px color-mix(in oklch, var(--border) 60%, transparent);
+}
+
+.cp-dropper-ring {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  display: grid;
+  place-items: center;
+}
+
+.cp-dropper-swatch {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #000;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.cp-dropper-readout {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}

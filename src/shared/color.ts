@@ -308,3 +308,86 @@ function trim(n: number): string {
 function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
 }
+
+// ─── Last-selected-color persistence ────────────────────────────────────────
+// Tauri app windows share one web origin, so `localStorage` is shared across
+// the eyedropper and picker windows (and persists across restarts). This lets
+// the right-click picker reopen with the color the user last picked/copied.
+
+const LAST_COLOR_KEY = "zenith:color-picker:last";
+
+/** Persist the most recently selected color (RGBA, alpha 0..1). */
+export function saveLastColor(c: RGBA): void {
+  try {
+    localStorage.setItem(LAST_COLOR_KEY, JSON.stringify(c));
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}
+
+/** Load the most recently selected color, or `null` if none/invalid. */
+export function loadLastColor(): RGBA | null {
+  try {
+    const raw = localStorage.getItem(LAST_COLOR_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Partial<RGBA>;
+    if (
+      typeof p?.r === "number" &&
+      typeof p?.g === "number" &&
+      typeof p?.b === "number"
+    ) {
+      return {
+        r: p.r,
+        g: p.g,
+        b: p.b,
+        a: typeof p.a === "number" ? p.a : 1,
+      };
+    }
+  } catch {
+    /* corrupt value — ignore */
+  }
+  return null;
+}
+
+// ─── Recent colors history ──────────────────────────────────────────────────
+
+const RECENT_COLORS_KEY = "zenith:color-picker:recents";
+const RECENT_COLORS_MAX = 8;
+
+function rgbaKey(c: RGBA): string {
+  return `${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)},${c.a.toFixed(2)}`;
+}
+
+/** Return the recent-color history, newest first. */
+export function loadRecentColors(): RGBA[] {
+  try {
+    const raw = localStorage.getItem(RECENT_COLORS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as Partial<RGBA>[];
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(
+        (p): p is RGBA =>
+          typeof p?.r === "number" &&
+          typeof p?.g === "number" &&
+          typeof p?.b === "number",
+      )
+      .map((p) => ({ r: p.r, g: p.g, b: p.b, a: typeof p.a === "number" ? p.a : 1 }));
+  } catch {
+    return [];
+  }
+}
+
+/** Prepend a color to the history (deduped, newest first, capped). */
+export function pushRecentColor(c: RGBA): void {
+  try {
+    const key = rgbaKey(c);
+    const next = [c, ...loadRecentColors().filter((x) => rgbaKey(x) !== key)].slice(
+      0,
+      RECENT_COLORS_MAX,
+    );
+    localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(next));
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}

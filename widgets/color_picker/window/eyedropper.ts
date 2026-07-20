@@ -7,7 +7,7 @@ import { initLog, logInfo } from "../../../src/shared/log";
 import { loadConfig } from "../../../src/shared/config";
 import { CMD } from "../../../src/shared/ipc";
 import { EVENT } from "../../../src/shared/events";
-import { formatColor, type ColorFormat, type RGBA } from "../../../src/shared/color";
+import { formatColor, saveLastColor, pushRecentColor, type ColorFormat, type RGBA } from "../../../src/shared/color";
 
 void (async () => {
   await initLog();
@@ -121,6 +121,9 @@ void (async () => {
       );
       const rgba: RGBA = { r: px[0], g: px[1], b: px[2], a: px[3] / 255 };
       const text = formatColor(rgba, copyFormat);
+      // Persist for the right-click picker: preload + recent-colors history.
+      saveLastColor(rgba);
+      pushRecentColor(rgba);
       try {
         await navigator.clipboard.writeText(text);
       } catch {

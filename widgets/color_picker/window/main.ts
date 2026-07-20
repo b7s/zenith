@@ -8,7 +8,7 @@ import { applyIcons } from "../../../src/shared/icon";
 import { initLog, logInfo } from "../../../src/shared/log";
 import { CMD } from "../../../src/shared/ipc";
 import { EVENT } from "../../../src/shared/events";
-import { formatColor, parseColorAny, hsvToRgb, rgbToHsv, type ColorFormat, type RGBA } from "../../../src/shared/color";
+import { formatColor, parseColorAny, hsvToRgb, rgbToHsv, saveLastColor, loadLastColor, pushRecentColor, loadRecentColors, type ColorFormat, type RGBA } from "../../../src/shared/color";
 
 void (async () => {
   await initLog();
@@ -142,6 +142,33 @@ void (async () => {
     swatchBar.append(sw);
   }
 
+  // ---- Recent colors (history of picked/copied colors) ----
+  const recentBar = document.createElement("div");
+  recentBar.className = "cp-swatches cp-recents";
+
+  function renderRecents() {
+    const recents = loadRecentColors();
+    recentBar.replaceChildren();
+    recentBar.hidden = recents.length === 0;
+    for (const c of recents) {
+      const solid = formatColor({ ...c, a: 1 }, "hex");
+      const sw = document.createElement("button");
+      sw.type = "button";
+      sw.className = "cp-swatch";
+      sw.title = formatColor(c, format);
+      sw.style.background =
+        c.a < 1
+          ? `linear-gradient(${formatColor(c, "hex")}, ${formatColor(c, "hex")}), ` +
+            `repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 / 8px 8px`
+          : solid;
+      sw.addEventListener("click", () => {
+        setFromRgba(c);
+        refresh();
+      });
+      recentBar.append(sw);
+    }
+  }
+
   // ---- Action buttons ----
   const actions = document.createElement("div");
   actions.className = "cp-actions";
@@ -168,7 +195,7 @@ void (async () => {
 
   actions.append(eyedropBtn, copyBtn);
 
-  wrap.append(top, input, fmtGroup, swatchBar, actions);
+  wrap.append(top, input, fmtGroup, swatchBar, recentBar, actions);
   content.append(wrap);
   applyIcons(content);
 
@@ -231,6 +258,8 @@ void (async () => {
       if (p.cancelled || p.r === undefined) return;
       setFromRgba({ r: p.r, g: p.g ?? 0, b: p.b ?? 0, a: (p.a ?? 255) / 255 });
       refresh();
+      // The eyedropper already persisted the pick; reflect it in the row.
+      renderRecents();
     },
   );
 
@@ -294,17 +323,30 @@ void (async () => {
 
   async function copyCurrent() {
     const text = formatColor(rgba(), format);
+    const current = rgba();
     try {
       await navigator.clipboard.writeText(text);
       flashReadout(`Copied ${text}`);
     } catch {
       flashReadout("Copy failed");
     }
+    // Copying is an explicit selection — persist it for preload + history.
+    saveLastColor(current);
+    pushRecentColor(current);
+    renderRecents();
+    fit();
   }
 
   function fit() {
     requestAnimationFrame(() => {
-      const h = Math.min(640, Math.max(520, document.body.scrollHeight));
+      // The mountWindow shell is `height: 100vh; overflow: hidden`, so
+      // `document.body.scrollHeight` just mirrors the current window height.
+      // Measure the real content instead: header + the content region's
+      // scrollHeight (which does account for overflow).
+      const header = document.querySelector<HTMLElement>(".zen-window__header");
+      const headerH = header?.offsetHeight ?? 44;
+      const needed = headerH + content.scrollHeight;
+      const h = Math.min(720, Math.max(480, needed));
       win.setSize(new LogicalSize(360, h)).catch(() => {});
     });
   }
@@ -318,6 +360,12 @@ void (async () => {
       void copyCurrent();
     }
   });
+
+  // Preload the last selected color so right-clicking reopens where the user
+  // left off, and populate the recent-colors row.
+  const last = loadLastColor();
+  if (last) setFromRgba(last);
+  renderRecents();
 
   // Initial paint.
   refresh();

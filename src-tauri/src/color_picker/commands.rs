@@ -352,7 +352,7 @@ fn create_color_picker_window(app: &tauri::AppHandle, x: f64, y: f64) -> Result<
     .title("Color Picker")
     .inner_size(cw as f64, ch as f64)
     .min_inner_size(320.0, 520.0)
-    .max_inner_size(480.0, 640.0)
+    .max_inner_size(480.0, 720.0)
     .position(cx as f64, cy as f64)
     .resizable(true)
     .decorations(false)

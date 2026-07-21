@@ -27,6 +27,32 @@ void (async () => {
   root.classList.add("weather-window");
   await applyTheme();
 
+  // Header retry button — shown only in error state. Wrapped in a right-
+  // aligned cluster with the close button so `justify-content: space-between`
+  // on the header keeps the title left and the action cluster right.
+  const headerActions = document.createElement("div");
+  headerActions.className = "zen-window__actions weather-window__actions";
+
+  const updateBtn = document.createElement("button");
+  updateBtn.type = "button";
+  updateBtn.className = "zen-icon-button zen-window__update is-hidden";
+  updateBtn.dataset.icon = "arrow-clockwise";
+  updateBtn.dataset.size = "14";
+  updateBtn.title = "Update";
+  updateBtn.setAttribute("aria-label", "Update");
+  setIcon(updateBtn, "arrow-clockwise", { size: 14 });
+
+  const closeBtn = root.querySelector<HTMLElement>(".zen-window__close");
+  if (closeBtn) {
+    closeBtn.replaceWith(headerActions);
+    headerActions.append(updateBtn, closeBtn);
+  } else {
+    headerActions.append(updateBtn);
+    root.querySelector<HTMLElement>(".zen-window__header")?.append(headerActions);
+  }
+
+  // Show cached snapshot immediately (fast — no API call). If the cache is
+  // missing/invalid, fall through to a refresh attempt.
   let snap: WeatherSnapshot | null = null;
   try {
     snap = await invoke<WeatherSnapshot>("weather_get_cache");
@@ -34,12 +60,19 @@ void (async () => {
     snap = null;
   }
 
-  if (!snap || !snap.ok || !snap.current) {
-    renderError(content, snap?.error || "Weather data not available. Configure the widget.");
-    return;
+  if (snap && snap.ok && snap.current) {
+    applySnapshot(snap);
+  } else {
+    // No usable cache — show loading while we try a fresh fetch.
+    renderLoading(content);
+    updateBtn.classList.remove("is-hidden");
+    try {
+      snap = await invoke<WeatherSnapshot>("weather_refresh");
+    } catch {
+      snap = null;
+    }
+    applySnapshot(snap);
   }
-
-  render(content, snap);
 
   win.onFocusChanged(({ payload }) => {
     if (!payload) win.close().catch(() => {});
@@ -47,7 +80,52 @@ void (async () => {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") win.close().catch(() => {});
   });
+
+  async function retry(): Promise<void> {
+    if (updateBtn.classList.contains("is-retrying")) return;
+    updateBtn.classList.add("is-retrying");
+    content.className = "zen-window__content weather-main";
+    renderLoading(content);
+    let next: WeatherSnapshot | null = null;
+    try {
+      next = await invoke<WeatherSnapshot>("weather_refresh");
+    } catch {
+      next = null;
+    }
+    applySnapshot(next);
+    updateBtn.classList.remove("is-retrying");
+  }
+
+  updateBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    void retry();
+  });
+
+  function applySnapshot(snap: WeatherSnapshot | null): void {
+    if (!snap || !snap.ok || !snap.current) {
+      renderError(content, snap?.error || "Weather data not available. Configure the widget.");
+      updateBtn.classList.remove("is-hidden");
+      return;
+    }
+    render(content, snap);
+    updateBtn.classList.add("is-hidden");
+  }
 })();
+
+function renderLoading(content: HTMLElement): void {
+  content.className = "zen-window__content weather-main weather-loading";
+  content.innerHTML = `
+    <div class="zen-card weather-current" style="margin-bottom:1rem;padding:1rem;">
+      <div class="weather-current__icon"></div>
+      <div class="weather-current__info">
+        <div class="weather-current__city">&nbsp;</div>
+        <div class="weather-current__temp">--°</div>
+        <div class="weather-current__meta">&nbsp;</div>
+      </div>
+    </div>
+  `;
+}
 
 function renderError(content: HTMLElement, msg: string): void {
   content.className = "zen-window__content weather-main weather-error";
@@ -55,7 +133,7 @@ function renderError(content: HTMLElement, msg: string): void {
     <div class="weather-error">
       <span class="zen-icon weather-error__icon" data-icon="triangle-alert" data-size="48"></span>
       <p class="weather-error__msg">${escapeHtml(msg)}</p>
-      <p class="weather-error__hint">Open the widget settings to add a city and API key.</p>
+      <p class="weather-error__hint">Click the update button in the header to try again, or open the widget settings to add a city and API key.</p>
     </div>
   `;
   applyIcons(content);
@@ -300,36 +378,51 @@ function buildChart(daily: any[]): HTMLElement {
     svg.append(minPath);
   }
 
-  // Dots for max + min with hover tooltip
+  // Dots for max + min with hover tooltip. Each visible dot has a large
+  // transparent hit circle behind it so the tooltip is easy to trigger.
   for (let i = 0; i < daily.length; i++) {
     const dayName = new Date(daily[i].dt * 1000).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
     const tmax = maxs[i];
     const tmin = mins[i];
 
     if (tmax !== null) {
+      const hit = makeHitDot(x(i), y(tmax));
       const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       dot.setAttribute("class", "weather-chart__dot");
       dot.setAttribute("cx", String(x(i)));
       dot.setAttribute("cy", String(y(tmax)));
-      dot.setAttribute("r", "4");
-      dot.style.cssText = "fill:var(--primary);cursor:pointer;";
-      dot.addEventListener("mouseenter", (e) => showTooltip(e, tooltip, dayName, tmax, tmin));
-      dot.addEventListener("mousemove", (e) => moveTooltip(e, tooltip));
-      dot.addEventListener("mouseleave", () => hideTooltip(tooltip));
-      svg.append(dot);
+      dot.setAttribute("r", "6");
+      dot.style.cssText = "fill:var(--primary);pointer-events:none;";
+      attachTooltip(hit, tooltip, dayName, tmax, tmin);
+      svg.append(hit, dot);
     }
     if (tmin !== null) {
+      const hit = makeHitDot(x(i), y(tmin));
       const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       dot.setAttribute("class", "weather-chart__dot");
       dot.setAttribute("cx", String(x(i)));
       dot.setAttribute("cy", String(y(tmin)));
-      dot.setAttribute("r", "4");
-      dot.style.cssText = "fill:var(--muted-foreground);opacity:0.7;cursor:pointer;";
-      dot.addEventListener("mouseenter", (e) => showTooltip(e, tooltip, dayName, tmax, tmin));
-      dot.addEventListener("mousemove", (e) => moveTooltip(e, tooltip));
-      dot.addEventListener("mouseleave", () => hideTooltip(tooltip));
-      svg.append(dot);
+      dot.setAttribute("r", "6");
+      dot.style.cssText = "fill:var(--muted-foreground);opacity:0.7;pointer-events:none;";
+      attachTooltip(hit, tooltip, dayName, tmax, tmin);
+      svg.append(hit, dot);
     }
+  }
+
+  function makeHitDot(cx: number, cy: number): SVGCircleElement {
+    const hit = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    hit.setAttribute("class", "weather-chart__hit");
+    hit.setAttribute("cx", String(cx));
+    hit.setAttribute("cy", String(cy));
+    hit.setAttribute("r", "12");
+    hit.style.cssText = "fill:transparent;cursor:pointer;";
+    return hit;
+  }
+
+  function attachTooltip(el: SVGCircleElement, tooltip: HTMLElement, day: string, tmax: number | null, tmin: number | null): void {
+    el.addEventListener("mouseenter", (e) => showTooltip(e, tooltip, day, tmax, tmin));
+    el.addEventListener("mousemove", (e) => moveTooltip(e, tooltip));
+    el.addEventListener("mouseleave", () => hideTooltip(tooltip));
   }
 
   wrap.append(svg);

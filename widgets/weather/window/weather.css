@@ -15,8 +15,24 @@
 .weather-window .zen-window__title {
   font-weight: 600;
 }
-.weather-window .zen-window__close {
+.weather-window .zen-window__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
   margin-left: auto;
+}
+.weather-window .zen-window__update.is-hidden {
+  display: none;
+}
+.weather-window .zen-window__update.is-retrying {
+  animation: wx-spin 0.9s linear infinite;
+  opacity: 0.7;
+  pointer-events: none;
+}
+@keyframes wx-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .weather-main {
@@ -278,10 +294,11 @@
 @keyframes wx-draw { to { stroke-dashoffset: 0; } }
 @keyframes wx-fade { to { opacity: 1; } }
 .weather-chart__dot {
-  r: 3;
+  r: 6;
   fill: var(--primary);
   opacity: 0;
   transform-origin: center;
   animation: wx-pop 0.3s ease-out forwards;
+  pointer-events: none;
 }
 @keyframes wx-pop { to { opacity: 1; transform: scale(1); } }

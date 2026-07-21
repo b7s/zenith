@@ -28,106 +28,172 @@
 .zen-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  pointer-events: none;
+}
+.zen-button.is-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 .zen-button.is-outline {
-  background: color-mix(in oklch, var(--background) 30%, transparent);
+  background: transparent;
+  border-color: color-mix(in oklch, var(--border) 70%, transparent);
   color: var(--foreground);
 }
 .zen-button.is-outline:hover {
-  background: color-mix(in oklch, var(--accent) 55%, transparent);
+  background: color-mix(in oklch, var(--muted) 50%, transparent);
 }
 .zen-button.is-ghost {
   background: transparent;
+  border-color: transparent;
   color: var(--foreground);
 }
 .zen-button.is-ghost:hover {
-  background: color-mix(in oklch, var(--accent) 35%, transparent);
+  background: color-mix(in oklch, var(--muted) 50%, transparent);
 }
-.zen-button.is-destructive {
-  background: color-mix(in oklch, var(--destructive) 60%, transparent);
-  color: var(--destructive-foreground);
+.zen-button.is-destructive,
+.zen-button.is-danger {
+  background: color-mix(in oklch, var(--danger, #ef4444) 60%, transparent);
+  border-color: color-mix(in oklch, var(--danger, #ef4444) 50%, transparent);
+  color: #fff;
 }
-.zen-button.is-destructive:hover {
-  background: color-mix(in oklch, var(--destructive) 78%, transparent);
-}
-.zen-button.is-info {
-  background: color-mix(in oklch, var(--info) 60%, transparent);
-  color: var(--info-foreground);
-}
-.zen-button.is-info:hover {
-  background: color-mix(in oklch, var(--info) 78%, transparent);
+.zen-button.is-destructive:hover,
+.zen-button.is-danger:hover {
+  background: color-mix(in oklch, var(--danger, #ef4444) 78%, transparent);
 }
 .zen-button.is-sm {
-  height: 2rem;
+  height: 1.75rem;
   padding: 0 0.625rem;
   font-size: 0.8125rem;
 }
 .zen-button.is-lg {
   height: 2.75rem;
   padding: 0 1.25rem;
-  font-size: 1rem;
+  font-size: 1.0625rem;
 }
-
 .zen-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 100%;
-  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-  background: color-mix(in oklch, var(--accent) 30%, transparent);
-  color: var(--muted-foreground);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
+  background: transparent;
+  color: var(--foreground);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  box-sizing: border-box;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, opacity 120ms ease;
+  will-change: background;
 }
 .zen-icon-button:hover {
-  background: color-mix(in oklch, var(--accent) 80%, transparent);
+  background: color-mix(in oklch, var(--muted) 60%, transparent);
+}
+.zen-icon-button:active {
+  opacity: 0.7;
+}
+.zen-icon-button.is-active {
+  background: color-mix(in oklch, var(--primary) 60%, transparent);
+  border-color: color-mix(in oklch, var(--primary) 50%, transparent);
+  color: var(--primary-foreground);
+}
+/* ---- Status dots (shared by git, ai-cli, and any future dot-in-a-box widget) ---- */
+.zen-status-dots {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.zen-status-dots > * {
+  border: 1px solid color-mix(in oklch, var(--foreground) 65%, transparent);
+}
+.zen-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 100%;
+  display: none;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.zen-status-dot--fail {
+  background: var(--danger, #ef4444);
+}
+.zen-status-dot--run {
+  background: var(--info, #3b82f6);
+}
+.zen-status-dot--ok {
+  background: var(--success, #22c55e);
+}
+.zen-status-dot--info {
+  background: var(--info, #3b82f6);
+}
+.zen-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.zen-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--foreground);
 }
-
+.zen-hint {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin: 0;
+}
 .zen-input {
-  height: 2.25rem;
+  display: flex;
+  align-items: center;
   width: 100%;
+  height: 2.25rem;
   padding: 0 0.75rem;
   border-radius: var(--radius);
-  border: 1px solid var(--input);
-  background: color-mix(in oklch, var(--background) 55%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  background: color-mix(in oklch, var(--input) 55%, transparent);
   color: var(--foreground);
   font: inherit;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-.zen-input::placeholder {
-  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  box-sizing: border-box;
+  transition: background 120ms ease, border-color 120ms ease;
+  will-change: background;
 }
 .zen-input:focus {
   outline: none;
   border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
 }
-
+.zen-input::placeholder {
+  color: var(--muted-foreground);
+}
+.zen-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .zen-textarea {
-  width: 100%;
-  min-height: 5rem;
-  padding: 0.625rem 0.75rem;
+  display: flex;
+  padding: 0.75rem;
   border-radius: var(--radius);
-  border: 1px solid var(--input);
-  background: color-mix(in oklch, var(--background) 55%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  background: color-mix(in oklch, var(--input) 55%, transparent);
   color: var(--foreground);
   font: inherit;
+  font-size: 0.875rem;
+  min-height: 5rem;
   resize: vertical;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-.zen-textarea::placeholder {
-  color: var(--muted-foreground);
+  box-sizing: border-box;
+  transition: background 120ms ease, border-color 120ms ease;
+  will-change: background;
 }
 .zen-textarea:focus {
   outline: none;
   border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
 }
-
+.zen-textarea::placeholder {
+  color: var(--muted-foreground);
+}
 .zen-select-wrapper {
   position: relative;
   display: flex;
@@ -137,230 +203,202 @@
   content: "";
   position: absolute;
   right: 0.75rem;
-  width: 0.5rem;
-  height: 0.5rem;
-  border: 2px solid var(--muted-foreground);
-  border-top: none;
-  border-left: none;
-  transform: rotate(45deg);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--foreground);
   pointer-events: none;
 }
 .zen-select {
-  height: 2.25rem;
+  display: flex;
+  align-items: center;
   width: 100%;
+  height: 2.25rem;
   padding: 0 2rem 0 0.75rem;
   border-radius: var(--radius);
-  border: 1px solid var(--input);
-  background: color-mix(in oklch, var(--background) 55%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  background: color-mix(in oklch, var(--input) 55%, transparent);
   color: var(--foreground);
   font: inherit;
+  font-size: 0.875rem;
   appearance: none;
+  -webkit-appearance: none;
   cursor: pointer;
-  transition: border-color 120ms ease;
+  box-sizing: border-box;
+  transition: background 120ms ease, border-color 120ms ease;
+  will-change: background;
 }
 .zen-select:focus {
   outline: none;
   border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
 }
 .zen-select option {
-  background: var(--background);
+  background: var(--bg);
   color: var(--foreground);
 }
-
 .zen-slider {
-  width: 100%;
-  height: 0.5rem;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--input) 60%, transparent);
+  -webkit-appearance: none;
   appearance: none;
-  cursor: pointer;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--border) 70%, transparent);
   outline: none;
+  cursor: pointer;
+  box-sizing: border-box;
 }
 .zen-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
   appearance: none;
-  width: 1.125rem;
-  height: 1.125rem;
-  border-radius: 999px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
   background: var(--primary);
-  border: 2px solid color-mix(in oklch, var(--background) 80%, transparent);
+  border: 2px solid color-mix(in oklch, var(--primary) 60%, transparent);
   cursor: pointer;
   transition: transform 120ms ease;
-  box-shadow: 0 1px 4px oklch(0 0 0 / 0.2);
 }
 .zen-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
 }
-.zen-slider::-webkit-slider-thumb:active {
-  transform: scale(0.95);
+.zen-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid color-mix(in oklch, var(--primary) 60%, transparent);
+  cursor: pointer;
 }
-.zen-slider:focus::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent), 0 1px 4px oklch(0 0 0 / 0.2);
+.zen-slider__track {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
-
-.zen-switch {
+.zen-slider__range {
+  flex: 1;
+}
+.zen-slider__thumb {
+  min-width: 2.5rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+.zen-switch,
+.zen-checkbox__switch {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-}
-.zen-switch input {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-.zen-switch__track {
-  width: 2.25rem;
-  height: 1.25rem;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--input) 60%, transparent);
-  border: 1px solid var(--border);
-  transition: background 180ms ease, border-color 180ms ease;
-  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
   flex: 0 0 auto;
 }
-.zen-switch__thumb {
+.zen-switch input,
+.zen-checkbox__switch input {
   position: absolute;
-  top: 0.125rem;
-  left: 0.125rem;
-  width: 0.875rem;
-  height: 0.875rem;
-  border-radius: 999px;
-  background: var(--background);
-  border: 1px solid var(--muted-foreground);
-  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.15);
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
 }
-.zen-switch input:checked + .zen-switch__track {
+.zen-switch__track,
+.zen-checkbox__track {
+  position: relative;
+  width: 2.25rem;
+  height: 1.25rem;
+  border-radius: 0.625rem;
+  background: color-mix(in oklch, var(--border) 60%, transparent);
+  transition: background 120ms ease;
+  will-change: background;
+  flex: 0 0 auto;
+}
+.zen-switch__thumb,
+.zen-checkbox__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.15);
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+  will-change: transform;
+}
+.zen-switch.is-on .zen-switch__track,
+.zen-checkbox__switch.is-on .zen-checkbox__track,
+.zen-checkbox__switch:has(input:checked) .zen-checkbox__track {
   background: var(--primary);
-  border-color: var(--primary);
 }
-.zen-switch input:checked + .zen-switch__track .zen-switch__thumb {
+.zen-switch.is-on .zen-switch__thumb,
+.zen-checkbox__switch.is-on .zen-checkbox__thumb,
+.zen-checkbox__switch:has(input:checked) .zen-checkbox__thumb {
   transform: translateX(1rem);
   background: var(--primary-foreground);
-  border-color: var(--primary-foreground);
 }
-.zen-switch input:focus-visible + .zen-switch__track {
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
-}
-
 .zen-checkbox {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem;
-  width: 100%;
-  max-width: 100%;
-  margin-bottom: .75rem;
+  align-items: flex-start;
+  gap: 0.75rem;
   cursor: pointer;
   user-select: none;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-.zen-checkbox input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-  opacity: 0;
-  pointer-events: none;
+  -webkit-user-select: none;
 }
 .zen-checkbox__text {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
 }
 .zen-checkbox__label {
+  font-size: 0.8125rem;
   font-weight: 500;
-  font-size: 0.875rem;
   color: var(--foreground);
   line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .zen-checkbox__desc {
   font-size: 0.75rem;
   color: var(--muted-foreground);
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.zen-checkbox__switch {
-  position: relative;
+.zen-checkbox .zen-switch,
+.zen-checkbox .zen-checkbox__switch {
   flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
 }
-.zen-checkbox__track {
-  position: relative;
-  width: 2.75rem;
-  height: 1.5rem;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--input) 70%, transparent);
-  transition: background 180ms ease, box-shadow 180ms ease;
-  box-sizing: border-box;
-}
-.zen-checkbox__thumb {
-  position: absolute;
-  top: 0.125rem;
-  left: 0.125rem;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 999px;
-  background: var(--background);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.2);
-  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1), background 180ms ease;
-  pointer-events: none;
-}
-.zen-checkbox__switch input:checked + .zen-checkbox__track {
-  background: var(--primary);
-}
-.zen-checkbox__switch input:checked + .zen-checkbox__track .zen-checkbox__thumb {
-  transform: translateX(1.25rem);
-  background: var(--primary-foreground);
-}
-.zen-checkbox__switch input:focus-visible + .zen-checkbox__track {
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
-}
-
 .zen-radio-group {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 .zen-radio-card {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0 0.875rem;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: color-mix(in oklch, var(--card) 70%, transparent);
-  color: var(--card-foreground);
+  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
+  box-sizing: border-box;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  will-change: background;
 }
 .zen-radio-card:hover {
-  background: color-mix(in oklch, var(--accent) 50%, transparent);
+  background: color-mix(in oklch, var(--muted) 40%, transparent);
 }
 .zen-radio-card.is-selected {
-  border-color: var(--primary);
-  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  background: color-mix(in oklch, var(--primary) 60%, transparent);
+  border-color: color-mix(in oklch, var(--primary) 50%, transparent);
+  color: var(--primary-foreground);
 }
 .zen-radio-card input {
   position: absolute;
@@ -369,25 +407,142 @@
   opacity: 0;
   pointer-events: none;
 }
-
-.zen-field {
+.zen-tabs {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+  gap: 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
+  margin: -1rem -1rem 0 -1rem;
+  padding: 0 1rem;
+  flex-shrink: 0;
 }
-.zen-label {
+.zen-tab {
+  display: flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
   font-size: 0.8125rem;
   font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  border-radius: var(--radius) var(--radius) 0 0;
+  transition: color 120ms ease, background 120ms ease;
+  will-change: color;
 }
-.zen-hint {
-  font-size: 0.75rem;
+.zen-tab:hover {
+  color: var(--foreground);
+}
+.zen-tab.is-active {
+  color: var(--foreground);
+}
+.zen-tab::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--foreground);
+  border-radius: 1px 1px 0 0;
+  transform: scaleX(0);
+  transition: transform 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+.zen-tab.is-active::after {
+  transform: scaleX(1);
+}
+.zen-tab--action {
+  margin-left: auto;
+  color: var(--primary);
+}
+.zen-tab--action:hover {
+  background: color-mix(in oklch, var(--primary) 10%, transparent) !important;
+}
+.zen-tab-pane {
+  display: none;
+}
+.zen-tab-pane.is-active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.zen-color-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.zen-color-field__swatch {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+.zen-color-field__hex {
+  font-size: 0.8125rem;
+  font-family: var(--font-mono, "Consolas", "Courier New", monospace);
   color: var(--muted-foreground);
-  margin-top: 0;
 }
-
-/* Inline link inside muted text (hints, descriptions). Underlined to make
- * the clickable target unambiguous. Inherits the muted color but switches
- * to the primary accent on hover so it reads as an active link. */
+.zen-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
+  background: color-mix(in oklch, var(--card) 60%, transparent);
+  backdrop-filter: blur(8px) saturate(160%);
+  -webkit-backdrop-filter: blur(8px) saturate(160%);
+  box-sizing: border-box;
+}
+.zen-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.zen-card__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--card-foreground);
+}
+.zen-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+.zen-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 30%, transparent);
+}
+.zen-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.zen-divider {
+  height: 1px;
+  background: color-mix(in oklch, var(--border) 30%, transparent);
+  border: none;
+  margin: 0.5rem 0;
+}
+.zen-section__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
 .zen-link {
   color: var(--muted-foreground);
   text-decoration: underline;
@@ -395,8 +550,9 @@
   text-decoration-thickness: 1px;
   cursor: pointer;
 }
-/* Update-check status chip in Settings → General. Reads as a small label
- * badge rather than body text, with an icon-less colored state. */
+.zen-link:hover {
+  color: var(--primary);
+}
 .zen-update-status {
   display: inline-flex;
   align-items: center;
@@ -417,373 +573,214 @@
 }
 .zen-update-status.is-error {
   color: var(--destructive-foreground, var(--foreground));
-  background: color-mix(in oklch, var(--destructive, #ef4444) 65%, transparent);
-  border-color: color-mix(in oklch, var(--destructive, #ef4444) 60%, transparent);
+  background: color-mix(in oklch, var(--danger, #ef4444) 65%, transparent);
+  border-color: color-mix(in oklch, var(--danger, #ef4444) 60%, transparent);
 }
-
-.zen-link:hover {
-  color: var(--primary);
-}
-
-.zen-card {
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: color-mix(in oklch, var(--card) 75%, transparent);
-  color: var(--card-foreground);
-}
-.zen-card__header,
-.zen-card__content,
-.zen-card__footer {
-  padding: 1rem 1.125rem;
-}
-.zen-card__header {
+.zen-window {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
 }
-.zen-card__title {
+.zen-window__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+.zen-window__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+.zen-window__title {
+  font-size: 0.8125rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--foreground);
 }
-
-/* ----- Filter pills (segmented 3-up toggle).
- * Used by the calendar events view (All / Event / Alarm) and anywhere
- * else that needs a 2–6 pill segmented control. Visual contract:
- *   - container: rounded pill background, subtle border, transparent fill
- *     (lets the underlying Acrylic/Mica show through).
- *   - pill: text-button style; transparent on rest, soft-accent on hover,
- *     primary-tinted on active.
- *   - the active pill is the source of truth — the container itself is
- *     not animated.
- * Size: 1.5rem tall is the canonical pill height. Vertical alignments with
- * `.cal-event-list` gap; no need for a margin on the container — the parent
- * sets the layout. */
-.zen-filter-pills {
+.zen-window__title-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  overflow: hidden;
+}
+.zen-window__search {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 0.75rem;
   position: relative;
+}
+.zen-window__search-icon {
+  position: absolute;
+  left: 0.5rem;
+  width: 14px;
+  height: 14px;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+.zen-window__search-input {
+  width: 100%;
+  height: 1.625rem;
+  padding: 0 0.5rem 0 1.625rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
+  background: color-mix(in oklch, var(--input) 40%, transparent);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.75rem;
+  box-sizing: border-box;
+}
+.zen-window__search-input:focus {
+  outline: none;
+  border-color: var(--ring);
+}
+.zen-window__search-input::placeholder {
+  color: var(--muted-foreground);
+}
+.zen-window__close {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  align-self: flex-start;
-  padding: 0.25rem 0.375rem;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  margin-left: auto;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  will-change: background;
+}
+.zen-window__close:hover {
+  background: color-mix(in oklch, var(--muted) 60%, transparent);
+  color: var(--foreground);
+}
+.zen-window__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  gap: 1rem;
+  box-sizing: border-box;
+}
+.zen-window__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 30%, transparent);
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+.zen-filter-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
   border-radius: 9999px;
   background: color-mix(in oklch, var(--card) 35%, transparent);
-  flex-shrink: 0;
+  box-sizing: border-box;
+  position: relative;
+  max-width: 100%;
+  overflow: visible;
 }
 .zen-filter-pill {
-  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   height: 1.5rem;
   padding: 0 0.625rem;
   border-radius: 9999px;
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
   color: var(--muted-foreground);
   font: inherit;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  box-sizing: border-box;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  will-change: background;
 }
 .zen-filter-pill:hover {
-  background: color-mix(in oklch, var(--accent) 30%, transparent);
+  background: color-mix(in oklch, var(--accent) 40%, transparent);
   color: var(--foreground);
 }
 .zen-filter-pill.is-active {
-  background: color-mix(in oklch, var(--primary) 70%, transparent);
-  border-color: color-mix(in oklch, var(--primary) 90%, transparent);
+  background: color-mix(in oklch, var(--primary) 60%, transparent);
+  border: 1px solid color-mix(in oklch, var(--primary) 50%, transparent);
   color: var(--primary-foreground);
 }
-.zen-filter-pill:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
-}
-
-/* Overflow "More" button + dropdown (auto-added by mountFilterPills when the
- * pills exceed the available width — see §6.2 / filter-pills.ts). */
 .zen-filter-pill-more {
-  flex: 0 0 auto;
-  font-weight: 600;
+  position: relative;
 }
-.zen-filter-pills__menu {
+.zen-filter-pill__menu {
+  display: none;
   position: absolute;
-  top: calc(100% + 0.25rem);
+  top: calc(100% + 4px);
   right: 0;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.25rem;
-  min-width: 9rem;
-  border-radius: var(--radius);
-  background: color-mix(in oklch, var(--popover, var(--card)) 95%, transparent);
+  background: color-mix(in oklch, var(--card) 85%, transparent);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
-  box-shadow: 0 8px 24px color-mix(in oklch, var(--shadow, #000) 35%, transparent);
-  backdrop-filter: blur(10px) saturate(160%);
+  border-radius: var(--radius);
+  padding: 4px;
+  z-index: 50;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 120px;
 }
-.zen-filter-pills__menu .zen-filter-pill {
+.zen-filter-pill__menu.is-open {
+  display: flex;
+}
+.zen-filter-pill__menu .zen-filter-pill {
   width: 100%;
   justify-content: flex-start;
-  flex-shrink: 0;
+  border-radius: calc(var(--radius) - 2px);
 }
-
-.zen-tabs {
-  display: flex;
-  gap: 0.25rem;
-  border-bottom: 1px solid var(--border);
-  padding: 0 .75rem;
-}
-.zen-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 2.25rem;
-  padding: 0 0.875rem;
-  border-radius: calc(var(--radius) - 0.125rem) calc(var(--radius) - 0.125rem) 0 0;
-  border: 1px solid transparent;
-  border-bottom: none;
-  background: transparent;
-  color: var(--foreground);
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
-  margin-bottom: -1px;
-}
-.zen-tab:hover {
-  color: var(--foreground);
-  background: color-mix(in oklch, var(--accent) 40%, transparent);
-}
-.zen-tab.is-active {
-  color: var(--foreground);
-  background: color-mix(in oklch, var(--accent) 60%, transparent);
-  border-color: var(--border);
-  border-bottom-color: color-mix(in oklch, var(--accent) 60%, transparent);
-}
-
-.zen-tab-pane {
-  padding: 1rem;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-.zen-tab-pane[hidden] {
-  display: none;
-}
-
-.zen-tab--action {
-  margin-left: auto;
-  color: var(--primary);
-}
-.zen-tab--action:hover {
-  background: color-mix(in oklch, var(--primary) 10%, transparent) !important;
-}
-
-.zen-color-field {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--input);
-  background: color-mix(in oklch, var(--background) 55%, transparent);
-  cursor: pointer;
-  transition: border-color 120ms ease;
-}
-.zen-color-field:hover {
-  border-color: var(--ring);
-}
-.zen-color-field__swatch {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: calc(var(--radius) - 0.25rem);
-  border: 1px solid var(--border);
-  flex: 0 0 auto;
-}
-.zen-color-field__hex {
-  font-size: 0.8125rem;
-  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
-  color: var(--foreground);
-}
-
-.zen-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.zen-section__title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-}
-.zen-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 0.75rem 0;
-  border: none;
-}
-
-.zen-collapse {
-  border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
-  padding-top: 0.5rem;
-}
-
-.zen-collapse > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-weight: 600;
-  font-size: 0.75rem;
-  color: var(--foreground);
-  padding: 0.25rem 0;
-  user-select: none;
-  outline: none;
-}
-
-.zen-collapse > summary::-webkit-details-marker {
-  display: none;
-}
-
-.zen-collapse > summary::before {
-  content: "\25B8";
-  font-size: 0.625rem;
-  color: var(--muted-foreground);
-  transition: transform 150ms ease;
-  display: inline-block;
-}
-
-.zen-collapse[open] > summary::before {
-  transform: rotate(90deg);
-}
-
-.zen-collapse > summary:hover {
-  color: var(--primary);
-}
-
 .zen-file-upload {
-  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.zen-file-upload__zone {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.375rem;
-  padding: 1.5rem 1rem;
-  border: 1.5px dashed color-mix(in oklch, var(--border) 60%, transparent);
+  min-height: 6rem;
+  border: 2px dashed color-mix(in oklch, var(--border) 60%, transparent);
   border-radius: var(--radius);
-  background: color-mix(in oklch, var(--card) 30%, transparent);
+  background: color-mix(in oklch, var(--card) 35%, transparent);
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease;
-  min-height: 5rem;
-  user-select: none;
+  will-change: background;
+  box-sizing: border-box;
+  position: relative;
 }
-.zen-file-upload__zone:hover {
-  background: color-mix(in oklch, var(--accent) 35%, transparent);
-  border-color: color-mix(in oklch, var(--ring) 70%, transparent);
+.zen-file-upload:hover {
+  background: color-mix(in oklch, var(--card) 50%, transparent);
 }
-.zen-file-upload__zone.is-drag-over {
+.zen-file-upload.is-drag-over {
+  border-color: var(--primary);
   background: color-mix(in oklch, var(--primary) 20%, transparent);
-  border-color: color-mix(in oklch, var(--primary) 80%, transparent);
-  border-style: solid;
-}
-.zen-file-upload__zone.is-error {
-  border-color: color-mix(in oklch, var(--destructive) 70%, transparent);
-  background: color-mix(in oklch, var(--destructive) 12%, transparent);
-}
-.zen-file-upload__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9999px;
-  background: color-mix(in oklch, var(--muted) 50%, transparent);
-  color: var(--muted-foreground);
 }
 .zen-file-upload__prompt {
   font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--foreground);
-  text-align: center;
-}
-.zen-file-upload__hint {
-  font-size: 0.75rem;
   color: var(--muted-foreground);
-  text-align: center;
-}
-.zen-file-upload__error {
-  font-size: 0.75rem;
-  color: var(--danger);
-  text-align: center;
-  display: none;
-}
-.zen-file-upload__zone.is-error + .zen-file-upload__error,
-.zen-file-upload__error.is-visible {
-  display: block;
-}
-.zen-file-upload__files {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-.zen-file-upload__file {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.5rem;
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklch, var(--card) 40%, transparent);
-  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
-}
-.zen-file-upload__file-icon {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 4px;
-  background: color-mix(in oklch, var(--muted) 50%, transparent);
-  font-size: 0.75rem;
-  font-weight: 600;
-  overflow: hidden;
-}
-.zen-file-upload__file-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.zen-file-upload__file-info {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-.zen-file-upload__file-name {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.zen-file-upload__file-size {
-  font-size: 0.6875rem;
-  color: var(--muted-foreground);
-}
-.zen-file-upload__file-remove {
-  flex: 0 0 auto;
-}
-.zen-file-upload--single .zen-file-upload__files {
-  max-height: 8rem;
-  overflow-y: auto;
+  pointer-events: none;
 }

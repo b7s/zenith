@@ -21,6 +21,7 @@ export const EVENT = {
   eventsUpdated: "zenith:events-updated",
   mediaChanged: "zenith:media-changed",
   gitChanged: "zenith:git-changed",
+  aiCliChanged: "zenith:ai-cli-changed",
   calendarView: "zenith:calendar-view",
   updateAvailable: "zenith:update-available",
   updateChecked: "zenith:update-checked",

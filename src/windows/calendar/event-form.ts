@@ -33,9 +33,10 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
   enabledText.append(enabledTitle);
   const enabledSwitch = document.createElement("span");
   enabledSwitch.className = "zen-checkbox__switch";
+  let enabledVal = existing?.enabled ?? true;
+  if (enabledVal) enabledSwitch.classList.add("is-on");
   const enabledInput = document.createElement("input");
   enabledInput.type = "checkbox";
-  let enabledVal = existing?.enabled ?? true;
   enabledInput.checked = enabledVal;
   const track = document.createElement("span");
   track.className = "zen-checkbox__track";
@@ -45,6 +46,7 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
   enabledSwitch.append(enabledInput, track);
   enabledInput.addEventListener("change", () => {
     enabledVal = enabledInput.checked;
+    enabledSwitch.classList.toggle("is-on", enabledVal);
   });
   enabledField.append(enabledText, enabledSwitch);
   root.append(enabledField);

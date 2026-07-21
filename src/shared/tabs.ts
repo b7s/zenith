@@ -42,10 +42,12 @@ export function mountTabs(parent: HTMLElement, tabs: TabDef[], initialId?: strin
     if (id === activeId || !buttons[id]) return;
     buttons[activeId].classList.remove("is-active");
     buttons[activeId].setAttribute("aria-selected", "false");
+    panes[activeId].classList.remove("is-active");
     panes[activeId].hidden = true;
     activeId = id;
     buttons[activeId].classList.add("is-active");
     buttons[activeId].setAttribute("aria-selected", "true");
+    panes[activeId].classList.add("is-active");
     panes[activeId].hidden = false;
   }
 
@@ -57,6 +59,7 @@ export function mountTabs(parent: HTMLElement, tabs: TabDef[], initialId?: strin
   if (activeId && buttons[activeId]) {
     buttons[activeId].classList.add("is-active");
     buttons[activeId].setAttribute("aria-selected", "true");
+    panes[activeId].classList.add("is-active");
     panes[activeId].hidden = false;
   }
 

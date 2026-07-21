@@ -594,6 +594,200 @@ them instantly):
 `.zen-*` class, you are duplicating — extract the common properties into the shared class
 or use composition (`class="zen-icon-button cal-window__close"`).
 
+### 6.1b Mandatory component patterns (force these exact DOM shapes)
+
+The following patterns have **one correct DOM shape**. Copy it verbatim — do not invent
+variations. The CSS in `components.css` targets these exact class names.
+
+#### Toggle switch — `.zen-checkbox` + `.zen-checkbox__switch`
+
+Apple-style label-left, toggle-right. Used everywhere a boolean preference appears
+(Settings, widget-config, calendar event-form, ai-cli manager, dialog). **This is the ONLY
+toggle pattern in the app — there is no naked `.zen-switch` usage outside of `.zen-checkbox`.**
+
+```ts
+// CORRECT — one shape, used by buildSwitch() / buildBoolControl()
+const row = document.createElement("label");
+row.className = "zen-checkbox";
+
+const text = document.createElement("span");
+text.className = "zen-checkbox__text";
+const label = document.createElement("span");
+label.className = "zen-checkbox__label";
+label.textContent = "My option";
+const desc = document.createElement("span");      // optional
+desc.className = "zen-checkbox__desc";
+desc.textContent = "Helper text";
+text.append(label, desc);
+row.append(text);
+
+const switchEl = document.createElement("span");
+switchEl.className = "zen-checkbox__switch";
+if (initialChecked) switchEl.classList.add("is-on");   // ← visual state
+
+const input = document.createElement("input");
+input.type = "checkbox";
+input.checked = initialChecked;
+input.addEventListener("change", () => {
+  switchEl.classList.toggle("is-on", input.checked);    // ← MUST toggle
+  // ... your onChange logic
+});
+
+const track = document.createElement("span");
+track.className = "zen-checkbox__track";
+const thumb = document.createElement("span");
+thumb.className = "zen-checkbox__thumb";
+track.append(thumb);
+switchEl.append(input, track);
+row.append(switchEl);
+```
+
+**Critical:** you MUST toggle `.is-on` on the `.zen-checkbox__switch` element in the
+`change` handler. Without it the track stays grey and the thumb never slides — the CSS
+uses `.zen-checkbox__switch.is-on` (and `:has(input:checked)` as a CSS-only fallback) to
+paint the "on" state.
+
+**Forbidden:**
+- Using `.zen-switch` as a standalone element outside `.zen-checkbox`. The `.zen-switch`
+  classes exist in CSS but are only used as internal implementation detail.
+- Omitting the `change` → `is-on` toggle.
+- Using a native `<input type="checkbox">` without the `.zen-checkbox__switch` wrapper.
+- Creating `.my-toggle`, `.custom-switch`, or any other switch variant.
+
+**Reference implementations:** `settings/main.ts:buildSwitch()`,
+`widget-config/main.ts:buildBoolControl()`.
+
+#### Radio cards — `.zen-radio-group` + `.zen-radio-card`
+
+Segmented card-style selector for mutually-exclusive options (material picker, theme
+picker, position selector). **Use this when the user picks ONE from a small fixed set
+and each option deserves equal visual weight.**
+
+```ts
+const group = document.createElement("div");
+group.className = "zen-radio-group";
+for (const opt of options) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "zen-radio-card";
+  if (opt.id === currentId) card.classList.add("is-selected");
+  card.textContent = opt.label;
+  card.addEventListener("click", () => {
+    group.querySelectorAll(".zen-radio-card").forEach((c) =>
+      c.classList.remove("is-selected"));
+    card.classList.add("is-selected");
+    // ... your onSelect logic
+  });
+  group.append(card);
+}
+```
+
+**CSS** (`components.css`): `.zen-radio-card` is transparent with a border; `.is-selected`
+fills with `var(--primary)` at 60% mix. Both are `transition` on `background` and
+`border-color` only — compositor-friendly per §8.
+
+**Do NOT use radio cards when:**
+- You need a dropdown — use `.zen-select` + `.zen-select-wrapper`.
+- You need filter/segmented pills — use `mountFilterPills()`.
+- You need a toggle switch — use `.zen-checkbox` above.
+
+#### Bar icon button — round chip with hover fill
+
+Every clickable icon ON THE BAR (color picker, AI CLI, future widgets) uses this exact
+pattern — a 1.6rem round chip with a transparent default background that fills with
+`var(--accent)` at 35% on hover and scales down on click. **The icon inside is 18px.**
+
+```html
+<!-- widget.html -->
+<span class="cp-icon">
+  <i class="cp-glyph" data-icon="eyedropper" data-size="18"></i>
+</span>
+```
+
+```css
+/* widget.css — copy verbatim, rename only the prefix */
+.cp-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--foreground);
+  cursor: pointer;
+  user-select: none;
+  border-radius: 9999px;
+  background: transparent;
+  transition:
+    background 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 120ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.cp-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.cp-icon:hover {
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
+}
+.cp-icon:active {
+  transform: scale(0.92);
+}
+```
+
+```ts
+// widget.js — render the icon via the shared sprite system
+var applyIcons = window.__zenith_applyIcons;
+if (applyIcons) applyIcons(el);   // resolves data-icon → <use href="#zen-i-...">
+```
+
+**Reference implementations:** `widgets/color_picker/widget.{html,css,js}`,
+`widgets/ai-cli/widget.{html,css,js}`.
+
+#### Notification dots — `.zen-status-dots`
+
+Small colored dots positioned at the bottom-center of a bar widget icon, indicating
+status at a glance. Each dot is independent — multiple can show simultaneously.
+
+```html
+<!-- widget.html — inside the bar icon chip -->
+<span class="zen-status-dots">
+  <span class="zen-status-dot zen-status-dot--fail"></span>   <!-- red: unseen failure -->
+  <span class="zen-status-dot zen-status-dot--run"></span>    <!-- blue: running -->
+  <span class="zen-status-dot zen-status-dot--ok"></span>     <!-- green: idle/ok -->
+  <span class="zen-status-dot zen-status-dot--info"></span>   <!-- info: notification -->
+</span>
+```
+
+**CSS** (`components.css`): `.zen-status-dots` is `position: absolute; bottom: -7px;
+left: 50%; transform: translateX(-50%)`. Each `.zen-status-dot` defaults to
+`display: none` — show individual dots by setting `display: inline-flex` from JS.
+
+```ts
+// widget.js — paint dots independently based on state
+var failDot = el.querySelector(".zen-status-dot--fail");
+var runDot  = el.querySelector(".zen-status-dot--run");
+var okDot   = el.querySelector(".zen-status-dot--ok");
+
+function paint(state) {
+  // Show/hide each dot independently
+  failDot.style.display = state.hasError ? "inline-flex" : "none";
+  runDot.style.display  = state.isRunning ? "inline-flex" : "none";
+  okDot.style.display   = state.isIdle ? "inline-flex" : "none";
+}
+```
+
+**Variants:**
+| Class | Color | Use case |
+|---|---|---|
+| `.zen-status-dot--fail` | `var(--danger)` | Unseen failure / error |
+| `.zen-status-dot--run` | `var(--info)` | Currently running / busy |
+| `.zen-status-dot--ok` | `var(--success)` | Completed / healthy |
+| `.zen-status-dot--info` | `var(--info)` | Notification / open PRs |
+
+**Reference implementations:** `widgets/git/widget.html` (fail + info),
+`widgets/ai-cli/widget.html` (fail + run + ok).
+
 ---
 
 ## 6.1 Icon system (Phosphor duotone)

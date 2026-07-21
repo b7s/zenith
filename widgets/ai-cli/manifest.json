@@ -1,0 +1,30 @@
+{
+  "id": "ai-cli",
+  "name": "AI CLI",
+  "version": "1.0.0",
+  "description": "Live session status for opencode, Claude Code, and Codex",
+  "default_zone": "right",
+  "icon": "terminal-window",
+  "min_width": 0,
+  "preview": "<span class=\"ac-icon\"><i class=\"ac-glyph\" data-icon=\"terminal-window\" data-size=\"18\"></i></span>",
+  "config": {
+    "opencode": {
+      "type": "bool",
+      "value": true,
+      "label": "opencode",
+      "hint": "Connect via SSE + HTTP port discovery"
+    },
+    "claude": {
+      "type": "bool",
+      "value": false,
+      "label": "Claude Code",
+      "hint": "Install hooks into ~/.claude/settings.json"
+    },
+    "codex": {
+      "type": "bool",
+      "value": false,
+      "label": "Codex",
+      "hint": "Install hooks into ~/.codex/hooks.json"
+    }
+  }
+}

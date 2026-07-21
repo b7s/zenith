@@ -85,6 +85,8 @@ import arrowUpRegularSvg from "@phosphor-icons/core/assets/regular/arrow-up.svg?
 import arrowDownRegularSvg from "@phosphor-icons/core/assets/regular/arrow-down.svg?raw";
 import xRegularSvg from "@phosphor-icons/core/assets/regular/x.svg?raw";
 import plusRegularSvg from "@phosphor-icons/core/assets/regular/plus.svg?raw";
+import terminalWindowSvg from "@phosphor-icons/core/assets/duotone/terminal-window-duotone.svg?raw";
+import downloadSvg from "@phosphor-icons/core/assets/duotone/download-duotone.svg?raw";
 
 const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><rect x="72" y="72" width="112" height="112" rx="16" opacity="0.25"/></svg>`;
 
@@ -190,6 +192,8 @@ const ICON_REGISTRY: Record<string, string> = {
   check: checkSvg,
   copy: copySvg,
   loader: spinnerSvg,
+  download: downloadSvg,
+  "terminal-window": terminalWindowSvg,
 };
 
 const ALIASES: Record<string, string> = {

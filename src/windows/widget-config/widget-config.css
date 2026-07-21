@@ -20,3 +20,19 @@
   flex: 1 1 auto;
   min-width: 0;
 }
+
+/* AI CLI detection: not-found state on the switch row */
+.zen-checkbox.is-not-found {
+  opacity: 0.55;
+}
+.wc-ai-not-found {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  margin-left: auto;
+}
+.wc-ai-version {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  margin-left: 0.35rem;
+}

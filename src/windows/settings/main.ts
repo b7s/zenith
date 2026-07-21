@@ -461,6 +461,7 @@ void (async () => {
 
       const switchEl = document.createElement("span");
       switchEl.className = "zen-checkbox__switch";
+      if (opts.checked) switchEl.classList.add("is-on");
       const input = document.createElement("input");
       input.type = "checkbox";
       input.checked = opts.checked;
@@ -473,7 +474,10 @@ void (async () => {
       switchEl.append(track);
       row.append(switchEl);
 
-      input.addEventListener("change", () => opts.onChange(input.checked));
+      input.addEventListener("change", () => {
+        switchEl.classList.toggle("is-on", input.checked);
+        opts.onChange(input.checked);
+      });
       return row;
     }
 

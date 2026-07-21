@@ -1,0 +1,17 @@
+{
+  "identifier": "ai-cli-manager",
+  "description": "Capability for the AI CLI manager widget window",
+  "windows": ["ai-cli-manager"],
+  "webviews": ["ai-cli-manager"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-effects",
+    "core:window:allow-set-size",
+    "core:event:default",
+    "core:event:allow-listen"
+  ]
+}

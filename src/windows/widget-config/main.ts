@@ -10,7 +10,7 @@ import { mountFileUpload } from "../../shared/file-upload";
 import type { FileUploadHandle } from "../../shared/file-upload";
 import { CMD } from "../../shared/ipc";
 import { loadConfig } from "../../shared/config";
-import type { Config, WidgetManifest, WidgetConfigField, CalendarAccount, PendingAuthStatus, CliDetected } from "../../shared/types";
+import type { Config, WidgetManifest, WidgetConfigField, CalendarAccount, PendingAuthStatus } from "../../shared/types";
 
 interface WidgetConfigGlobals {
   __ZENITH_WIDGET_CONFIG_ID: string;
@@ -303,85 +303,6 @@ void (async () => {
         const pv = sel ? sel.value : "";
         row.style.display = currentFilter === "all" || pv === currentFilter ? "" : "none";
       });
-    });
-  }
-
-  // AI CLI widget: per-CLI detection status + check-again button.
-  if (widgetId === "ai-cli") {
-    const detSection = document.createElement("div");
-    detSection.className = "zen-field";
-    detSection.style.marginBottom = "0.75rem";
-    const detLabel = document.createElement("label");
-    detLabel.className = "zen-label";
-    detLabel.textContent = "Detected CLIs";
-    detSection.append(detLabel);
-    const checkBtn = document.createElement("button");
-    checkBtn.type = "button";
-    checkBtn.className = "zen-button is-outline is-sm";
-    checkBtn.textContent = "Check again";
-    checkBtn.style.marginTop = "0.35rem";
-    detSection.append(checkBtn);
-    form.prepend(detSection);
-
-    const cliLabelMap: Record<string, string> = {
-      opencode: "opencode",
-      claude: "Claude Code",
-      codex: "Codex",
-    };
-
-    function applyDetection(list: CliDetected[]) {
-      // Reset all ai-cli checkboxes first
-      const allCheckboxes = form.querySelectorAll<HTMLLabelElement>(".zen-checkbox");
-      for (const cb of allCheckboxes) {
-        cb.classList.remove("is-not-found");
-        cb.querySelectorAll(".wc-ai-not-found, .wc-ai-version").forEach((el) => el.remove());
-        const inp = cb.querySelector<HTMLInputElement>("input[type=checkbox]");
-        if (inp && inp.disabled) {
-          inp.disabled = false;
-          inp.checked = false;
-          const sw = cb.querySelector<HTMLElement>(".zen-checkbox__switch");
-          if (sw) sw.classList.remove("is-on");
-        }
-      }
-
-      for (const c of list) {
-        const labelText = cliLabelMap[c.cli_id];
-        if (!labelText) continue;
-        for (const cb of allCheckboxes) {
-          const lbl = cb.querySelector<HTMLElement>(".zen-checkbox__label");
-          if (!lbl || lbl.textContent !== labelText) continue;
-          const input = cb.querySelector<HTMLInputElement>("input[type=checkbox]");
-          const switchEl = cb.querySelector<HTMLElement>(".zen-checkbox__switch");
-          if (!input || !switchEl) continue;
-          if (c.installed) {
-            if (c.version) {
-              const ver = document.createElement("span");
-              ver.className = "wc-ai-version";
-              ver.textContent = `v${c.version}`;
-              cb.querySelector(".zen-checkbox__text")?.append(ver);
-            }
-          } else {
-            input.disabled = true;
-            input.checked = false;
-            switchEl.classList.remove("is-on");
-            cb.classList.add("is-not-found");
-            const nf = document.createElement("span");
-            nf.className = "wc-ai-not-found";
-            nf.textContent = "Not found";
-            cb.append(nf);
-          }
-          break;
-        }
-      }
-    }
-
-    invoke<CliDetected[]>(CMD.detectAiClis)
-      .then(applyDetection)
-      .catch(() => {});
-    checkBtn.addEventListener("click", () => {
-      invoke<CliDetected[]>(CMD.detectAiClis)
-        .then(applyDetection)
-        .catch(() => {});
     });
   }
 

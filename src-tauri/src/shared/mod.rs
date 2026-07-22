@@ -46,7 +46,6 @@ pub const EVENT_MEDIA_CHANGED: &str = "zenith:media-changed";
 /// round-trip back via `get_git_state`.
 #[allow(dead_code)]
 pub const EVENT_GIT_CHANGED: &str = "zenith:git-changed";
-pub const EVENT_AI_CLI_CHANGED: &str = "zenith:ai-cli-changed";
 /// Emitted to the calendar popup window to switch its view mode
 /// (`"calendar"` | `"events"`) when the window is reused across
 /// callers (e.g. datetime widget → 2-month grid, then alarms widget →

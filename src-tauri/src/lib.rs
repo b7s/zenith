@@ -20,7 +20,6 @@ mod widgets;
 mod window;
 mod workspace;
 mod webapp;
-mod ai_cli;
 
 use tauri::{Emitter, Listener, Manager};
 
@@ -134,12 +133,6 @@ pub fn run() {
             color_picker::commands::open_color_picker,
             color_picker::commands::get_cursor_position,
             color_picker::commands::read_live_pixel,
-            ai_cli::commands::get_ai_cli_state,
-            ai_cli::commands::detect_ai_clis,
-            ai_cli::commands::install_ai_cli_hooks,
-            ai_cli::commands::uninstall_ai_cli_hooks,
-            ai_cli::commands::ack_ai_cli_failures,
-            ai_cli::commands::open_ai_cli_manager,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)
@@ -190,17 +183,6 @@ pub fn run() {
             // change. Sleeps 30s between cycles; per-account poll_mins
             // governs which accounts actually fire on a given cycle.
             git::listen::spawn(handle.clone());
-
-            // AI CLI widget — start the bridge HTTP server for hook
-            // events from claude/codex, and the opencode process-detection
-            // fallback. The server writes its port to
-            // %APPDATA%/zenith/ai-cli-bridge.json.
-            let agg = ai_cli::aggregator();
-            ai_cli::server::spawn(agg.clone());
-            // Refresh the opencode plugin with the current bridge port.
-            eprintln!("[zenith:ai-cli] calling refresh_opencode_plugin (setup)");
-            ai_cli::hook_install::refresh_opencode_plugin();
-            ai_cli::opencode_client::spawn(agg);
 
             // Calendar sync — background periodic sync of connected Google /
             // Outlook accounts into the shared events store.

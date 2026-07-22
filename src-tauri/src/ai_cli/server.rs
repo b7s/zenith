@@ -12,6 +12,8 @@ use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use tauri::Emitter;
+
 use super::aggregator::Aggregator;
 use super::model::{CliEvent, CliEventType, CliId};
 
@@ -45,7 +47,7 @@ pub fn spawn(aggregator: std::sync::Arc<Mutex<Aggregator>>) -> u16 {
     let listener = TcpListener::bind("127.0.0.1:0").expect("ai-cli bridge bind");
     let port = listener.local_addr().unwrap().port();
     write_port_file(port);
-    eprintln!("[zenith:ai-cli] bridge listening on 127.0.0.1:{port}");
+    eprintln!("[zenith:ai-cli:bridge] listening on 127.0.0.1:{port} (port file at %APPDATA%/zenith/ai-cli-bridge.json)");
 
     std::thread::spawn(move || {
         for stream in listener.incoming().flatten() {
@@ -111,21 +113,33 @@ fn handle_connection(mut stream: TcpStream, aggregator: std::sync::Arc<Mutex<Agg
             url::form_urlencoded::parse(path.split('?').nth(1).unwrap_or("").as_bytes())
                 .into_owned()
                 .collect();
-        let cli_str = query.get("cli").map(|s| s.as_str()).unwrap_or("");
-        let event_str = query.get("event").map(|s| s.as_str()).unwrap_or("");
+        let raw_body = String::from_utf8_lossy(&body).to_string();
+        let payload: serde_json::Value = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
 
+        let cli_str = query
+            .get("cli")
+            .map(|s| s.as_str())
+            .or_else(|| payload.get("cli").and_then(|v| v.as_str()))
+            .unwrap_or("");
+        let event_str = query
+            .get("event")
+            .map(|s| s.as_str())
+            .or_else(|| payload.get("event").and_then(|v| v.as_str()))
+            .unwrap_or("");
+
+        eprintln!("[zenith:ai-cli:bridge] POST path={path} cli={cli_str:?} event={event_str:?} body={raw_body}");
         let Some(cli_id) = CliId::parse(cli_str) else {
+            eprintln!("[zenith:ai-cli:bridge] unknown cli={cli_str:?}");
             respond(&stream, 400, "Unknown cli");
             return;
         };
-
-        let payload: serde_json::Value = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
 
         let event_type = match event_str {
             "started" | "start" | "session-start" => CliEventType::Started,
             "idle" | "stop" => CliEventType::Idle,
             "completed" | "session-end" => CliEventType::Completed,
             "failed" | "stop-failure" | "error" => CliEventType::Failed,
+            "waiting" | "confirmation" => CliEventType::Waiting,
             _ => CliEventType::Idle,
         };
 
@@ -171,6 +185,10 @@ fn handle_connection(mut stream: TcpStream, aggregator: std::sync::Arc<Mutex<Agg
 
         if let Ok(mut agg) = aggregator.lock() {
             agg.ingest(event);
+        }
+        if let Some(h) = crate::shared::app_handle() {
+            let state = super::aggregator().lock().unwrap().aggregate();
+            let _ = h.emit(crate::shared::EVENT_AI_CLI_CHANGED, &state);
         }
 
         respond_json(&stream, &serde_json::json!({ "ok": true }));

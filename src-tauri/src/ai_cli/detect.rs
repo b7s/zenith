@@ -53,12 +53,12 @@ static PROBES: &[CliProbe] = &[
 ];
 
 pub fn detect_all() -> Vec<CliDetected> {
-    PROBES.iter().map(|p| probe_one(p)).collect()
+    PROBES.iter().map(probe_one).collect()
 }
 
 fn probe_one(probe: &CliProbe) -> CliDetected {
     let binary_path = resolve_binary(probe.binary_name);
-    let installed = binary_path.is_some() || (probe.marker_dir.map_or(false, |d| d().exists()));
+    let installed = binary_path.is_some() || (probe.marker_dir.is_some_and(|d| d().exists()));
     CliDetected {
         cli_id: probe.id.as_str().into(),
         installed,

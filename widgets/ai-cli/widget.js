@@ -13,40 +13,53 @@
   if (applyIcons) applyIcons(el);
 
   var failDot = el.querySelector(".zen-status-dot--fail");
+  var waitDot = el.querySelector(".zen-status-dot--wait");
   var runDot = el.querySelector(".zen-status-dot--run");
   var okDot = el.querySelector(".zen-status-dot--ok");
   var dotsWrap = el.querySelector(".zen-status-dots");
 
+  // Read initial state
+  var lastState = null;
+
   function paint(state) {
-    if (!state || (!state.has_unseen_failure && !state.any_running && !state.any_finished)) {
-      if (dotsWrap) dotsWrap.style.display = "none";
-      iconEl.title = "AI CLI — idle";
-      return;
+    lastState = state;
+    var hasFail = !!(state && state.has_unseen_failure);
+    var hasRun = !!(state && state.any_running);
+    var hasWait = !!(state && state.per_cli && state.per_cli.some(function (s) { return s.is_waiting; }));
+    var hasOk = !hasFail && !hasRun && !hasWait;
+
+    // Decide which dots to show
+    if (dotsWrap) {
+      var any = hasFail || hasWait || hasRun || hasOk;
+      dotsWrap.style.display = any ? "flex" : "none";
     }
-    if (dotsWrap) dotsWrap.style.display = "";
-    if (failDot) failDot.style.display = state.has_unseen_failure ? "inline-flex" : "none";
-    if (runDot) runDot.style.display = state.any_running ? "inline-flex" : "none";
-    if (okDot) okDot.style.display = state.any_finished ? "inline-flex" : "none";
+    if (failDot) failDot.style.display = hasFail ? "inline-flex" : "none";
+    if (waitDot) waitDot.style.display = hasWait ? "inline-flex" : "none";
+    if (runDot) runDot.style.display = hasRun ? "inline-flex" : "none";
+    if (okDot) okDot.style.display = hasOk ? "inline-flex" : "none";
 
     var parts = [];
-    if (state.has_unseen_failure) parts.push("unseen failures");
-    if (state.any_running) parts.push("running");
-    if (state.any_finished) parts.push("idle");
-    iconEl.title = "AI CLI — " + parts.join(" · ");
+    if (hasFail) parts.push("unseen failures");
+    if (hasWait) parts.push("waiting confirmation");
+    if (hasRun) parts.push("running");
+    if (hasOk) parts.push("idle");
+    iconEl.title = parts.length ? "AI CLI — " + parts.join(" · ") : "AI CLI";
   }
 
   iconEl.addEventListener("click", function (e) {
     if (document.body.classList.contains("is-arranging")) return;
     e.preventDefault();
     e.stopPropagation();
+    // Acknowledge failures when opening manager (clears red dot)
+    if (lastState && lastState.has_unseen_failure) {
+      invoke("ack_ai_cli_failures", {}).catch(function () {});
+    }
     var rect = iconEl.getBoundingClientRect();
     invoke("open_ai_cli_manager", { x: rect.left, y: rect.bottom });
   });
 
   invoke("get_ai_cli_state", {})
-    .then(function (state) {
-      paint(state);
-    })
+    .then(function (state) { paint(state); })
     .catch(function () {});
 
   if (listen) {

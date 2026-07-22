@@ -1,231 +1,121 @@
-//! opencode HTTP/SSE client: discovers the opencode server port and
-//! subscribes to the SSE /event stream for live session changes.
+//! Process-detection fallback for opencode.
 //!
-//! Falls back to polling /session/status every 2 s if SSE breaks.
+//! When the opencode JS plugin is installed and loaded, events flow through
+//! the bridge server directly. This module provides a safety-net: if opencode.exe
+//! is running but no events have been seen through the plugin (e.g. plugin not
+//! registered or opencode loaded from a different config), we inject a basic
+//! "running" state so the bar widget still shows a blue dot.
+//!
+//! Polls every 5–15 s, comparing the aggregator state with actual process presence.
+//! Only emits changes when a mismatch is detected, so the plugin events take priority.
 
-use std::io::{BufRead, BufReader};
 use std::sync::Mutex;
 use std::time::Duration;
+
+use tauri::Emitter;
 
 use super::aggregator::Aggregator;
 use super::model::{CliEvent, CliEventType, CliId};
 
-/// Try to find an opencode server listening on localhost.
-/// Checks `~/.cache/opencode/` for port file first, then scans known ports via
-/// TCP connect, then falls back to `GetExtendedTcpTable`.
-fn discover_opencode_port() -> Option<u16> {
-    // 1. Try cache port file (%LOCALAPPDATA%/opencode)
-    let cache_dir = std::env::var("LOCALAPPDATA")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::env::temp_dir())
-        .join("opencode");
-    let port_file = cache_dir.join("port");
-    if let Ok(raw) = std::fs::read_to_string(&port_file) {
-        if let Ok(port) = raw.trim().parse::<u16>() {
-            if check_health(port) {
-                return Some(port);
-            }
-        }
-    }
-
-    // 2. Try common ports
-    for port in [4096, 4097, 4098] {
-        if check_health(port) {
-            return Some(port);
-        }
-    }
-
-    // 3. Scan via GetExtendedTcpTable
-    scan_tcp_table()
-}
-
-fn check_health(port: u16) -> bool {
-    let agent = ureq::AgentBuilder::new()
-        .timeout_connect(Duration::from_millis(300))
-        .build();
-    match agent
-        .get(&format!("http://127.0.0.1:{port}/global/health"))
-        .call()
-    {
-        Ok(resp) => resp.into_json::<serde_json::Value>().ok()
-            .and_then(|v| v.get("healthy").and_then(|h| h.as_bool()))
-            .unwrap_or(false),
-        Err(_) => false,
-    }
-}
-
-fn scan_tcp_table() -> Option<u16> {
-    use windows::Win32::NetworkManagement::IpHelper::{
-        GetExtendedTcpTable, TCP_TABLE_OWNER_PID_ALL,
+/// Check if `opencode.exe` is running via Windows process enumeration.
+fn is_opencode_process_running() -> bool {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::ProcessStatus::{EnumProcesses, GetModuleBaseNameW};
+    use windows::Win32::System::Threading::{
+        OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
     };
-    const AF_INET: u32 = 2;
 
-    let mut buf_size: u32 = 0;
+    let mut pids = vec![0u32; 4096];
+    let mut bytes_returned: u32 = 0;
     unsafe {
-        let _ = GetExtendedTcpTable(
-            None,
-            &mut buf_size as *mut u32,
-            false,
-            AF_INET,
-            TCP_TABLE_OWNER_PID_ALL,
-            0,
-        );
+        let _ = EnumProcesses(pids.as_mut_ptr(), (pids.len() * 4) as u32, &mut bytes_returned);
     }
-    let mut buf = vec![0u8; buf_size as usize];
-    let result = unsafe {
-        GetExtendedTcpTable(
-            Some(buf.as_mut_ptr() as _),
-            &mut buf_size as *mut u32,
-            false,
-            AF_INET,
-            TCP_TABLE_OWNER_PID_ALL,
-            0,
-        )
-    };
-    if result != 0 {
-        return None;
+    let count = (bytes_returned as usize) / 4;
+    if count == 0 {
+        return false;
     }
-
-    // Parse the MIB_TCPTABLE_OWNER_PID struct
-    let num_entries = u32::from_ne_bytes(buf[..4].try_into().unwrap_or([0u8; 4])) as usize;
-    let entry_size: usize = 24; // MIB_TCPROW_OWNER_PID
-    for i in 0..num_entries {
-        let offset = 4 + i * entry_size;
-        if offset + entry_size > buf.len() {
-            break;
+    let mut buf = vec![0u16; 260];
+    for &pid in &pids[..count.min(pids.len())] {
+        if pid == 0 {
+            continue;
         }
-        let state = u32::from_ne_bytes(buf[offset..offset + 4].try_into().unwrap_or([0u8; 4]));
-        let local_addr = u32::from_ne_bytes(buf[offset + 4..offset + 8].try_into().unwrap_or([0u8; 4]));
-        let local_port = u16::from_be_bytes(buf[offset + 8..offset + 10].try_into().unwrap_or([0u8; 2]));
-        // state == 2 means MIB_TCP_STATE_LISTEN
-        if state == 2 && local_addr == 0x0100007f {
-            if check_health(local_port) {
-                return Some(local_port);
+        unsafe {
+            if let Ok(handle) = OpenProcess(
+                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                false,
+                pid,
+            ) {
+                let len = GetModuleBaseNameW(handle, None, buf.as_mut_slice()) as usize;
+                let _ = CloseHandle(handle);
+                if len > 0 {
+                    let name = String::from_utf16_lossy(&buf[..len]);
+                    if name.eq_ignore_ascii_case("opencode.exe") {
+                        return true;
+                    }
+                    // Log first few matching "open*" processes for diagnostics
+                    if name.to_ascii_lowercase().starts_with("open") {
+                        eprintln!("[zenith:ai-cli:process] matching process pid={pid} name={name:?}");
+                    }
+                }
             }
         }
     }
-    None
+    false
 }
 
-/// Spawn the opencode listener thread. Connects to opencode server, subscribes
-/// to SSE /event, and feeds events into the aggregator.
+/// Spawn the process-detection fallback thread.
+/// Compares aggregator state with actual opencode process presence every 5–15 s.
 pub fn spawn(aggregator: std::sync::Arc<Mutex<Aggregator>>) {
     std::thread::spawn(move || {
-        let mut backoff = Duration::from_secs(1);
+        eprintln!("[zenith:ai-cli:process] fallback started");
         loop {
-            if let Some(port) = discover_opencode_port() {
-                eprintln!("[zenith:ai-cli] opencode server found on :{port}");
-                if let Err(e) = sse_loop(port, &aggregator) {
-                    eprintln!("[zenith:ai-cli] opencode SSE disconnected ({e}), reconnecting…");
+            let running = is_opencode_process_running();
+
+            let current_running = aggregator
+                .lock()
+                .ok()
+                .and_then(|a| {
+                    let snapshots = a.aggregate().per_cli;
+                    snapshots
+                        .iter()
+                        .find(|s| s.cli_id == "opencode")
+                        .map(|s| s.is_running)
+                })
+                .unwrap_or(false);
+
+            if running != current_running {
+                eprintln!(
+                    "[zenith:ai-cli:process] mismatch: process={running} aggregator={current_running} → injecting {}",
+                    if running { "Started" } else { "Idle" }
+                );
+                let event_type = if running {
+                    CliEventType::Started
+                } else {
+                    CliEventType::Idle
+                };
+                if let Ok(mut agg) = aggregator.lock() {
+                    agg.ingest(CliEvent {
+                        cli_id: CliId::Opencode,
+                        event_type,
+                        prompt_label: None,
+                        error_message: None,
+                        timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                    });
                 }
-                backoff = Duration::from_secs(1);
+                if let Some(h) = crate::shared::app_handle() {
+                    if let Ok(agg) = aggregator.lock() {
+                        let state = agg.aggregate();
+                        eprintln!("[zenith:ai-cli:process] emitting state: any_running={}", state.any_running);
+                        let _ = h.emit(crate::shared::EVENT_AI_CLI_CHANGED, &state);
+                    }
+                } else {
+                    eprintln!("[zenith:ai-cli:process] app_handle not available");
+                }
+                std::thread::sleep(Duration::from_secs(5));
             } else {
-                std::thread::sleep(backoff);
-                backoff = (backoff * 2).min(Duration::from_secs(30));
+                eprintln!("[zenith:ai-cli:process] in-sync: process={running} aggregator={current_running}");
+                std::thread::sleep(Duration::from_secs(15));
             }
         }
     });
-}
-
-fn sse_loop(
-    port: u16,
-    aggregator: &std::sync::Arc<Mutex<Aggregator>>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let agent = ureq::AgentBuilder::new()
-        .timeout_read(Duration::from_secs(300))
-        .timeout(Duration::from_secs(300))
-        .build();
-    let resp = agent
-        .get(&format!("http://127.0.0.1:{port}/event"))
-        .call()?;
-    let reader = BufReader::new(resp.into_reader());
-    let mut event_type = String::new();
-    let mut data = String::new();
-
-    for line in reader.lines() {
-        let line = line?;
-        if let Some(field) = line.strip_prefix("event: ") {
-            event_type = field.trim().to_string();
-            data.clear();
-        } else if let Some(field) = line.strip_prefix("data: ") {
-            data = field.to_string();
-        } else if line.is_empty() {
-            if event_type.is_empty() || data.is_empty() {
-                continue;
-            }
-            if let Err(e) = handle_sse_event(&event_type, &data, aggregator) {
-                eprintln!("[zenith:ai-cli] sse parse error: {e}");
-            }
-            event_type.clear();
-            data.clear();
-        }
-    }
-    Ok(())
-}
-
-fn handle_sse_event(
-    event_type: &str,
-    data: &str,
-    aggregator: &std::sync::Arc<Mutex<Aggregator>>,
-) -> Result<(), String> {
-    let cli_event = match event_type {
-        "session.idle" | "session.updated" => {
-            let v: serde_json::Value =
-                serde_json::from_str(data).map_err(|e| format!("json: {e}"))?;
-            let is_running = v
-                .get("status")
-                .and_then(|s| s.as_str())
-                .map(|s| s == "running")
-                .unwrap_or(false);
-            if is_running {
-                Some(CliEvent {
-                    cli_id: CliId::Opencode,
-                    event_type: CliEventType::Started,
-                    prompt_label: None,
-                    error_message: None,
-                    timestamp_ms: chrono::Utc::now().timestamp_millis(),
-                })
-            } else {
-                Some(CliEvent {
-                    cli_id: CliId::Opencode,
-                    event_type: CliEventType::Idle,
-                    prompt_label: None,
-                    error_message: None,
-                    timestamp_ms: chrono::Utc::now().timestamp_millis(),
-                })
-            }
-        }
-        "session.error" => {
-            let v: serde_json::Value =
-                serde_json::from_str(data).map_err(|e| format!("json: {e}"))?;
-            let msg = v
-                .get("error")
-                .and_then(|e| e.as_str())
-                .or_else(|| v.get("message").and_then(|m| m.as_str()))
-                .unwrap_or("Unknown error")
-                .to_string();
-            Some(CliEvent {
-                cli_id: CliId::Opencode,
-                event_type: CliEventType::Failed,
-                prompt_label: v
-                    .get("title")
-                    .and_then(|t| t.as_str())
-                    .map(|s| s.to_string()),
-                error_message: Some(msg),
-                timestamp_ms: chrono::Utc::now().timestamp_millis(),
-            })
-        }
-        "session.created" | "server.connected" | "session.deleted" => {
-            // Ignore — not state changes we track
-            None
-        }
-        _ => None,
-    };
-
-    if let Some(event) = cli_event {
-        if let Ok(mut agg) = aggregator.lock() {
-            agg.ingest(event);
-        }
-    }
-    Ok(())
 }

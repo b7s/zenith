@@ -1,23 +1,27 @@
-.am-content {
-  display: flex;
-  flex-direction: column;
+.am-pane {
   gap: 0.5rem;
   padding: 0.5rem 0.75rem 0.75rem;
 }
 
-.am-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+.am-tab-badge {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--danger, #ef4444);
+  border: 1px solid color-mix(in oklch, var(--foreground) 65%, transparent);
+  display: none;
+}
+.am-tab-badge.is-visible {
+  display: block;
 }
 
-.am-section-title {
-  margin: 0;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted-foreground);
+.am-cli-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .am-cli-row {
@@ -39,9 +43,10 @@
   background: var(--muted-foreground);
   opacity: 0.35;
 }
+.am-cli-status.is-waiting { background: var(--warning, #f59e0b); opacity: 1; }
 .am-cli-status.is-running { background: var(--info, #3b82f6); opacity: 1; }
 .am-cli-status.is-failure { background: var(--danger, #ef4444); opacity: 1; }
-.am-cli-status.is-idle    { background: var(--success, #22c55e); opacity: 1; }
+
 
 .am-cli-name {
   flex: 0 0 auto;
@@ -68,20 +73,18 @@
   display: none;
 }
 
-.am-cli-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
 .am-cli-row.is-not-found {
   opacity: 0.55;
 }
 
-.am-cli-not-found {
-  font-size: 0.6875rem;
-  color: var(--muted-foreground);
-  white-space: nowrap;
+.am-cli-meta.is-status {
+  font-style: italic;
+}
+
+.am-fail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .am-toolbar {

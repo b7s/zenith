@@ -1,0 +1,37 @@
+.zen-status-dots {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.zen-status-dots > * {
+  border: 1px solid color-mix(in oklch, var(--foreground) 65%, transparent);
+}
+.zen-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 100%;
+  display: none;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.zen-status-dot--fail {
+  background: var(--danger, #ef4444);
+}
+.zen-status-dot--run {
+  background: var(--info, #3b82f6);
+}
+.zen-status-dot--ok {
+  background: var(--success, #22c55e);
+}
+.zen-status-dot--info {
+  background: var(--info, #3b82f6);
+}
+.zen-status-dot--wait {
+  background: var(--warning, #f59e0b);
+}

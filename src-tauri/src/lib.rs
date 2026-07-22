@@ -192,10 +192,14 @@ pub fn run() {
             git::listen::spawn(handle.clone());
 
             // AI CLI widget — start the bridge HTTP server for hook
-            // events from claude/codex, and the opencode SSE client.
-            // The server writes its port to %APPDATA%/zenith/ai-cli-bridge.json.
+            // events from claude/codex, and the opencode process-detection
+            // fallback. The server writes its port to
+            // %APPDATA%/zenith/ai-cli-bridge.json.
             let agg = ai_cli::aggregator();
             ai_cli::server::spawn(agg.clone());
+            // Refresh the opencode plugin with the current bridge port.
+            eprintln!("[zenith:ai-cli] calling refresh_opencode_plugin (setup)");
+            ai_cli::hook_install::refresh_opencode_plugin();
             ai_cli::opencode_client::spawn(agg);
 
             // Calendar sync — background periodic sync of connected Google /

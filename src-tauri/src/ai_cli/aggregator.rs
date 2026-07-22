@@ -1,7 +1,7 @@
 //! Pure service: aggregate per-CLI session states into the three-dot booleans.
 //! Single source of truth for the dot-precedence logic.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::model::{AggregateState, CliEvent, CliEventType, CliId, CliSnapshot, UnseenFailure};
 
@@ -9,6 +9,7 @@ use super::model::{AggregateState, CliEvent, CliEventType, CliId, CliSnapshot, U
 #[derive(Debug, Default)]
 pub struct Aggregator {
     running: HashMap<CliId, Vec<String>>,
+    waiting: HashSet<CliId>,
     unseen_failures: Vec<UnseenFailure>,
 }
 
@@ -19,6 +20,7 @@ impl Aggregator {
             CliEventType::Started => {
                 let label = event.prompt_label.unwrap_or_else(|| "working".into());
                 self.running.entry(event.cli_id).or_default().push(label);
+                self.waiting.remove(&event.cli_id);
             }
             CliEventType::Idle | CliEventType::Completed => {
                 if let Some(labels) = self.running.get_mut(&event.cli_id) {
@@ -26,8 +28,13 @@ impl Aggregator {
                         labels.pop();
                     }
                 }
+                self.waiting.remove(&event.cli_id);
+            }
+            CliEventType::Waiting => {
+                self.waiting.insert(event.cli_id);
             }
             CliEventType::Failed => {
+                self.waiting.remove(&event.cli_id);
                 if let Some(labels) = self.running.get_mut(&event.cli_id) {
                     labels.pop();
                 }
@@ -77,7 +84,8 @@ impl Aggregator {
         ids
             .into_iter()
             .map(|id| {
-                let is_running = self.running.get(&id).map_or(false, |l| !l.is_empty());
+                let is_running = self.running.get(&id).is_some_and(|l| !l.is_empty());
+                let is_waiting = self.waiting.contains(&id);
                 let last_err = self
                     .unseen_failures
                     .iter()
@@ -89,7 +97,9 @@ impl Aggregator {
                     .and_then(|l| l.last())
                     .cloned()
                     .unwrap_or_default();
-                let status_text = if is_running {
+                let status_text = if is_waiting {
+                    "waiting confirmation".into()
+                } else if is_running {
                     format!("running: {prompt_label}")
                 } else if last_err.is_some() {
                     "failed".into()
@@ -99,6 +109,7 @@ impl Aggregator {
                 CliSnapshot {
                     cli_id: id.as_str().into(),
                     is_running,
+                    is_waiting: self.waiting.contains(&id),
                     last_error_at: last_err.map(|f| f.occurred_at),
                     last_error_message: last_err
                         .map(|f| f.error_message.clone())
@@ -137,7 +148,7 @@ mod tests {
 
     #[test]
     fn idle_gives_green() {
-        let mut a = Aggregator::default();
+        let a = Aggregator::default();
         let state = a.aggregate();
         assert!(!state.has_unseen_failure);
         assert!(!state.any_running);

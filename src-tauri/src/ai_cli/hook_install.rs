@@ -24,6 +24,20 @@ pub fn uninstall(cli: CliId) -> Result<bool, String> {
     }
 }
 
+/// Refresh the opencode plugin on startup if already installed.
+/// Regenerates with the current bridge port so the plugin doesn't hold a stale URL.
+pub fn refresh_opencode_plugin() {
+    let path = opencode_plugin_path();
+    let config_path = opencode_config_path();
+    eprintln!("[zenith:ai-cli:hook] refresh_opencode_plugin: plugin_path={:?} exists={}", path, path.exists());
+    eprintln!("[zenith:ai-cli:hook]   config_path={:?} exists={}", config_path, config_path.exists());
+    if path.exists() {
+        if let Err(e) = install_opencode_plugin() {
+            eprintln!("[zenith:ai-cli:hook] failed to refresh opencode plugin: {e}");
+        }
+    }
+}
+
 fn bridge_endpoint() -> String {
     let port = crate::ai_cli::server::bridge_port().unwrap_or(4099);
     format!("http://127.0.0.1:{port}/ai-cli/event")
@@ -175,60 +189,210 @@ fn uninstall_codex_hooks() -> Result<bool, String> {
     Ok(changed)
 }
 
-// ── opencode plugin ───────────────────────────────────────────────
+// ── opencode plugin (JS) ──────────────────────────────────────────
+// Uses opencode's plugin API (https://opencode.ai/docs/plugins).
+// Plugin file lives at ~/.config/opencode/plugins/zenith-ai-cli-bridge.js
+// and is registered in opencode.jsonc under the "plugin" key.
 
-fn opencode_plugins_dir() -> PathBuf {
-    std::env::var("APPDATA")
-        .map(std::path::PathBuf::from)
+fn opencode_config_dir() -> PathBuf {
+    std::env::var("USERPROFILE")
+        .map(PathBuf::from)
         .unwrap_or_else(|_| std::env::temp_dir())
+        .join(".config")
         .join("opencode")
-        .join("plugins")
 }
 
+fn opencode_config_path() -> PathBuf {
+    opencode_config_dir().join("opencode.jsonc")
+}
+
+fn opencode_plugins_dir() -> PathBuf {
+    opencode_config_dir().join("plugins")
+}
+
+fn opencode_plugin_path() -> PathBuf {
+    opencode_plugins_dir().join("zenith-ai-cli-bridge.js")
+}
+
+fn bridge_base_url() -> String {
+    let port = crate::ai_cli::server::bridge_port().unwrap_or(4099);
+    format!("http://127.0.0.1:{port}")
+}
+
+/// Install (or refresh) the opencode plugin and register it in opencode.jsonc.
+/// Always regenerates the plugin JS so the bridge port is current.
 fn install_opencode_plugin() -> Result<bool, String> {
     let dir = opencode_plugins_dir();
-    let path = dir.join("zenith-ai-cli-bridge.ts");
-    if path.exists() {
-        return Ok(false); // already installed
-    }
-    std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir: {e}"))?;
-    let bridge = bridge_endpoint();
+    std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir plugins: {e}"))?;
+
+    let base_url = bridge_base_url();
     let plugin_code = format!(r#"// Auto-installed by Zenith ai-cli widget
-export const ZenithAiCliBridge = async (ctx) => {{
-  const bridgeUrl = "{bridge}";
-  const post = (event, extra) => {{
-    try {{
-      fetch(bridgeUrl, {{
-        method: "POST",
-        headers: {{ "Content-Type": "application/json" }},
-        body: JSON.stringify({{ cli: "opencode", event, ...extra, timestamp_ms: Date.now() }}),
-      }}).catch(() => {{}});
-    }} catch(e) {{}}
+export default async () => {{
+  const BASE = "{base_url}";
+  const post = (event, extra = {{}}) => {{
+    fetch(BASE + "/ai-cli/event", {{
+      method: "POST",
+      headers: {{ "Content-Type": "application/json" }},
+      body: JSON.stringify({{ cli: "opencode", event, ...extra, timestamp_ms: Date.now() }}),
+    }}).catch(() => {{}});
   }};
   return {{
-    "session.idle": async (input, output) => post("IDLE", {{ prompt_label: input?.title }}),
-    "session.error": async (input, output) => post("FAILED", {{
-      error_message: input?.error || input?.message,
-      prompt_label: input?.title,
-    }}),
-    "session.created": async (input, output) => post("STARTED", {{ prompt_label: input?.title }}),
+    event: async ({{ event }}) => {{
+      const t = event.type;
+      const p = event.properties || {{}};
+      if (t === "session.created" && p.info) {{
+        post("started", {{ session_id: p.info.id, prompt_label: p.info.title }});
+      }}
+      if (t === "session.status" && p.sessionID) {{
+        if (p.status?.type === "busy") post("started", {{ session_id: p.sessionID }});
+        else if (p.status?.type === "idle") post("idle", {{ session_id: p.sessionID }});
+      }}
+      if (t === "session.idle" && p.sessionID) {{
+        post("idle", {{ session_id: p.sessionID }});
+      }}
+      if (t === "session.error") {{
+        const msg = p.error?.data?.message || p.error?.message || "Unknown error";
+        post("failed", {{ session_id: p.sessionID || "", error_message: msg }});
+      }}
+      if (t === "session.deleted" && p.info) {{
+        post("completed", {{ session_id: p.info.id }});
+      }}
+      // Permission request — waiting for user confirmation
+      if (t === "permission.updated" && p.id) {{
+        post("waiting", {{ session_id: p.sessionID, prompt_label: p.title || p.type }});
+      }}
+      // Permission resolved — back to busy/idle
+      if (t === "permission.replied" && p.sessionID) {{
+        post("started", {{ session_id: p.sessionID }});
+      }}
+      // Question asked — waiting for user answer
+      if (t === "question.asked" && p.id) {{
+        post("waiting", {{ session_id: p.sessionID, prompt_label: "question" }});
+      }}
+    }},
+    "shell.env": async (_, output) => {{
+      output.env.ZENITH_AI_CLI_ACTIVE = "1";
+    }},
   }};
 }};
 "#);
+
+    let path = opencode_plugin_path();
     std::fs::write(&path, &plugin_code).map_err(|e| format!("write plugin: {e}"))?;
-    eprintln!("[zenith:ai-cli] opencode plugin installed: {}", path.display());
+    eprintln!("[zenith:ai-cli:hook] plugin written: {} ({} bytes)", path.display(), plugin_code.len());
+
+    register_plugin_in_config()?;
+
+    // Clean up old location (v1 plugin at %APPDATA%/opencode/plugins/)
+    let old_path = old_opencode_plugin_path();
+    if old_path.exists() {
+        let _ = std::fs::remove_file(&old_path);
+        eprintln!("[zenith:ai-cli:hook] cleaned up old plugin at {}", old_path.display());
+    }
+
     Ok(true)
 }
 
+fn register_plugin_in_config() -> Result<(), String> {
+    let config_path = opencode_config_path();
+    let plugin_ref = format!("file:///{}", opencode_plugin_path().to_string_lossy().replace('\\', "/"));
+
+    eprintln!("[zenith:ai-cli:hook] register_plugin_in_config: path={:?} ref={}", config_path, plugin_ref);
+
+    let mut cfg: serde_json::Value = if config_path.exists() {
+        let raw = std::fs::read_to_string(&config_path).map_err(|e| format!("read config: {e}"))?;
+        eprintln!("[zenith:ai-cli:hook]   existing config: {raw}");
+        serde_json::from_str(&raw).unwrap_or(serde_json::Value::Object(serde_json::Map::new()))
+    } else {
+        eprintln!("[zenith:ai-cli:hook]   config file does not exist, creating");
+        serde_json::Value::Object(serde_json::Map::new())
+    };
+
+    if !cfg.is_object() {
+        eprintln!("[zenith:ai-cli:hook]   config was not an object, resetting");
+        cfg = serde_json::Value::Object(serde_json::Map::new());
+    }
+
+    let map = cfg.as_object_mut().unwrap();
+    let plugins = map
+        .entry("plugin")
+        .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+    let arr = plugins.as_array_mut().unwrap();
+
+    eprintln!("[zenith:ai-cli:hook]   current plugin array (before): {:?}", arr);
+
+    // Remove stale reference to our plugin, then add current one
+    arr.retain(|p| {
+        p.as_str()
+            .map(|s| !s.contains("zenith-ai-cli-bridge"))
+            .unwrap_or(true)
+    });
+    arr.push(serde_json::Value::String(plugin_ref));
+
+    eprintln!("[zenith:ai-cli:hook]   plugin array (after): {:?}", arr);
+
+    // Write back — use JSON even though the extension is .jsonc (opencode accepts both)
+    let raw = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
+    std::fs::write(&config_path, &raw).map_err(|e| format!("write config: {e}"))?;
+    eprintln!("[zenith:ai-cli:hook] config written ({} bytes)", raw.len());
+
+    Ok(())
+}
+
 fn uninstall_opencode_plugin() -> Result<bool, String> {
-    let path = opencode_plugins_dir().join("zenith-ai-cli-bridge.ts");
+    let mut changed = false;
+
+    // Remove plugin file
+    let path = opencode_plugin_path();
     if path.exists() {
         std::fs::remove_file(&path).map_err(|e| format!("remove plugin: {e}"))?;
-        eprintln!("[zenith:ai-cli] opencode plugin removed");
-        Ok(true)
-    } else {
-        Ok(false)
+        eprintln!("[zenith:ai-cli] opencode plugin file removed");
+        changed = true;
     }
+
+    // Remove from opencode.jsonc
+    let config_path = opencode_config_path();
+    if config_path.exists() {
+        let raw = std::fs::read_to_string(&config_path).map_err(|e| format!("read config: {e}"))?;
+        if let Ok(mut cfg) = serde_json::from_str::<serde_json::Value>(&raw) {
+            if let Some(map) = cfg.as_object_mut() {
+                if let Some(plugins) = map.get_mut("plugin").and_then(|p| p.as_array_mut()) {
+                    let before = plugins.len();
+                    plugins.retain(|p| {
+                        p.as_str()
+                            .map(|s| !s.contains("zenith-ai-cli-bridge"))
+                            .unwrap_or(true)
+                    });
+                    if plugins.len() != before {
+                        if plugins.is_empty() {
+                            map.remove("plugin");
+                        }
+                        let raw = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
+                        std::fs::write(&config_path, raw).map_err(|e| format!("write config: {e}"))?;
+                        eprintln!("[zenith:ai-cli] opencode plugin unregistered from config");
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Clean up old location
+    let old_path = old_opencode_plugin_path();
+    if old_path.exists() {
+        let _ = std::fs::remove_file(&old_path);
+    }
+
+    Ok(changed)
+}
+
+fn old_opencode_plugin_path() -> PathBuf {
+    std::env::var("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| std::env::temp_dir())
+        .join("opencode")
+        .join("plugins")
+        .join("zenith-ai-cli-bridge.ts")
 }
 
 // ── shared helpers ────────────────────────────────────────────────

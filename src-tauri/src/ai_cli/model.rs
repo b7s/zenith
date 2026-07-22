@@ -50,6 +50,9 @@ pub struct AggregateState {
 pub struct CliSnapshot {
     pub cli_id: String,
     pub is_running: bool,
+    /// CLI is waiting for user confirmation (permission prompt, question, etc.)
+    #[serde(default)]
+    pub is_waiting: bool,
     pub last_error_at: Option<i64>,
     pub last_error_message: String,
     pub current_prompt_label: String,
@@ -96,4 +99,6 @@ pub enum CliEventType {
     Completed,
     /// Session encountered an error.
     Failed,
+    /// Session is waiting for user confirmation (permission, question).
+    Waiting,
 }

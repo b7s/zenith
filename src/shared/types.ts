@@ -395,6 +395,7 @@ export interface AggregateState {
 export interface CliSnapshot {
   cli_id: string;
   is_running: boolean;
+  is_waiting: boolean;
   last_error_at: number | null;
   last_error_message: string;
   current_prompt_label: string;

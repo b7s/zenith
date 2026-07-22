@@ -18,7 +18,7 @@ pub fn aggregator() -> Arc<Mutex<Aggregator>> {
 }
 
 const AI_CLI_MANAGER_LABEL: &str = "ai-cli-manager";
-const AI_MANAGER_W: i32 = 680;
+const AI_MANAGER_W: i32 = 422;
 const AI_MANAGER_H: i32 = 480;
 
 #[tauri::command]

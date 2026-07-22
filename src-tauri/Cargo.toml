@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "0.1.17"
+version = "0.1.18"
 edition = "2021"
 description = "A customizable top bar for Windows 11"
 
@@ -30,6 +30,7 @@ windows = { version = "0.61", features = [
     "Win32_System_Memory",
     "Win32_System_Performance",
     "Win32_System_Registry",
+    "Win32_System_ProcessStatus",
     "Win32_System_Threading",
     "Win32_System_SystemInformation",
     "Win32_UI_WindowsAndMessaging",

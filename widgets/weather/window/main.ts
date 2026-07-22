@@ -116,7 +116,7 @@ void (async () => {
 function renderLoading(content: HTMLElement): void {
   content.className = "zen-window__content weather-main weather-loading";
   content.innerHTML = `
-    <div class="zen-card weather-current" style="margin-bottom:1rem;padding:1rem;">
+    <div class="zen-card weather-current">
       <div class="weather-current__icon"></div>
       <div class="weather-current__info">
         <div class="weather-current__city">&nbsp;</div>
@@ -169,7 +169,6 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
   // Current conditions card
   const currentCard = document.createElement("div");
   currentCard.className = "zen-card weather-current wx-enter";
-  currentCard.style.cssText = "margin-bottom:1rem;padding:1rem;";
   currentCard.style.setProperty("--wx-i", String(wxIndex++));
 
   const code = cur.weather?.[0]?.id;
@@ -181,8 +180,8 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
   const iconEl = document.createElement("span");
   iconEl.className = "zen-icon";
   iconEl.dataset.icon = iconName;
-  iconEl.dataset.size = "48";
-  setIcon(iconEl, iconName, { size: 48 });
+  iconEl.dataset.size = "72";
+  setIcon(iconEl, iconName, { size: 72 });
   iconWrap.append(iconEl);
 
   const info = document.createElement("div");
@@ -201,8 +200,15 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
   tempEl.textContent = t + unit;
 
   // Today's high/low from the first daily forecast row
-  const todayHi = daily[0]?.temp?.max;
-  const todayLo = daily[0]?.temp?.min;
+  let todayHi = daily[0]?.temp?.max;
+  let todayLo = daily[0]?.temp?.min;
+
+  // Clamp so actual temp never exceeds hi or falls below lo
+  const actualTemp = cur.temp !== undefined && cur.temp !== null ? Math.round(cur.temp) : null;
+  if (actualTemp !== null) {
+    if (todayHi !== undefined && todayHi !== null && actualTemp > todayHi) todayHi = actualTemp;
+    if (todayLo !== undefined && todayLo !== null && actualTemp < todayLo) todayLo = actualTemp;
+  }
   let hiLoEl: HTMLElement | null = null;
   if (todayHi !== undefined && todayHi !== null && todayLo !== undefined && todayLo !== null) {
     hiLoEl = document.createElement("div");
@@ -262,11 +268,11 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
 function buildChart(daily: any[]): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "zen-card weather-chart";
-  wrap.style.cssText = "margin-bottom:1rem;padding:1rem;position:relative;";
+  wrap.style.cssText = "position:relative;";
 
   const title = document.createElement("div");
   title.className = "weather-chart__title";
-  title.style.cssText = "font-weight:600;margin-bottom:0.5rem;color:var(--foreground);";
+  title.style.cssText = "font-weight:600;color:var(--foreground);";
   title.textContent = "7-Day Temperature";
   wrap.append(title);
 

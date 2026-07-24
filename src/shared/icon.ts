@@ -216,6 +216,10 @@ export function registerIcons(map: Record<string, string>): void {
   }
 }
 
+export function getIconNames(): string[] {
+  return Object.keys(ICON_REGISTRY);
+}
+
 function toKebab(input: string): string {
   return input
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
@@ -274,7 +278,13 @@ function ensureSymbol(canonical: string, raw: string): string {
   const symbol = document.createElementNS(SVG_NS, "symbol");
   symbol.id = id;
   symbol.setAttribute("viewBox", viewBox);
-  symbol.setAttribute("fill", "currentColor");
+  // Propagate styling attributes from source SVG to symbol so child
+  // elements (paths) inherit the correct fill/stroke defaults.
+  const STYLE_ATTRS = ["fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"];
+  for (const attr of STYLE_ATTRS) {
+    const val = srcSvg?.getAttribute(attr);
+    if (val) symbol.setAttribute(attr, val);
+  }
   if (srcSvg) symbol.innerHTML = srcSvg.innerHTML;
   sprite.appendChild(symbol);
   return id;

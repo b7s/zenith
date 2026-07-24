@@ -111,6 +111,13 @@
   color: var(--muted-foreground);
   margin: 0;
 }
+.zen-hint a {
+  color: var(--info);
+  text-decoration: none;
+}
+.zen-hint a:hover {
+  text-decoration: underline;
+}
 .zen-input {
   display: flex;
   align-items: center;
@@ -737,27 +744,245 @@
 }
 .zen-file-upload {
   display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.zen-file-upload__zone {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 6rem;
+  gap: 0.35rem;
+  min-height: 5rem;
+  padding: 1rem;
   border: 2px dashed color-mix(in oklch, var(--border) 60%, transparent);
   border-radius: var(--radius);
   background: color-mix(in oklch, var(--card) 35%, transparent);
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease;
-  will-change: background;
   box-sizing: border-box;
-  position: relative;
 }
-.zen-file-upload:hover {
+.zen-file-upload__zone:hover {
   background: color-mix(in oklch, var(--card) 50%, transparent);
 }
-.zen-file-upload.is-drag-over {
+.zen-file-upload__zone.is-drag-over,
+.zen-file-upload__zone:focus-visible {
   border-color: var(--primary);
   background: color-mix(in oklch, var(--primary) 20%, transparent);
+  outline: none;
+}
+.zen-file-upload__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--muted-foreground);
 }
 .zen-file-upload__prompt {
   font-size: 0.8125rem;
   color: var(--muted-foreground);
   pointer-events: none;
+}
+.zen-file-upload__hint {
+  font-size: 0.7rem;
+  color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
+  pointer-events: none;
+}
+.zen-file-upload__error {
+  display: none;
+  font-size: 0.7rem;
+  color: var(--danger);
+  pointer-events: none;
+}
+.zen-file-upload__error.is-visible {
+  display: inline;
+}
+.zen-file-upload__files {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.zen-file-upload__file {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
+  border-radius: calc(var(--radius) - 2px);
+  background: color-mix(in oklch, var(--card) 25%, transparent);
+}
+.zen-file-upload__file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  overflow: hidden;
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--muted) 30%, transparent);
+}
+.zen-file-upload__file-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.zen-file-upload__file-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.zen-file-upload__file-name {
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zen-file-upload__file-size {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+}
+.zen-file-upload__file-remove {
+  flex: 0 0 auto;
+}
+.zen-combobox {
+  position: relative;
+  width: 100%;
+}
+.zen-combobox__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--input) 55%, transparent);
+  transition: border-color 120ms ease;
+}
+.zen-combobox__input-wrap:focus-within {
+  border-color: var(--ring);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.zen-combobox__preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  color: var(--foreground);
+}
+.zen-combobox__input {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  outline: none;
+  padding: 0.15rem 0;
+  min-width: 0;
+  font-family: inherit;
+}
+.zen-combobox__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.zen-combobox__chevron.is-open {
+  transform: rotate(180deg);
+}
+.zen-combobox__dropdown {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: color-mix(in oklch, var(--card) 95%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  max-height: 12rem;
+  overflow-y: auto;
+  backdrop-filter: blur(8px) saturate(160%);
+}
+.zen-combobox__dropdown.is-open {
+  display: flex;
+}
+.zen-combobox__no-results {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+.zen-combobox__option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  background: none;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 80ms ease;
+}
+.zen-combobox__option:hover,
+.zen-combobox__option.is-highlighted {
+  background: color-mix(in oklch, var(--accent) 30%, transparent);
+}
+.zen-combobox__option.is-active {
+  background: color-mix(in oklch, var(--primary) 40%, transparent);
+  color: var(--primary-foreground);
+}
+.zen-combobox__opt-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+}
+.zen-combobox__opt-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zen-combobox__fetch-status {
+  display: none;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  gap: 0.35rem;
+  align-items: center;
+}
+.zen-combobox__fetch-status.is-visible {
+  display: flex;
+}
+.zen-combobox__fetch-status.is-loading {
+  color: var(--info);
+}
+.zen-combobox__fetch-status.is-error {
+  color: var(--danger);
+}
+.zen-combobox__fetch-status.is-success {
+  color: var(--success);
 }

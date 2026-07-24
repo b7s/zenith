@@ -1,6 +1,7 @@
 import "../../styles/bar-globals.css";
 import { applyTheme, watchSystemTheme } from "../../shared/window";
-import { applyIcons, setIcon } from "../../shared/icon";
+import { applyIcons, setIcon, registerIcons, resolveIcon } from "../../shared/icon";
+import { LUCIDE_ICONS } from "../../shared/lucide-icons";
 import { loadConfig } from "../../shared/config";
 import { layoutBar } from "../../shared/widgets";
 import { invoke } from "@tauri-apps/api/core";
@@ -29,6 +30,10 @@ void (async () => {
   (window as any).__zenith_listen = listen;
   (window as any).__zenith_applyIcons = applyIcons;
   (window as any).__zenith_setIcon = setIcon;
+  (window as any).__zenith_resolveIcon = (name: string) => resolveIcon(name) !== null;
+  (window as any).__zenith_registerIcon = (name: string, svg: string) =>
+    registerIcons({ [name]: svg });
+  registerIcons(LUCIDE_ICONS);
   // Used by the weather widget to map OWM condition codes -> Phosphor duotone icon names.
   (window as any).__zenith_weatherIcon = (code: number, icon?: string) =>
     weatherIcon(code, icon);

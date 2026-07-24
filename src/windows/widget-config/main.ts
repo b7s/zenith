@@ -5,7 +5,8 @@ import { mountWindow } from "../../shared/window";
 import { mountTabs } from "../../shared/tabs";
 import { mountFilterPills } from "../../shared/filter-pills";
 import { initLog, logInfo } from "../../shared/log";
-import { setIcon, applyIcons } from "../../shared/icon";
+import { setIcon, applyIcons, registerIcons, getIconNames } from "../../shared/icon";
+import { LUCIDE_ICONS, LUCIDE_NAMES } from "../../shared/lucide-icons";
 import { mountFileUpload } from "../../shared/file-upload";
 import type { FileUploadHandle } from "../../shared/file-upload";
 import { CMD } from "../../shared/ipc";
@@ -1265,11 +1266,236 @@ interface LinkRow {
   widthInput: HTMLInputElement;
   heightInput: HTMLInputElement;
   persistentInput: HTMLInputElement;
+  iconKind: "upload" | "named";
+  iconNameInput: HTMLInputElement;
+  iconSetInput: HTMLInputElement;
+  iconModeUploadBtn: HTMLButtonElement;
+  iconModeNamedBtn: HTMLButtonElement;
   fileUpload: FileUploadHandle;
   headerRows: LinkHeaderRow[];
   upBtn: HTMLButtonElement;
   downBtn: HTMLButtonElement;
   el: HTMLElement;
+}
+
+async function fetchIconFromCdn(name: string): Promise<{ set: "phosphor" | "lucide"; svg: string } | null> {
+  const phosphorUrl = `https://unpkg.com/@phosphor-icons/core@latest/assets/duotone/${name}-duotone.svg`;
+  try {
+    const res = await fetch(phosphorUrl);
+    if (res.ok) {
+      return { set: "phosphor", svg: await res.text() };
+    }
+  } catch { /* try lucide */ }
+  const lucideUrl = `https://unpkg.com/lucide-static@latest/icons/${name}.svg`;
+  try {
+    const res = await fetch(lucideUrl);
+    if (res.ok) {
+      const svg = await res.text();
+      return { set: "lucide", svg };
+    }
+  } catch { /* not found */ }
+  return null;
+}
+
+function buildIconCombobox(
+  currentName: string,
+  currentSet: string,
+  onSelect: (name: string, set: string) => void,
+): { container: HTMLElement; input: HTMLInputElement; setInput: HTMLInputElement; setValue(name: string, set: string): void } {
+  const phosphorNames = new Set(getIconNames());
+  const lucideNames = new Set(LUCIDE_NAMES);
+  const allNames = [...new Set([...phosphorNames, ...lucideNames])].sort();
+
+  const container = document.createElement("div");
+  container.className = "zen-combobox";
+
+  const inputWrap = document.createElement("div");
+  inputWrap.className = "zen-combobox__input-wrap";
+
+  const preview = document.createElement("span");
+  preview.className = "zen-combobox__preview";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "zen-combobox__input";
+  input.placeholder = "Icon name (e.g. globe, home, pizza)";
+  input.value = currentName;
+
+  const chevron = document.createElement("span");
+  chevron.className = "zen-combobox__chevron";
+  setIcon(chevron, "caret-down", { size: 12 });
+
+  inputWrap.append(preview, input, chevron);
+  container.append(inputWrap);
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "zen-combobox__dropdown";
+  container.append(dropdown);
+
+  const fetchStatus = document.createElement("div");
+  fetchStatus.className = "zen-combobox__fetch-status";
+  container.append(fetchStatus);
+
+  const setInput = document.createElement("input");
+  setInput.type = "hidden";
+  setInput.value = currentSet;
+  container.append(setInput);
+
+  let activeName = currentName;
+  let isOpen = false;
+
+  function renderPreview(name: string, set: string): void {
+    preview.innerHTML = "";
+    if (!name) return;
+    if (set === "lucide" && LUCIDE_ICONS[name]) {
+      const svg = LUCIDE_ICONS[name];
+      const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+      const svgEl = doc.querySelector("svg");
+      if (svgEl) {
+        svgEl.setAttribute("width", "16");
+        svgEl.setAttribute("height", "16");
+        preview.append(svgEl);
+      }
+    } else {
+      setIcon(preview, name, { size: 16 });
+    }
+  }
+
+  function renderOptions(filter: string): void {
+    dropdown.innerHTML = "";
+    const q = filter.toLowerCase().trim();
+    const matched = q ? allNames.filter((n) => n.includes(q)) : allNames;
+    if (matched.length === 0) {
+      const noRes = document.createElement("div");
+      noRes.className = "zen-combobox__no-results";
+      noRes.textContent = "No matching icons. Type to search from CDN.";
+      dropdown.append(noRes);
+      return;
+    }
+    for (const name of matched.slice(0, 200)) {
+      const opt = document.createElement("button");
+      opt.type = "button";
+      opt.className = "zen-combobox__option";
+      if (name === activeName) opt.classList.add("is-active");
+
+      const optPreview = document.createElement("span");
+      optPreview.className = "zen-combobox__opt-preview";
+      if (lucideNames.has(name) && LUCIDE_ICONS[name]) {
+        const svg = LUCIDE_ICONS[name];
+        const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+        const svgEl = doc.querySelector("svg");
+        if (svgEl) {
+          svgEl.setAttribute("width", "14");
+          svgEl.setAttribute("height", "14");
+          optPreview.append(svgEl);
+        }
+      } else {
+        setIcon(optPreview, name, { size: 14 });
+      }
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "zen-combobox__opt-name";
+      nameEl.textContent = name;
+
+      opt.append(optPreview, nameEl);
+      opt.addEventListener("click", () => {
+        const iconSet = lucideNames.has(name) ? "lucide" : "phosphor";
+        selectOption(name, iconSet);
+      });
+      dropdown.append(opt);
+    }
+  }
+
+  function selectOption(name: string, set: string): void {
+    activeName = name;
+    input.value = name;
+    setInput.value = set;
+    renderPreview(name, set);
+    closeDropdown();
+    fetchStatus.className = "zen-combobox__fetch-status";
+    onSelect(name, set);
+  }
+
+  function openDropdown(): void {
+    isOpen = true;
+    dropdown.classList.add("is-open");
+    chevron.classList.add("is-open");
+    renderOptions(input.value);
+  }
+
+  function closeDropdown(): void {
+    isOpen = false;
+    dropdown.classList.remove("is-open");
+    chevron.classList.remove("is-open");
+  }
+
+  function toggleDropdown(): void {
+    if (isOpen) closeDropdown();
+    else openDropdown();
+  }
+
+  input.addEventListener("focus", () => openDropdown());
+  input.addEventListener("input", () => {
+    if (isOpen) renderOptions(input.value);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeDropdown();
+    if (e.key === "Enter") {
+      const q = input.value.trim();
+      if (q && q !== activeName) {
+        void fetchIcon(q);
+      }
+    }
+  });
+  chevron.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleDropdown();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (isOpen && !container.contains(e.target as Node)) closeDropdown();
+  });
+
+  async function fetchIcon(name: string): Promise<void> {
+    const q = name.trim().toLowerCase();
+    if (!q) return;
+    fetchStatus.className = "zen-combobox__fetch-status is-visible is-loading";
+    fetchStatus.textContent = "Fetching icon...";
+    const result = await fetchIconFromCdn(q);
+    if (result) {
+      registerIcons({ [q]: result.svg });
+      selectOption(q, result.set);
+      fetchStatus.className = "zen-combobox__fetch-status is-visible is-success";
+      fetchStatus.textContent = `Fetched ✓ (${result.set})`;
+      setTimeout(() => { fetchStatus.className = "zen-combobox__fetch-status"; }, 3000);
+    } else {
+      fetchStatus.className = "zen-combobox__fetch-status is-visible is-error";
+      fetchStatus.textContent = "Not found — try another name";
+      const link = document.createElement("a");
+      link.href = "https://lucide.dev/icons/";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Search Lucide";
+      link.style.marginLeft = "0.35rem";
+      fetchStatus.append(" ", link);
+    }
+  }
+
+  if (currentName) {
+    renderPreview(currentName, currentSet);
+  }
+
+  return {
+    container,
+    input,
+    setInput,
+    setValue(name: string, set: string) {
+      activeName = name;
+      input.value = name;
+      setInput.value = set;
+      renderPreview(name, set);
+    },
+  };
 }
 
 function buildLinksControl(
@@ -1279,6 +1505,7 @@ function buildLinksControl(
   currentValue: Array<Record<string, unknown>> | undefined,
   stores: Record<string, LinkRow[]>,
 ): void {
+  registerIcons(LUCIDE_ICONS);
   const rows: LinkRow[] = [];
   stores[_key] = rows;
 
@@ -1452,12 +1679,31 @@ function buildLinksControl(
     persistentSwitch.append(pTrack);
     persistentWrap.append(persistentSwitch);
 
-    // Logo upload
-    const logoLabel = document.createElement("label");
-    logoLabel.className = "zen-label";
-    logoLabel.textContent = "Logo";
-    const logoField = document.createElement("div");
+    // Icon: mode toggle + upload / named icon picker
+    const iconKind = (data?.icon_kind as string) || "named";
+    const iconName = (data?.icon_name as string) || "";
+    const iconSet = (data?.icon_set as string) || "";
 
+    const iconModeGroup = document.createElement("div");
+    iconModeGroup.className = "zen-radio-group";
+    iconModeGroup.style.cssText = "display:flex;gap:0.35rem;margin-bottom:0.35rem;";
+
+    const uploadModeBtn = document.createElement("button");
+    uploadModeBtn.type = "button";
+    uploadModeBtn.className = "zen-radio-card";
+    uploadModeBtn.textContent = "Upload logo";
+    if (iconKind === "upload") uploadModeBtn.classList.add("is-selected");
+
+    const namedModeBtn = document.createElement("button");
+    namedModeBtn.type = "button";
+    namedModeBtn.className = "zen-radio-card";
+    namedModeBtn.textContent = "Pick icon by name";
+    if (iconKind === "named") namedModeBtn.classList.add("is-selected");
+
+    iconModeGroup.append(uploadModeBtn, namedModeBtn);
+
+    // File upload container
+    const logoField = document.createElement("div");
     const initialFiles = [];
     const existingIcon = (data?.icon as string | null) ?? null;
     if (existingIcon) {
@@ -1469,7 +1715,6 @@ function buildLinksControl(
         dataUrl: existingIcon,
       });
     }
-
     const fileUpload = mountFileUpload(logoField, {
       accept: ".png,.jpg,.jpeg,.webp,.svg",
       maxSize: 2 * 1024 * 1024,
@@ -1478,6 +1723,37 @@ function buildLinksControl(
       hint: "PNG, JPG, WebP, SVG · Max 2 MB",
       initialFiles,
     });
+
+    // Named icon combobox
+    const iconCombobox = buildIconCombobox(iconName, iconSet, (name, set) => {
+      iconNameInput.value = name;
+      iconSetInput.value = set;
+    });
+
+    function setIconMode(mode: "upload" | "named"): void {
+      uploadModeBtn.classList.toggle("is-selected", mode === "upload");
+      namedModeBtn.classList.toggle("is-selected", mode === "named");
+      logoField.style.display = mode === "upload" ? "" : "none";
+      iconCombobox.container.style.display = mode === "named" ? "" : "none";
+    }
+    setIconMode(iconKind as "upload" | "named");
+
+    uploadModeBtn.addEventListener("click", () => setIconMode("upload"));
+    namedModeBtn.addEventListener("click", () => setIconMode("named"));
+
+    const iconHelp = document.createElement("p");
+    iconHelp.className = "zen-hint";
+    iconHelp.innerHTML =
+      `Named icons: <a href="https://phosphoricons.com/" target="_blank" rel="noopener noreferrer">Phosphor</a> or <a href="https://lucide.dev/icons/" target="_blank" rel="noopener noreferrer">Lucide</a> names. ` +
+      `Non-SVG images may not match the bar color.`;
+
+    const iconNameInput = document.createElement("input");
+    iconNameInput.type = "hidden";
+    iconNameInput.value = iconKind === "named" ? iconName : "";
+
+    const iconSetInput = document.createElement("input");
+    iconSetInput.type = "hidden";
+    iconSetInput.value = iconKind === "named" ? iconSet : "";
 
     // Custom headers (key/value table)
     const headersLabel = document.createElement("label");
@@ -1539,8 +1815,10 @@ function buildLinksControl(
       urlInput,
       sizeWrap,
       persistentWrap,
-      logoLabel,
+      iconModeGroup,
       logoField,
+      iconCombobox.container,
+      iconHelp,
       headersLabel,
       headersBox,
       addHeaderBtn,
@@ -1556,6 +1834,11 @@ function buildLinksControl(
       widthInput,
       heightInput,
       persistentInput,
+      iconKind: iconKind as "upload" | "named",
+      iconNameInput,
+      iconSetInput,
+      iconModeUploadBtn: uploadModeBtn,
+      iconModeNamedBtn: namedModeBtn,
       fileUpload,
       headerRows,
       upBtn,
@@ -1620,6 +1903,11 @@ async function collectLinks(key: string, stores: Record<string, LinkRow[]>): Pro
 
   return rows.map((row) => {
     const saved = savedPositions[row.id] || {};
+    const uploadBtn = row.iconModeUploadBtn;
+    const namedBtn = row.iconModeNamedBtn;
+    const iconKind = uploadBtn && namedBtn
+      ? (uploadBtn.classList.contains("is-selected") ? "upload" : "named")
+      : row.iconKind;
     return {
       id: row.id,
       enabled: row.enabledInput.checked,
@@ -1628,6 +1916,9 @@ async function collectLinks(key: string, stores: Record<string, LinkRow[]>): Pro
       width: parseInt(row.widthInput.value, 10) || 1000,
       height: parseInt(row.heightInput.value, 10) || 700,
       persistent: row.persistentInput.checked,
+      icon_kind: iconKind,
+      icon_name: iconKind === "named" ? row.iconNameInput.value : "",
+      icon_set: iconKind === "named" ? row.iconSetInput.value : "",
       icon: null, // lives on disk — see save_link_icon / get_link_icon_data
       headers: row.headerRows
         .map((hr) => ({ key: hr.key.value, value: hr.value.value }))

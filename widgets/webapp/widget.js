@@ -23,6 +23,7 @@
   // the same PNG bytes on every render. The cache is recreated on every
   // layoutBar (IIFE re-runs), so config changes get a fresh fetch.
   var iconCache = {};
+  var namedIconCache = {};
 
   function getIconForLink(id, cb) {
     if (iconCache[id] !== undefined) {
@@ -35,6 +36,38 @@
     }).catch(function () {
       iconCache[id] = null;
       cb(null);
+    });
+  }
+
+  function maybeFetchNamedIcon(name, glyph) {
+    if (namedIconCache[name]) return;
+    namedIconCache[name] = "pending";
+    var phosphorUrl = "https://unpkg.com/@phosphor-icons/core@latest/assets/duotone/" + name + "-duotone.svg";
+    var lucideUrl = "https://unpkg.com/lucide-static@latest/icons/" + name + ".svg";
+    fetch(phosphorUrl).then(function (r) {
+      if (r.ok) return r.text().then(function (svg) { return { svg: svg }; });
+      return fetch(lucideUrl).then(function (r2) {
+        if (r2.ok) return r2.text().then(function (svg) { return { svg: svg }; });
+        return null;
+      });
+    }).then(function (result) {
+      if (result && window.__zenith_registerIcon) {
+        window.__zenith_registerIcon(name, result.svg);
+        namedIconCache[name] = "done";
+        if (window.__zenith_setIcon) {
+          window.__zenith_setIcon(glyph, name, { size: 16 });
+        }
+      } else {
+        namedIconCache[name] = "none";
+        if (window.__zenith_setIcon) {
+          window.__zenith_setIcon(glyph, "globe", { size: 16 });
+        }
+      }
+    }).catch(function () {
+      namedIconCache[name] = "none";
+      if (window.__zenith_setIcon) {
+        window.__zenith_setIcon(glyph, "globe", { size: 16 });
+      }
     });
   }
 
@@ -77,23 +110,31 @@
       }
     }
 
-    // Icons live on disk (one PNG per link); fetch via IPC. globe is the
-    // fallback when no icon is configured or the image fails to load.
-    getIconForLink(link.id, function (dataUrl) {
-      if (!dataUrl) {
+    if (link.icon_kind === "named" && link.icon_name) {
+      var iconName = link.icon_name;
+      if (window.__zenith_resolveIcon && window.__zenith_resolveIcon(iconName)) {
+        window.__zenith_setIcon(glyph, iconName, { size: 16 });
+      } else {
         showGlobe();
-        return;
+        maybeFetchNamedIcon(iconName, glyph);
       }
-      var img = document.createElement("img");
-      img.className = "lk-ic-img";
-      img.src = dataUrl;
-      img.alt = "";
-      img.addEventListener("error", function () {
-        if (img.parentNode) img.parentNode.removeChild(img);
-        showGlobe();
+    } else {
+      getIconForLink(link.id, function (dataUrl) {
+        if (!dataUrl) {
+          showGlobe();
+          return;
+        }
+        var img = document.createElement("img");
+        img.className = "lk-ic-img";
+        img.src = dataUrl;
+        img.alt = "";
+        img.addEventListener("error", function () {
+          if (img.parentNode) img.parentNode.removeChild(img);
+          showGlobe();
+        });
+        glyph.append(img);
       });
-      glyph.append(img);
-    });
+    }
 
     var dot = document.createElement("span");
     dot.className = "lk-dot";

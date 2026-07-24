@@ -462,7 +462,7 @@ fn create_weather_window(app: &tauri::AppHandle, x: f64, y: f64) -> Result<(), S
     )
     .title("Weather")
     .inner_size(cw as f64, ch as f64)
-    .min_inner_size(320.0, 440.0)
+    .min_inner_size(320.0, 445.0)
     .max_inner_size(440.0, 660.0)
     .position(cx as f64, cy as f64)
     .resizable(false)

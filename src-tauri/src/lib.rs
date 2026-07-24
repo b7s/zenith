@@ -20,6 +20,7 @@ mod widgets;
 mod window;
 mod workspace;
 mod webapp;
+mod aicli;
 
 use tauri::{Emitter, Listener, Manager};
 
@@ -133,6 +134,12 @@ pub fn run() {
             color_picker::commands::open_color_picker,
             color_picker::commands::get_cursor_position,
             color_picker::commands::read_live_pixel,
+            aicli::commands::get_aicli_state,
+            aicli::commands::open_aicli_window,
+            aicli::commands::aicli_install_hooks,
+            aicli::commands::aicli_uninstall_hooks,
+            aicli::commands::aicli_hook_status,
+            aicli::commands::start_cli,
         ])
         .setup(|app| {
             // Initialize COM once for the main thread (used by workspace domain)
@@ -183,6 +190,11 @@ pub fn run() {
             // change. Sleeps 30s between cycles; per-account poll_mins
             // governs which accounts actually fire on a given cycle.
             git::listen::spawn(handle.clone());
+
+            // AI-agent status widget — embedded hook listener + poll thread
+            // that emits `zenith:aicli-changed` on status change.
+            aicli::server::start();
+            aicli::listen::spawn(handle.clone());
 
             // Calendar sync — background periodic sync of connected Google /
             // Outlook accounts into the shared events store.

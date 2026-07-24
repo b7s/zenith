@@ -31,6 +31,7 @@ export default defineConfig({
         "git-manager": resolve(__dirname, "widgets/git/window/git-manager.html"),
         "webapp-window": resolve(__dirname, "widgets/webapp/window/webapp-window.html"),
         "weather": resolve(__dirname, "widgets/weather/window/weather.html"),
+        "ai-cli": resolve(__dirname, "widgets/ai_cli/window/ai-cli.html"),
       },
     },
   },

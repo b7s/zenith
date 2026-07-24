@@ -73,9 +73,91 @@ fn try_load_at(path: &Path) -> AppResult<Config> {
         return Ok(Config::default());
     }
     let raw = fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))?;
-    let cfg: Config =
+    let mut value: serde_json::Value =
         serde_json::from_str(&raw).map_err(|e| format!("parse {}: {e}", path.display()))?;
+    let migrated = migrate(&mut value);
+    let cfg: Config = serde_json::from_value(value)
+        .map_err(|e| format!("re-parse after migration {}: {e}", path.display()))?;
+    if migrated {
+        // Persist the migration so subsequent loads don't re-run the same
+        // dance. Best-effort — a write failure here doesn't break the load.
+        if let Ok(s) = serde_json::to_string_pretty(&serde_json::to_value(&cfg)?) {
+            let _ = atomic_write(path, s.as_bytes());
+        }
+    }
     Ok(cfg)
+}
+
+/// One-shot, in-place config migrations. Each block targets a specific
+/// stale identifier / shape from a previously-removed or renamed feature
+/// so users who had it enabled don't lose their setup.
+///
+/// **Migrations must be safe to re-run and must be additive / renaming only
+/// — never destructive of legitimate user state.** Add a NEW block when
+/// introducing a rename; never modify an existing one's behaviour (that
+/// would re-run the migration on already-migrated files forever).
+fn migrate(value: &mut serde_json::Value) -> bool {
+    let mut changed = false;
+
+    // 2026-07-23 — AI Agents widget id renamed from `ai-cli` (hyphenated
+    // ghost build residue) to `ai_cli`. Rename in `enabled` and
+    // `positions`, and drop any stray `widgets.config["ai-cli"]` block so
+    // the bar re-enables the canonical widget with its first-run config.
+    {
+        let widgets = value
+            .as_object_mut()
+            .and_then(|o| o.get_mut("widgets"))
+            .and_then(|w| w.as_object_mut());
+        if let Some(widgets_obj) = widgets {
+            if let Some(arr) = widgets_obj.get_mut("enabled").and_then(|e| e.as_array_mut()) {
+                let original_len = arr.len();
+                let mut new_arr: Vec<serde_json::Value> = Vec::with_capacity(arr.len());
+                for v in arr.iter() {
+                    if v.as_str() == Some("ai-cli") {
+                        new_arr.push(serde_json::Value::String("ai_cli".into()));
+                    } else {
+                        new_arr.push(v.clone());
+                    }
+                }
+                *arr = new_arr;
+                if arr.len() != original_len || widgets_obj.contains_key("ai-cli") {
+                    changed = true;
+                }
+            }
+            if let Some(positions) = widgets_obj
+                .get_mut("positions")
+                .and_then(|p| p.as_object_mut())
+            {
+                let remove_key = positions.remove("ai-cli").is_some();
+                if remove_key {
+                    if !positions.contains_key("ai_cli") {
+                        // Default placement for the canonical widget — same
+                        // side the ghost was on so the user's bar layout
+                        // doesn't visibly jump.
+                        positions.insert(
+                            "ai_cli".into(),
+                            serde_json::Value::String("left".into()),
+                        );
+                    }
+                    changed = true;
+                }
+            }
+            // Drop only the leftover config sub-block for the removed ghost
+            // id. **Never** remove the whole `config` object — that would
+            // wipe every widget's saved settings (weather location,
+            // system_stats toggles, media prefs, etc.).
+            if let Some(cfg_obj) = widgets_obj
+                .get_mut("config")
+                .and_then(|c| c.as_object_mut())
+            {
+                if cfg_obj.remove("ai-cli").is_some() {
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    changed
 }
 
 /// Read one value by JSON pointer path with a caller-supplied fallback.
@@ -208,5 +290,85 @@ mod tests {
     #[test]
     fn get_or_returns_fallback_for_missing_pointer() {
         assert_eq!(get_or("/does/not/exist", 99u32), 99);
+    }
+
+    /// Migrates the legacy `ai-cli` ghost id to the canonical `ai_cli`:
+    /// in `enabled`, `positions`, and the leftover `config["ai-cli"]` block.
+    #[test]
+    fn migration_renames_ai_cli_to_ai_cli_with_separator() {
+        let mut raw = serde_json::json!({
+            "widgets": {
+                "enabled": [
+                    "workspace",
+                    "media",
+                    "ai-cli",
+                    "git"
+                ],
+                "positions": {
+                    "ai-cli": "left",
+                    "workspace": "left"
+                },
+                "config": {
+                    "ai-cli": { "monitor_opencode": true },
+                    "git": { "foo": 1 }
+                }
+            }
+        });
+        let changed = migrate(&mut raw);
+        assert!(changed);
+        let enabled = raw.pointer("/widgets/enabled").and_then(|v| v.as_array()).unwrap();
+        assert!(enabled.iter().any(|v| v.as_str() == Some("ai_cli")));
+        assert!(!enabled.iter().any(|v| v.as_str() == Some("ai-cli")));
+        assert!(raw.pointer("/widgets/positions/ai_cli").is_some());
+        assert!(raw.pointer("/widgets/positions/ai-cli").is_none());
+        assert!(raw.pointer("/widgets/config/ai-cli").is_none());
+    }
+
+    /// Migration must be a no-op on already-migrated configs.
+    #[test]
+    fn migration_is_idempotent() {
+        let mut raw = serde_json::json!({
+            "widgets": {
+                "enabled": ["workspace", "ai_cli"],
+                "positions": { "ai_cli": "left" }
+            }
+        });
+        let changed = migrate(&mut raw);
+        assert!(!changed);
+    }
+
+    /// **Regression:** a previous buggy version of `migrate` did
+    /// `widgets_obj.remove("config")` which wiped EVERY widget's saved
+    /// settings (weather, system_stats, media, …) on every config load.
+    /// This test proves unrelated widget-config sub-blocks survive the
+    /// migration untouched.
+    #[test]
+    fn migration_preserves_unrelated_widget_config() {
+        let mut raw = serde_json::json!({
+            "widgets": {
+                "enabled": ["ai-cli", "weather", "system_stats"],
+                "positions": { "ai-cli": "left", "weather": "right" },
+                "config": {
+                    "ai-cli": { "monitor_opencode": true },
+                    "weather": { "city": "Lisbon", "api_key": "secret" },
+                    "system_stats": { "show_network": false },
+                    "media": { "compact": true }
+                }
+            }
+        });
+        let _changed = migrate(&mut raw);
+
+        // The ghost `ai-cli` config block must be gone…
+        assert!(raw.pointer("/widgets/config/ai-cli").is_none(),
+            "ai-cli config sub-block should be removed");
+        // …but every other widget's config must survive untouched.
+        assert_eq!(raw.pointer("/widgets/config/weather/city").and_then(|v| v.as_str()), Some("Lisbon"),
+            "weather config must be preserved");
+        assert_eq!(raw.pointer("/widgets/config/weather/api_key").and_then(|v| v.as_str()), Some("secret"),
+            "weather api_key must be preserved");
+        assert_eq!(raw.pointer("/widgets/config/system_stats/show_network").and_then(|v| v.as_bool()), Some(false),
+            "system_stats.show_network=false must be preserved");
+        assert_eq!(raw.pointer("/widgets/config/media/compact").and_then(|v| v.as_bool()), Some(true),
+            "media.compact=true must be preserved");
     }
 }

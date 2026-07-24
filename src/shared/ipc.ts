@@ -77,6 +77,12 @@ export const CMD = {
   openColorPicker: "open_color_picker",
   getCursorPosition: "get_cursor_position",
   readLivePixel: "read_live_pixel",
+  getAicliState: "get_aicli_state",
+  openAicliWindow: "open_aicli_window",
+  aicliInstallHooks: "aicli_install_hooks",
+  aicliUninstallHooks: "aicli_uninstall_hooks",
+  startCli: "start_cli",
+  aicliHookStatus: "aicli_hook_status",
 } as const;
 
 export type CommandName = (typeof CMD)[keyof typeof CMD];

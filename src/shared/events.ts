@@ -25,6 +25,7 @@ export const EVENT = {
   updateAvailable: "zenith:update-available",
   updateChecked: "zenith:update-checked",
   eyedropperPicked: "zenith:eyedropper-picked",
+  aicliChanged: "zenith:aicli-changed",
 } as const;
 
 export type EventName = (typeof EVENT)[keyof typeof EVENT];

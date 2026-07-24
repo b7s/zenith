@@ -99,7 +99,8 @@ export type WidgetConfigType =
   | "accounts"
   | "multiselect"
   | "links"
-  | "secret";
+  | "secret"
+  | "aicli_hooks";
 
 /** One custom HTTP header (key/value) sent to a link's site. */
 export interface LinkHeader {
@@ -371,5 +372,45 @@ export interface GitState {
   inventories: AcctInventory[];
   total_failed: number;
   total_open_prs: number;
+}
+
+// ---- AI Agents widget (mirror of src-tauri/src/aicli/model.rs) ------------------
+
+export type CliId = "claude" | "codex" | "opencode";
+export type CliStatus = "idle" | "running" | "waiting" | "failed";
+
+/** Mirrored in `src-tauri/src/aicli/model.rs::CliSession`. */
+export interface CliSession {
+  id: CliId;
+  label: string;
+  installed: boolean;
+  running: boolean;
+  status: CliStatus;
+  /** First user prompt or project basename — truncated. Empty when idle and no transcript. */
+  title: string;
+  /** Project working-directory basename (last path segment). */
+  cwd: string;
+  /** OS process id of the running agent, or 0. */
+  pid: number;
+  /** Epoch ms of the last activity seen for this session (transcript mtime / hook event). */
+  updated_ms: number;
+}
+
+/** Per-CLI managed-hook status, returned by `aicli_hook_status`. */
+export interface AicliHookStatus {
+  /** "claude" | "codex" — opencode needs no hooks (auto-detected). */
+  id: CliId;
+  /** True when managed Zenith hooks are present in the agent's config file. */
+  installed: boolean;
+  /** Human-readable detail (e.g. "managed" / "not installed" / "auto-detected"). */
+  detail: string;
+}
+
+/** Mirrored in `src-tauri/src/aicli/model.rs::AicliState`. */
+export interface AicliState {
+  sessions: CliSession[];
+  totals: { running: number; waiting: number; failed: number };
+  /** Set of CLI ids the user has chosen to monitor (after first-run seeding). */
+  monitored: CliId[];
 }
 

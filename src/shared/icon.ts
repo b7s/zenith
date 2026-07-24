@@ -43,12 +43,14 @@ import arrowSquareOutSvg from "@phosphor-icons/core/assets/duotone/arrow-square-
 import globeSvg from "@phosphor-icons/core/assets/duotone/globe-duotone.svg?raw";
 import uploadSvg from "@phosphor-icons/core/assets/duotone/upload-duotone.svg?raw";
 import imageSvg from "@phosphor-icons/core/assets/duotone/image-duotone.svg?raw";
-import caretUpSvg from "@phosphor-icons/core/assets/duotone/caret-up-duotone.svg?raw";
-import caretDownSvg from "@phosphor-icons/core/assets/duotone/caret-down-duotone.svg?raw";
-import caretLeftSvg from "@phosphor-icons/core/assets/duotone/caret-left-duotone.svg?raw";
-import caretRightSvg from "@phosphor-icons/core/assets/duotone/caret-right-duotone.svg?raw";
+import caretUpDuoSvg from "@phosphor-icons/core/assets/duotone/caret-up-duotone.svg?raw";
+import caretDownDuoSvg from "@phosphor-icons/core/assets/duotone/caret-down-duotone.svg?raw";
+import caretLeftDuoSvg from "@phosphor-icons/core/assets/duotone/caret-left-duotone.svg?raw";
+import caretRightDuoSvg from "@phosphor-icons/core/assets/duotone/caret-right-duotone.svg?raw";
 import caretLeftRegularSvg from "@phosphor-icons/core/assets/regular/caret-left.svg?raw";
 import caretRightRegularSvg from "@phosphor-icons/core/assets/regular/caret-right.svg?raw";
+import caretUpRegularSvg from "@phosphor-icons/core/assets/regular/caret-up.svg?raw";
+import caretDownRegularSvg from "@phosphor-icons/core/assets/regular/caret-down.svg?raw";
 import calendarBlankSvg from "@phosphor-icons/core/assets/duotone/calendar-blank-duotone.svg?raw";
 import calendarDotsSvg from "@phosphor-icons/core/assets/duotone/calendar-dots-duotone.svg?raw";
 import calendarSvg from "@phosphor-icons/core/assets/duotone/calendar-duotone.svg?raw";
@@ -86,6 +88,7 @@ import arrowDownRegularSvg from "@phosphor-icons/core/assets/regular/arrow-down.
 import xRegularSvg from "@phosphor-icons/core/assets/regular/x.svg?raw";
 import plusRegularSvg from "@phosphor-icons/core/assets/regular/plus.svg?raw";
 import downloadSvg from "@phosphor-icons/core/assets/duotone/download-duotone.svg?raw";
+import terminalWindowSvg from "@phosphor-icons/core/assets/duotone/terminal-window-duotone.svg?raw";
 
 const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><rect x="72" y="72" width="112" height="112" rx="16" opacity="0.25"/></svg>`;
 
@@ -147,10 +150,12 @@ const ICON_REGISTRY: Record<string, string> = {
   globe: globeSvg,
   upload: uploadSvg,
   image: imageSvg,
-  "chevron-up": caretUpSvg,
-  "chevron-down": caretDownSvg,
-  "chevron-left": caretLeftSvg,
-  "chevron-right": caretRightSvg,
+  "chevron-up": caretUpDuoSvg,
+  "chevron-down": caretDownDuoSvg,
+  "chevron-left": caretLeftDuoSvg,
+  "chevron-right": caretRightDuoSvg,
+  "caret-up": caretUpRegularSvg,
+  "caret-down": caretDownRegularSvg,
   "circle-left": arrowCircleLeftSvg,
   "circle-right": arrowCircleRightSvg,
   "caret-left": caretLeftRegularSvg,
@@ -192,6 +197,9 @@ const ICON_REGISTRY: Record<string, string> = {
   copy: copySvg,
   loader: spinnerSvg,
   download: downloadSvg,
+  "terminal-window": terminalWindowSvg,
+  "ai-cli": terminalWindowSvg,
+  terminal: terminalWindowSvg,
 };
 
 const ALIASES: Record<string, string> = {

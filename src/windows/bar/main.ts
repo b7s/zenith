@@ -44,6 +44,9 @@ void (async () => {
     (window as any).__zenith_openCalendar = (el: HTMLElement) => {
       void m.openCalendarFromWidget(el);
     };
+    (window as any).__zenith_openAicli = (el: HTMLElement) => {
+      void m.openAicliFromWidget(el);
+    };
   });
 
   await time("applyTheme", () => applyTheme());

@@ -10,7 +10,7 @@ import { mountFileUpload } from "../../shared/file-upload";
 import type { FileUploadHandle } from "../../shared/file-upload";
 import { CMD } from "../../shared/ipc";
 import { loadConfig } from "../../shared/config";
-import type { Config, WidgetManifest, WidgetConfigField, CalendarAccount, PendingAuthStatus } from "../../shared/types";
+import type { Config, WidgetManifest, WidgetConfigField, CalendarAccount, PendingAuthStatus, AicliHookStatus } from "../../shared/types";
 
 interface WidgetConfigGlobals {
   __ZENITH_WIDGET_CONFIG_ID: string;
@@ -110,6 +110,8 @@ void (async () => {
         newValues[key] = multiStates[key] ?? [];
       } else if (field.type === "links") {
         newValues[key] = await collectLinks(key, linkStores);
+      } else if (field.type === "aicli_hooks") {
+        // Action-only control (install/uninstall managed hooks). No value to persist.
       } else {
         newValues[key] = (inputs[key] as HTMLInputElement | null)?.value ?? field.value;
       }
@@ -227,6 +229,8 @@ void (async () => {
         buildMultiSelectControl(wrapper, key, field, currentValue as string[] | undefined, multiStates);
       } else if (field.type === "secret") {
         buildSecretControl(wrapper, key, field, currentValue, secretStores);
+      } else if (field.type === "aicli_hooks") {
+        buildAicliHooksControl(wrapper, key, field);
       } else {
       const label = document.createElement("label");
       label.className = "zen-label";
@@ -647,6 +651,69 @@ function buildSecretControl(
     hint.textContent = field.hint;
     wrapper.append(hint);
   }
+}
+
+/// AI Agents widget — managed-hook install/uninstall control.
+/// Renders one row per hook-capable CLI (Claude, Codex) with an
+/// install/uninstall toggle + live status from `aicli_hook_status`.
+/// OpenCode is auto-detected (no hooks) so it's surfaced as informational.
+/// Action-only: no config value is persisted (handled in the save loop).
+function buildAicliHooksControl(
+  wrapper: HTMLElement,
+  _key: string,
+  _field: WidgetConfigField,
+): void {
+  const list = document.createElement("div");
+  list.className = "zen-section";
+  list.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;margin-top:0.15rem;";
+
+  async function render(): Promise<void> {
+    const statuses = await invoke<AicliHookStatus[]>(CMD.aicliHookStatus).catch(() => []);
+    list.replaceChildren();
+    for (const st of statuses) {
+      const row = document.createElement("div");
+      row.className = "zen-field";
+      row.style.cssText = "display:flex;align-items:center;gap:0.5rem;";
+
+      const label = document.createElement("span");
+      label.className = "zen-label";
+      label.textContent = st.id === "opencode" ? "OpenCode" : st.id === "claude" ? "Claude Code" : "Codex (GPT)";
+      label.style.flex = "1";
+
+      const statusText = document.createElement("span");
+      statusText.className = "zen-hint";
+      statusText.textContent = st.installed ? "hooks installed" : st.detail;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      if (st.id === "opencode") {
+        // Auto-detected — no action.
+        btn.className = "zen-button is-sm is-ghost";
+        btn.textContent = "Auto";
+        btn.disabled = true;
+      } else if (st.installed) {
+        btn.className = "zen-button is-sm is-outline";
+        btn.textContent = "Uninstall";
+        btn.addEventListener("click", async () => {
+          await invoke(CMD.aicliUninstallHooks, { id: st.id }).catch(() => {});
+          await render();
+        });
+      } else {
+        btn.className = "zen-button is-sm is-primary";
+        btn.textContent = "Install";
+        btn.addEventListener("click", async () => {
+          await invoke(CMD.aicliInstallHooks, { id: st.id }).catch(() => {});
+          await render();
+        });
+      }
+
+      row.append(label, statusText, btn);
+      list.append(row);
+    }
+  }
+
+  wrapper.append(list);
+  void render();
 }
 
 function buildControl(

@@ -1,0 +1,16 @@
+{
+  "identifier": "ai-cli",
+  "description": "Capability for the AI Agents widget window",
+  "windows": ["ai-cli"],
+  "webviews": ["ai-cli"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-size",
+    "core:event:default",
+    "core:event:allow-listen"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "ai_cli",
+  "name": "AI Agents",
+  "version": "1.0.0",
+  "description": "Real-time status of AI coding agents (Claude Code, Codex, OpenCode) — running, waiting for confirmation, or failed.",
+  "default_zone": "right",
+  "icon": "terminal-window",
+  "min_width": 28,
+  "preview": "<span class=\"ai-icon\"><i class=\"ai-glyph\" data-icon=\"terminal-window\" data-size=\"18\"></i><span class=\"zen-status-dots\"><span class=\"zen-status-dot zen-status-dot--run\"></span></span></span>",
+  "config": {
+    "monitor_claude": {
+      "type": "bool",
+      "value": true,
+      "label": "Claude Code"
+    },
+    "monitor_codex": {
+      "type": "bool",
+      "value": true,
+      "label": "Codex (GPT)"
+    },
+    "monitor_opencode": {
+      "type": "bool",
+      "value": true,
+      "label": "OpenCode"
+    },
+    "hooks": {
+      "type": "aicli_hooks",
+      "value": null,
+      "label": "Agent hooks",
+      "hint": "Install managed hooks so Zenith sees waiting/error states precisely. OpenCode is auto-detected (no install needed)."
+    }
+  }
+}

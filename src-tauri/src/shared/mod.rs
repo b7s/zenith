@@ -68,6 +68,10 @@ pub const EVENT_UPDATE_CHECKED: &str = "zenith:update-checked";
 /// relies on clipboard copy done inside the eyedropper window.
 #[allow(dead_code)]
 pub const EVENT_EYEDROPPER_PICKED: &str = "zenith:eyedropper-picked";
+/// Emitted by the aicli poll thread when the aggregate agent status
+/// (running / waiting / failed counts) changes. Payload is the full
+/// `AicliState` so the bar widget + window re-render without a round-trip.
+pub const EVENT_AICLI_CHANGED: &str = "zenith:aicli-changed";
 
 pub mod known_folders;
 pub mod shell;

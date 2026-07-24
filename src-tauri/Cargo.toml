@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "0.1.18"
+version = "0.1.19"
 edition = "2021"
 description = "A customizable top bar for Windows 11"
 
@@ -31,6 +31,7 @@ windows = { version = "0.61", features = [
     "Win32_System_Performance",
     "Win32_System_Registry",
     "Win32_System_ProcessStatus",
+    "Win32_System_Diagnostics_ToolHelp",
     "Win32_System_Threading",
     "Win32_System_SystemInformation",
     "Win32_UI_WindowsAndMessaging",
@@ -61,3 +62,9 @@ sha2 = "0.10"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "ico"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
+toml = "0.8"
+# Bundled SQLite — used to read OpenCode's `opencode.db` directly for
+# session metadata (the TUI mode does not expose an HTTP server, so the
+# only fast source of per-session state is the SQLite store the TUI writes).
+# `bundled` builds the SQLite C library statically (no DLL shipping).
+rusqlite = { version = "0.32", features = ["bundled"] }

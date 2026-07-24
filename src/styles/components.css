@@ -111,11 +111,11 @@
   color: var(--muted-foreground);
   margin: 0;
 }
-.zen-hint a {
+a {
   color: var(--info);
   text-decoration: none;
 }
-.zen-hint a:hover {
+a:hover {
   text-decoration: underline;
 }
 .zen-input {

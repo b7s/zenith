@@ -67,7 +67,6 @@ export function mountFilterPills<T extends string>(
 
   const moreMenu = document.createElement("div");
   moreMenu.className = "zen-filter-pills__menu";
-  moreMenu.style.display = "none";
   moreMenu.setAttribute("role", "menu");
   bar.append(moreMenu);
 
@@ -114,18 +113,18 @@ export function mountFilterPills<T extends string>(
   }
 
   function openMenu(): void {
-    moreMenu.style.display = "";
+    moreMenu.classList.add("is-open");
     moreBtn.setAttribute("aria-expanded", "true");
     document.addEventListener("click", onDocClick, true);
   }
   function closeMenu(): void {
-    moreMenu.style.display = "none";
+    moreMenu.classList.remove("is-open");
     moreBtn.setAttribute("aria-expanded", "false");
     document.removeEventListener("click", onDocClick, true);
   }
   function toggleMenu(): void {
-    if (moreMenu.style.display === "none") openMenu();
-    else closeMenu();
+    if (moreMenu.classList.contains("is-open")) closeMenu();
+    else openMenu();
   }
   function onDocClick(e: MouseEvent): void {
     if (!bar.contains(e.target as Node)) closeMenu();

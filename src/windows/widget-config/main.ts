@@ -1092,6 +1092,9 @@ function buildAccountsControl(
       if (pv === String(data?.provider ?? "github")) opt.selected = true;
       provider.append(opt);
     }
+    const providerWrap = document.createElement("div");
+    providerWrap.className = "zen-select-wrapper";
+    providerWrap.append(provider);
 
     const username = document.createElement("input");
     username.type = "text";
@@ -1192,7 +1195,7 @@ function buildAccountsControl(
     topBar.style.cssText = "display:flex;align-items:center;gap:0.5rem;";
     topBar.append(enabledWrap, removeBtn);
 
-    rowEl.append(topBar, labelInput, provider, hostUrl, hostHint, username, token, tokenHint);
+    rowEl.append(topBar, labelInput, providerWrap, hostUrl, hostHint, username, token, tokenHint);
     if (addBtnTarget) {
       container.append(rowEl);
     } else {

@@ -199,8 +199,19 @@
   outline: none;
   border-color: var(--ring);
 }
+.zen-select:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.zen-select:hover:not(:focus) {
+  background: color-mix(in oklch, var(--input) 70%, transparent);
+}
+.zen-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .zen-select option {
-  background: var(--bg);
+  background: var(--background);
   color: var(--foreground);
 }
 .zen-slider {
@@ -698,7 +709,7 @@
 .zen-filter-pill-more {
   position: relative;
 }
-.zen-filter-pill__menu {
+.zen-filter-pills__menu {
   display: none;
   position: absolute;
   top: calc(100% + 4px);
@@ -716,10 +727,10 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   min-width: 120px;
 }
-.zen-filter-pill__menu.is-open {
+.zen-filter-pills__menu.is-open {
   display: flex;
 }
-.zen-filter-pill__menu .zen-filter-pill {
+.zen-filter-pills__menu .zen-filter-pill {
   width: 100%;
   justify-content: flex-start;
   border-radius: calc(var(--radius) - 2px);

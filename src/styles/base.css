@@ -16,6 +16,10 @@ body {
     background: transparent;
 }
 
+html[data-theme="dark"] {
+    color-scheme: dark;
+}
+
 [data-theme="dark"] {
     color-scheme: dark;
 }

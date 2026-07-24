@@ -12,14 +12,14 @@ use crate::shared::EVENT_CALENDAR_VIEW;
 use crate::window;
 
 const CALENDAR_LABEL: &str = "calendar";
-// Single-month popup. Mirror of `CALENDAR_POPUP_CSS_*` in
+// Calendar popup dimensions. Mirror of `CALENDAR_POPUP_CSS_*` in
 // `src/shared/widget-popup.ts` — keep the two languages in sync.
-const CALENDAR_W: i32 = 360;
-const CALENDAR_H: i32 = 380;
-// Two-month popup: same height, ~2× width. Activated by the widget's
+const CALENDAR_W: i32 = 400;
+const CALENDAR_H: i32 = 430;
+// Two-month popup: 2× single-month width. Activated by the widget's
 // `show_next_month` config option. Same vertical alignment so the bar
 // widget stays visually centred below both panels.
-const CALENDAR_W_WIDE: i32 = 700;
+const CALENDAR_W_WIDE: i32 = 800;
 
 /// The currently-requested calendar view mode. Stored in a Mutex so the
 /// frontend can query it via `get_calendar_view()` on load — this is the
@@ -62,11 +62,7 @@ pub async fn open_calendar(
         *g = single;
     }
     let wide = if single { false } else { wide.unwrap_or(false) };
-    let (win_w, win_h) = if wide {
-        (CALENDAR_W_WIDE, CALENDAR_H)
-    } else {
-        (CALENDAR_W, CALENDAR_H)
-    };
+    let win_w = if wide { CALENDAR_W_WIDE } else { CALENDAR_W };
 
     if let Some(win) = app.get_webview_window(CALENDAR_LABEL) {
         // Re-using an already-open window: clamp to the requested position
@@ -76,7 +72,7 @@ pub async fn open_calendar(
         // would keep rendering that grid even when the alarms widget asked
         // for the events list (the init script does NOT re-run on reuse).
         let (cx, cy, cw, ch) =
-            window::clamp_to_monitor(x.round() as i32, y.round() as i32, win_w, win_h);
+            window::clamp_to_monitor(x.round() as i32, y.round() as i32, win_w, CALENDAR_H);
         let _ = win.set_size(tauri::PhysicalSize::new(cw as f64, ch as f64));
         let _ = win.set_position(tauri::PhysicalPosition::new(cx as f64, cy as f64));
         let _ = win.show();
@@ -126,13 +122,9 @@ fn create_calendar_window(
     wide: bool,
     view: &str,
 ) -> Result<(), String> {
-    let (disp_w, disp_h) = if wide {
-        (CALENDAR_W_WIDE, CALENDAR_H)
-    } else {
-        (CALENDAR_W, CALENDAR_H)
-    };
+    let win_w = if wide { CALENDAR_W_WIDE } else { CALENDAR_W };
     let (cx, cy, cw, ch) =
-        window::clamp_to_monitor(x.round() as i32, y.round() as i32, disp_w, disp_h);
+        window::clamp_to_monitor(x.round() as i32, y.round() as i32, win_w, CALENDAR_H);
 
     let win = tauri::WebviewWindowBuilder::new(
         app,

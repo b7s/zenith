@@ -4,15 +4,21 @@ import { CMD } from "./ipc";
 import { loadConfig } from "./config";
 import type { Config } from "./types";
 
-/** Popup logical (CSS) dimensions — kept here so the positioning math and
- *  the IPC command proposal stay in sync. Mirrors of the Rust `CALENDAR_W`
- *  / `CALENDAR_H` / `CALENDAR_W_WIDE` in
- *  `src-tauri/src/calendar/commands.rs`.
+/** Popup logical (CSS) width(s) — kept here so the positioning math (the
+ *  IPC `open_calendar` proposal for the popup's centered-under-widget
+ *  position) stays in sync with Rust. Mirrors of the Rust `CALENDAR_W` /
+ *  `CALENDAR_W_WIDE` in `src-tauri/src/calendar/commands.rs`.
+ *
+ *  Only the **width** is mirrored here because `popupAnchorUnderWidget()`
+ *  uses it to center the popup horizontally under the triggering widget.
+ *  The popup **height** is owned exclusively by Rust (`CALENDAR_H`) — it
+ *  is clamped by `clamp_to_monitor` and never influences the anchor math
+ *  (the popup is anchored at `widget.bottom + gap`, regardless of height).
+ *
  *  On Windows with default DPI these equal the OS-pixel size; on high-DPI
  *  systems the Rust side multiplies by its own DPI awareness. */
-export const CALENDAR_POPUP_CSS_W = 340;
-export const CALENDAR_POPUP_CSS_H = 370;
-export const CALENDAR_POPUP_CSS_W_WIDE = 680;
+export const CALENDAR_POPUP_CSS_W = 400;
+export const CALENDAR_POPUP_CSS_W_WIDE = 760;
 
 /**
  * Resolve a widget element to OS-pixel screen coordinates where the popup
@@ -61,7 +67,7 @@ export async function popupAnchorUnderWidget(
 
 async function shouldShowNextMonth(): Promise<boolean> {
   try {
-    const cfg = (await loadConfig()) as Config;
+    const cfg = (await loadConfig({ force: true })) as Config;
     const wcfg = cfg.widgets?.config?.["datetime"] as
       | Record<string, unknown>
       | undefined;
@@ -94,4 +100,16 @@ export const WEATHER_POPUP_CSS_H = 560;
 export async function openWeatherFromWidget(widget: HTMLElement): Promise<void> {
   const { x, y } = await popupAnchorUnderWidget(widget, WEATHER_POPUP_CSS_W, 4);
   await invoke(CMD.openWeather, { x, y });
+}
+
+/** AI Agents window — anchored under the widget, mirrors WEATHER_* sizing
+ *  constants. The Rust side enforces the 340×440 default via
+ *  `crate::window::monitor::clamp_to_monitor` regardless of what we propose. */
+export const AICLI_POPUP_CSS_W = 340;
+export const AICLI_POPUP_CSS_H = 440;
+
+/** Open the AI Agents window, centered under the widget. */
+export async function openAicliFromWidget(widget: HTMLElement): Promise<void> {
+  const { x, y } = await popupAnchorUnderWidget(widget, AICLI_POPUP_CSS_W, 4);
+  await invoke(CMD.openAicliWindow, { x, y });
 }

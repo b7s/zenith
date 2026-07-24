@@ -437,24 +437,50 @@ void (async () => {
     void refreshEvents().then(() => render());
   });
 
+  // Live-update the panel count when the user toggles
+  // `show_next_month` from the widget-config window while the calendar
+  // is already open. Refreshes the cached config value + re-renders,
+  // so the wide↔single swap happens without a reopen.
+  const unlistenConfig = m.listen(EVENT.configUpdated as EventName, async () => {
+    try {
+      const [cfg, forceSingle] = await Promise.all([
+        invoke<Config>("get_config"),
+        invoke<boolean>("get_calendar_single"),
+      ]);
+      const wc = cfg.widgets?.config?.["datetime"] as Record<string, unknown> | undefined;
+      configShowNextMonth = Boolean(wc?.show_next_month);
+      showNextMonth = configShowNextMonth && !forceSingle;
+      render();
+    } catch {
+      // keep current value
+    }
+  });
+
   // Switch view mode when the window is reused by a different caller
   // (e.g. datetime widget opened the 2-month grid, then the alarms widget
   // asks for the events list). The init script seeds the initial mode on
   // a fresh open; this listener handles subsequent reuses.
   const unlistenView = m.listen<string>(EVENT.calendarView as EventName, async (e) => {
     const next = e.payload === "events" ? "events" : "calendar";
-    // Re-fetch the single flag so showNextMonth is recomputed for the
-    // new caller (alarm forces single → no 2 months even in calendar mode).
+    // Re-fetch BOTH the live config (the user may have toggled
+    // `show_next_month` since the last open) and the single flag (the
+    // alarms widget forces single → no 2 months even in calendar mode).
+    // The cached `configShowNextMonth` from the window's first load is
+    // never updated otherwise, so a wide→single config change would be
+    // silenced on the reuse path.
     try {
-      const forceSingle = await invoke<boolean>("get_calendar_single");
+      const [cfg, forceSingle] = await Promise.all([
+        invoke<Config>("get_config"),
+        invoke<boolean>("get_calendar_single"),
+      ]);
+      const wc = cfg.widgets?.config?.["datetime"] as Record<string, unknown> | undefined;
+      configShowNextMonth = Boolean(wc?.show_next_month);
       showNextMonth = configShowNextMonth && !forceSingle;
     } catch {
       // keep current value
     }
-    if (next !== mode) {
-      mode = next;
-      render();
-    }
+    mode = next;
+    render();
   });
 
   await refreshEvents();
@@ -462,4 +488,5 @@ void (async () => {
 
   void unlisten;
   void unlistenView;
+  void unlistenConfig;
 })();

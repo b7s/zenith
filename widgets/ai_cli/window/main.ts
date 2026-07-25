@@ -525,7 +525,10 @@ void (async () => {
     const updateBtn = document.createElement("button");
     updateBtn.className = "ai-usage__update-btn";
     updateBtn.title = "Refresh usage data";
-    setIcon(updateBtn, "arrows-clockwise", { size: 16 });
+    const updateIcon = document.createElement("span");
+    updateIcon.className = "zen-icon";
+    setIcon(updateIcon, "arrows-clockwise", { size: 16 });
+    updateBtn.append(updateIcon);
     updateBtn.addEventListener("click", async () => {
       updateBtn.classList.add("is-loading");
       try {

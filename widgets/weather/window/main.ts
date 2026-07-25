@@ -169,7 +169,7 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
 
   // Current conditions card
   const currentCard = document.createElement("div");
-  currentCard.className = "zen-card weather-current wx-enter";
+  currentCard.className = "weather-current wx-enter";
   currentCard.style.setProperty("--wx-i", String(wxIndex++));
 
   const code = cur.weather?.[0]?.id;
@@ -181,8 +181,8 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
   const iconEl = document.createElement("span");
   iconEl.className = "zen-icon";
   iconEl.dataset.icon = iconName;
-  iconEl.dataset.size = "72";
-  setIcon(iconEl, iconName, { size: 72 });
+  iconEl.dataset.size = "92";
+  setIcon(iconEl, iconName, { size: 92 });
   iconWrap.append(iconEl);
 
   const info = document.createElement("div");
@@ -239,12 +239,16 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
 
   const metaEl = document.createElement("div");
   metaEl.className = "weather-current__meta";
-  metaEl.style.cssText = "font-size:0.75rem;color:var(--muted-foreground);display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.25rem;";
   const feels = cur.feels_like !== undefined ? "Feels " + Math.round(cur.feels_like) + unit : "";
   const hum = cur.humidity !== undefined ? "Humidity " + cur.humidity + "%" : "";
   const wind = cur.wind_speed !== undefined ? "Wind " + Math.round(cur.wind_speed) + (isImperial ? " mph" : " m/s") : "";
   const desc = cur.weather?.[0]?.description || "";
-  metaEl.textContent = [desc, feels, hum, wind].filter(Boolean).join(" \u00B7 ");
+  const line1 = document.createElement("div");
+  line1.textContent = [desc, feels].filter(Boolean).join(" \u00B7 ");
+  const line2 = document.createElement("div");
+  line2.textContent = [hum, wind].filter(Boolean).join(" \u00B7 ");
+  metaEl.append(line1);
+  if (line2.textContent) metaEl.append(line2);
 
   info.append(cityEl, tempEl);
   if (hiLoEl) info.append(hiLoEl);

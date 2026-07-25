@@ -347,7 +347,7 @@ void (async () => {
       const headerH = header?.offsetHeight ?? 44;
       const needed = headerH + content.scrollHeight;
       const h = Math.min(720, Math.max(480, needed));
-      win.setSize(new LogicalSize(360, h)).catch(() => {});
+      win.setSize(new LogicalSize(385, h)).catch(() => {});
     });
   }
 

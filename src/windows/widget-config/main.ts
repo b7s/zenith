@@ -5,7 +5,7 @@ import { mountWindow } from "../../shared/window";
 import { mountTabs } from "../../shared/tabs";
 import { mountFilterPills } from "../../shared/filter-pills";
 import { initLog, logInfo } from "../../shared/log";
-import { setIcon, applyIcons, registerIcons, getIconNames } from "../../shared/icon";
+import { setIcon, applyIcons, registerIcons, getIconNames, resolveIcon } from "../../shared/icon";
 import { LUCIDE_ICONS, LUCIDE_NAMES } from "../../shared/lucide-icons";
 import { mountFileUpload } from "../../shared/file-upload";
 import type { FileUploadHandle } from "../../shared/file-upload";
@@ -1479,6 +1479,9 @@ function buildIconCombobox(
 
   if (currentName) {
     renderPreview(currentName, currentSet);
+    if (!resolveIcon(currentName)) {
+      void fetchIcon(currentName);
+    }
   }
 
   return {
@@ -1510,7 +1513,7 @@ function buildLinksControl(
   container.dataset.linksKey = _key;
 
   const rowsEl = document.createElement("div");
-  rowsEl.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;margin-top:0.25rem;";
+  rowsEl.style.cssText = "display:flex;flex-direction:column;gap:1rem;margin-top:0.25rem;";
   container.append(rowsEl);
 
   function renderList(): void {
@@ -1527,11 +1530,11 @@ function buildLinksControl(
     const rowEl = document.createElement("div");
     rowEl.className = "zen-field";
     rowEl.style.cssText =
-      "display:flex;flex-direction:column;gap:0.35rem;padding:0.5rem;border:1px solid color-mix(in oklch,var(--border) 50%,transparent);border-radius:var(--radius);";
+      "display:flex;flex-direction:column;gap:0.6rem;padding:0.75rem;border:1px solid color-mix(in oklch,var(--border) 50%,transparent);border-radius:var(--radius);";
 
     const top = document.createElement("div");
     top.className = "lk-top";
-    top.style.cssText = "display:flex;align-items:center;gap:0.4rem;";
+    top.style.cssText = "display:flex;align-items:center;gap:0.6rem;";
 
     // Enabled — the FIRST control, per spec.
     const enabledWrap = document.createElement("label");
@@ -1568,7 +1571,7 @@ function buildLinksControl(
     upBtn.className = "zen-icon-button";
     upBtn.title = "Move up";
     upBtn.setAttribute("aria-label", "Move up");
-    setIcon(upBtn, "chevron-up", { size: 14 });
+    setIcon(upBtn, "caret-up", { size: 14 });
     upBtn.addEventListener("click", () => {
       const i = rows.indexOf(row);
       if (i > 0) {
@@ -1583,7 +1586,7 @@ function buildLinksControl(
     downBtn.className = "zen-icon-button";
     downBtn.title = "Move down";
     downBtn.setAttribute("aria-label", "Move down");
-    setIcon(downBtn, "chevron-down", { size: 14 });
+    setIcon(downBtn, "caret-down", { size: 14 });
     downBtn.addEventListener("click", () => {
       const i = rows.indexOf(row);
       if (i >= 0 && i < rows.length - 1) {

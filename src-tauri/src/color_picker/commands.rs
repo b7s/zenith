@@ -335,14 +335,16 @@ pub fn read_live_pixel(x: i32, y: i32) -> Result<[u8; 4], String> {
 }
 
 fn create_color_picker_window(app: &tauri::AppHandle, x: f64, y: f64) -> Result<(), String> {
-    let win_w = 400.0_f64;
+    let win_w = 385.0_f64;
     let win_h = 510.0_f64;
-    let (cx, cy, cw, ch) = window::monitor::clamp_to_monitor(
+    let (cx, cy, cw0, ch0) = window::monitor::clamp_to_monitor(
         x.round() as i32,
         y.round() as i32,
         win_w as i32,
         win_h as i32,
     );
+    let cw = cw0.max(win_w as i32);
+    let ch = ch0.max(win_h as i32);
 
     let win = tauri::WebviewWindowBuilder::new(
         app,
@@ -351,7 +353,7 @@ fn create_color_picker_window(app: &tauri::AppHandle, x: f64, y: f64) -> Result<
     )
     .title("Color Picker")
     .inner_size(cw as f64, ch as f64)
-    .min_inner_size(400.0, 510.0)
+    .min_inner_size(win_w, win_h)
     .max_inner_size(480.0, 720.0)
     .position(cx as f64, cy as f64)
     .resizable(true)

@@ -70,6 +70,6 @@
   color: var(--muted-foreground);
 }
 .wc-hooks-card .zen-button {
-  align-self: flex-start;
+  align-self: center;
   margin-top: auto;
 }

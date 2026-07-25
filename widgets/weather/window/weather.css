@@ -42,11 +42,11 @@
   min-height: 0;
 }
 
-/* Current conditions card */
+/* Current conditions card — icon left, place + temp right, fully transparent */
 .weather-current {
   display: flex;
-  align-items: flex-start;
-  gap: .5rem;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 /* ----- Staggered card cascade (Apple Weather style) -----
@@ -63,17 +63,16 @@
   animation-delay: calc(var(--wx-i, 0) * 60ms);
 }
 .weather-current__icon {
-  flex: 0 0 72px;
-  height: 72px;
+  flex: 0 0 92px;
+  height: 92px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in oklch, var(--accent) 20%, transparent);
   border-radius: var(--radius);
   color: var(--primary);
 }
 .weather-current__icon .zen-icon {
-  --zen-icon-size: 72px;
+  --zen-icon-size: 92px;
 }
 .weather-current__info {
   flex: 1;
@@ -98,8 +97,8 @@
   font-size: 0.75rem;
   color: var(--muted-foreground);
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0;
   margin-top: 0.25rem;
 }
 

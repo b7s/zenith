@@ -334,18 +334,21 @@
   display: flex;
 }
 .ai-usage__month-select {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.4rem;
-  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
-  border-radius: 0.3rem;
-  background: color-mix(in oklch, var(--card) 40%, transparent);
-  color: var(--foreground);
+  height: 1.5rem;
+  font-size: 0.75rem;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--card) 35%, transparent);
+  color: var(--muted-foreground);
   cursor: pointer;
   margin: 0 0.5rem;
   outline: none;
+  box-sizing: border-box;
 }
 .ai-usage__month-select:hover {
-  border-color: color-mix(in oklch, var(--border) 80%, transparent);
+  background: color-mix(in oklch, var(--accent) 40%, transparent);
+  color: var(--foreground);
 }
 .ai-usage__update-btn {
   display: inline-flex;

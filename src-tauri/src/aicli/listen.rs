@@ -108,29 +108,23 @@ fn apply_hook_events(sessions: &mut [CliSession], events: &[HookEvent], now: i64
                     };
                 }
                 "StopFailure" => slot.status = CliStatus::Failed,
-                "Stop" => {
-                    if slot.status != CliStatus::Failed {
-                        slot.status = CliStatus::Idle;
-                    }
+                "Stop" if slot.status != CliStatus::Failed => {
+                    slot.status = CliStatus::Idle;
                 }
                 _ => {}
             },
             CliId::Codex => match ev_str {
                 "session_start" | "user_prompt_submit" => slot.status = CliStatus::Running,
                 "permission" | "waiting_for_permission" => slot.status = CliStatus::Waiting,
-                "session_end" | "stop" => {
-                    if slot.status != CliStatus::Failed {
-                        slot.status = CliStatus::Idle;
-                    }
+                "session_end" | "stop" if slot.status != CliStatus::Failed => {
+                    slot.status = CliStatus::Idle;
                 }
                 _ => {}
             },
             CliId::Opencode => match ev_str {
                 "session_start" => slot.status = CliStatus::Running,
-                "session_end" => {
-                    if slot.status != CliStatus::Failed {
-                        slot.status = CliStatus::Idle;
-                    }
+                "session_end" if slot.status != CliStatus::Failed => {
+                    slot.status = CliStatus::Idle;
                 }
                 _ => {}
             },

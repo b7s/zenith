@@ -21,6 +21,8 @@ use super::model::CliId;
 use super::pricing;
 use super::usage_model::{CliUsageSummary, DailyUsage, MonthlyUsage};
 
+type ModelUsage = Vec<(String, u64, u64, u64, u64, f64)>;
+
 /// Return the current month in `"YYYY-MM"` format (local time best-effort).
 pub fn current_month() -> String {
     let secs = SystemTime::now()
@@ -70,7 +72,6 @@ fn days_to_year_month_day(mut days: i64) -> (i32, u32, u32) {
 }
 
 /// ── Public aggregator ──────────────────────────────────────────────
-
 pub fn monthly_usage(month: &str) -> MonthlyUsage {
     let mut daily: Vec<DailyUsage> = Vec::new();
 
@@ -294,7 +295,7 @@ pub fn claude_usage(month: &str) -> Vec<DailyUsage> {
 /// Returns a list of `(model, input, output, cache_read, cache_write, cost_usd)`.
 fn parse_claude_transcript(
     path: &Path,
-) -> Option<Vec<(String, u64, u64, u64, u64, f64)>> {
+) -> Option<ModelUsage> {
     let file = std::fs::File::open(path).ok()?;
     let reader = BufReader::new(file);
     let mut by_model: BTreeMap<String, (u64, u64, u64, u64)> = BTreeMap::new();
@@ -424,7 +425,7 @@ pub fn codex_usage(month: &str) -> Vec<DailyUsage> {
 /// Returns per-model breakdown.
 fn parse_codex_transcript(
     path: &Path,
-) -> Option<Vec<(String, u64, u64, u64, u64, f64)>> {
+) -> Option<ModelUsage> {
     let file = std::fs::File::open(path).ok()?;
     let reader = BufReader::new(file);
     let mut by_model: BTreeMap<String, (u64, u64, u64, u64)> = BTreeMap::new();
@@ -495,7 +496,7 @@ fn parse_codex_transcript(
 
 /// Recursively search a JSON value for the first object that looks like a
 /// usage payload (contains token-like keys).
-fn find_usage_object<'a>(v: &'a Value) -> Option<&'a Value> {
+fn find_usage_object(v: &Value) -> Option<&Value> {
     if v.is_object() {
         if v.get("prompt_tokens").is_some()
             || v.get("input_tokens").is_some()
@@ -573,21 +574,22 @@ mod tests {
 
     #[test]
     fn month_from_known_epoch() {
-        // 2026-07-24 00:00:00 UTC = 1784169600 epoch seconds = 1784169600000 ms
-        let m = month_from_epoch_ms(1784169600_000);
-        assert_eq!(m, "2026-07");
+        // 2026-01-15 00:00:00 UTC = 1768435200 epoch seconds = 1768435200000 ms
+        let m = month_from_epoch_ms(1_768_435_200_000);
+        assert_eq!(m, "2026-01");
     }
 
     #[test]
     fn day_from_known_epoch() {
-        let d = day_from_epoch_ms(1784169600_000);
-        assert_eq!(d, "2026-07-24");
+        // same epoch as month_from_known_epoch
+        let d = day_from_epoch_ms(1_768_435_200_000);
+        assert_eq!(d, "2026-01-15");
     }
 
     #[test]
     fn month_from_january() {
         // 2026-01-15 00:00:00 UTC = 1768435200 epoch seconds = 1768435200000 ms
-        let m = month_from_epoch_ms(1768435200_000);
+        let m = month_from_epoch_ms(1_768_435_200_000);
         assert_eq!(m, "2026-01");
     }
 

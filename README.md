@@ -10,6 +10,18 @@
 
 <p align="center">A customizable, always-on-top status bar for Windows&nbsp;11, docked to the top edge of your screen.</p>
 
+<p align="center">
+  <a href="https://github.com/b7s/zenith/releases/latest">
+    <img alt="GitHub release" src="https://img.shields.io/github/v/release/b7s/zenith?style=flat-square&label=version&color=6366f1">
+  </a>
+  <a href="./LICENSE">
+    <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6366f1?style=flat-square">
+  </a>
+  <img alt="Windows 11 24H2+" src="https://img.shields.io/badge/Windows%2011%2024H2+-e11d48?style=flat-square&logo=windows11&logoColor=white">
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-edition%202021-f97316?style=flat-square&logo=rust">
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri%202-010409?style=flat-square&logo=tauri">
+  <img alt="Vite 8" src="https://img.shields.io/badge/Vite%208-646cff?style=flat-square&logo=vite&logoColor=white">
+</p>
 
 <img src="public/bar-example.webp" alt="bar example">
 
@@ -39,11 +51,11 @@ Core ideas:
 - **Widget system.** Widgets are small, standalone apps (plain JS/CSS/HTML) living in
   `widgets/`. Each has a `manifest.json`. Users toggle them on/off in the Widget Manager;
   their order and position (left/center/right) are saved to config.
-- **Fully customizable visuals.** The Settings window exposes the bar's material
-  (Acrylic/Mica/None), tint transparency, background (transparent/solid/gradient), per-color
-  transparency, corner rounding, edge margins, bar height, theme, and monitor selection.
-  Changes apply live. Power users may additionally drop a `%APPDATA%\zenith\custom.css` that is
-  hot-reloaded.
+- **Fully customizable visuals.** The Settings window exposes the background mode
+  (Acrylic/Mica/Gradient/Solid/None), tint transparency, gradient colors and alphas, bar
+  height, padding and margins, corner rounding, theme (dark/light/auto), and monitor
+  selection. Changes apply live. Power users may additionally drop a
+  `%APPDATA%\zenith\custom.css` that is hot-reloaded.
 - **Right-click anywhere empty on the bar** → native context menu: **Settings · Widgets ·
   Restart Bar · Close Bar**.
 - **Custom chrome.** No window uses the Windows title bar. Every window has a custom header:
@@ -71,16 +83,17 @@ Pre-built installers are published on the [Releases page](https://github.com/b7s
 3. Run the installer. Zenith is installed for the current Windows user (no admin elevation
    required) and added to **Start → Zenith** in your Start menu.
 4. Launch **Zenith**. The bar appears docked at the top of your screen.
-5. (Optional) Enable **Start with Windows** under Settings → General to auto-launch on login.
+5. (Optional) Open **Settings → Updates** to enable **Start with Windows** for auto-launch on
+   login.
 
-Zenith is also bundled with a **system tray icon** — right-click it to open Settings, open the
+Zenith runs in the **system tray** — right-click the tray icon to open Settings, open the
 Widget Manager, check for updates, or quit.
 
-### Update
+### Auto-update
 
-Zenith checks for new releases in the background every 24 hours (gated by Settings → General →
-Auto-update). When a new version is available, the tray icon shows a badge; click **Check for
-updates** to open the releases page and download the new installer.
+Zenith checks for new releases in the background every 24 hours. When a new version is
+available, the tray icon shows a badge; click **Check for updates** to download the new
+installer. Auto-update can be disabled in Settings → Updates.
 
 ---
 
@@ -151,20 +164,22 @@ configure per-widget settings via the gear button.
 ### Shipped widgets
 
 | Widget | Description | Default zone | Configurable |
-|---|---|:---:|:---:|
+|---|---|---|---|
 | **Clock** | Current time display | left | — |
-| **Date & Time** | Date and time with configurable timezone, 12/24h format, calendar popup with alarms/events and optional OneDrive sync | center | yes |
-| **Workspace** | Virtual desktop switcher — one circle per desktop; click to switch, right-click to rename / delete / create | left | — |
+| **Date & Time** | Date and time with configurable timezone, format, and calendar popup | center | yes |
+| **Workspace** | Virtual desktop switcher — one circle per desktop; click to switch, right-click to rename/delete/create | left | — |
+| **Color Picker** | Eyedropper to sample any pixel; right-click for the full picker window | right | yes |
+| **AI Agents** | Real-time status of AI coding agents (Claude Code, Codex, OpenCode) | right | yes |
 | **Volume** | System volume control and mute toggle | right | — |
 | **Battery** | Battery level and charging status | right | — |
+| **Shutdown** | Shutdown, restart, sleep, hibernate from the bar | right | — |
 | **Quick Toggle** | Toggle WiFi, Bluetooth, Dark Mode, Focus Assist, Airplane Mode, Night Light | right | yes |
-| **Media Control** | Now-playing info with play/pause, next/previous, and seek | right | yes |
+| **Media Control** | Now-playing info with play/pause, next/previous, and seek | left | yes |
 | **Weather** | Current weather + 7-day forecast from OpenWeatherMap (click to open forecast, air quality & charts) | right | yes |
-| **System Stats** | CPU, RAM, GPU, HD usage with switchable styles (bar / dots / graph) | right | yes |
-| **Alarms & Events** | Show upcoming alarms and events; relative or absolute time | right | yes |
-| **Git Manager** | Failed CI + open PRs across your GitHub, GitLab, and Bitbucket accounts; send failures/PRs to your AI CLI | right | yes |
-| **Web Apps** | Open your own links as personal web-app windows | right | yes |
-| **Shutdown** | Shutdown, restart, sleep, hibernate, lock, logout | right | — |
+| **System Stats** | CPU, RAM, GPU, HD, and network usage with switchable styles (bar/dots/graph) | right | yes |
+| **Alarms** | Show upcoming alarms and events; relative or absolute time | right | yes |
+| **Git Manager** | Failed CI + open PRs across GitHub, GitLab, and Bitbucket accounts | right | yes |
+| **Web Apps** | Open your own links as personal web-app windows | left | yes |
 
 ### Adding a widget
 
@@ -181,7 +196,8 @@ widgets/<name>/
 - `manifest.json` fields: `name`, `id`, `version`, `description`, `default_zone`
   (`left|center|right`), `icon` (a [Phosphor duotone](https://phosphoricons.com) icon name), `min_width`,
   `preview` (static HTML fragment shown in the Widget Manager card only — never rendered live),
-  and optionally `config` (user-configurable settings, see the contract in `AGENTS.md` §9.4a).
+  and optionally `config` (user-configurable settings — see the widget development contract in
+  `AGENTS.md` §9.4a).
 - `widget.js` uses `window.__zenith_invoke` (set by the bar) to call Tauri commands — never
   imports from `@tauri-apps/api` directly.
 - Add a widget by creating its folder; remove by deleting it. No code changes outside the
@@ -198,6 +214,28 @@ widgets/<name>/
 Most settings are best edited in the **Settings** window (right-click the bar → **Settings**),
 which writes the config file for you. Power users can edit the JSON directly.
 
+### Key config structure
+
+| Path | Values | Default | Description |
+|---|---|---|---|
+| `appearance.background.mode` | `"acrylic"`, `"mica"`, `"gradient"`, `"solid"`, `"none"` | `"gradient"` | Window background style |
+| `appearance.background.color_top` | hex color | `"#1f2541"` | Top gradient color |
+| `appearance.background.color_bottom` | hex color | `"#1a1a1a"` | Bottom gradient color |
+| `appearance.background.alpha_top` | `0`–`100` | `60` | Top color opacity |
+| `appearance.background.alpha_bottom` | `0`–`100` | `0` | Bottom color opacity |
+| `appearance.tint_alpha` | `0`–`255` | `61` | Acrylic accent tint alpha |
+| `appearance.bar_height` | `28`–`72` (px) | `40` | Bar height |
+| `appearance.margin_*` / `padding_*` | px | `0` / `8` (sides) | Outer margins and inner padding |
+| `appearance.corner_radius_*` | px | `0` | Per-corner bar rounding |
+| `appearance.theme` | `"dark"`, `"light"`, `"auto"` | `"dark"` | Color theme |
+| `monitors` | `"all"` or list of display IDs | `"all"` | Which monitors to show the bar on |
+| `updates.auto_update` | `true`, `false` | `true` | Check for updates every 24h |
+| `updates.start_with_windows` | `true`, `false` | `true` | Launch on login |
+| `storage.onedrive_sync_enabled` | `true`, `false` | `false` | Mirror config to OneDrive |
+| `motion.backend` | `"auto"`, `"gpu"`, `"cpu"` | `"auto"` | Animation backend preference |
+| `motion.reduced_motion` | `true`, `false` | `false` | Reduce animations |
+| `css.custom_enabled` | `true`, `false` | `true` | Inject custom.css |
+
 ### Custom CSS
 
 Drop a `custom.css` file in `%APPDATA%\zenith\` and enable it under Settings → Appearance →
@@ -205,18 +243,61 @@ Custom CSS. It is hot-reloaded — save the file and the bar restyles live.
 
 ---
 
-## Tech stack
+## Architecture
 
-| Layer | Technology |
-|---|---|
-| Shell / backend | **Rust** (edition 2021) |
-| App framework | **Tauri 2** |
-| Windows interop | `windows` crate 0.61 + **`winvd` 0.0.49** (virtual-desktop COM API) |
-| Frontend | Plain **TypeScript** + plain **CSS** (no React, no Vue) |
-| Icons | [Phosphor Icons (duotone)](https://phosphoricons.com) |
-| Design system | shadcn design tokens implemented in CSS (oklch) |
-| Build / bundler | Vite 8 |
-| Config format | JSON at `%APPDATA%\zenith\config.json` |
+Zenith is a **Tauri 2** application built in Rust with a plain-TypeScript frontend.
+
+```
+zenith/
+├── src/                  # Frontend (TypeScript + CSS)
+│   ├── windows/          # Window shells: bar, settings, manager, dialog, … 
+│   ├── shared/           # Shared kernel: IPC, events, types, config client, widgets
+│   ├── styles/           # CSS tokens (.zen-* component library)
+│   └── domains/          # Frontend domain clients
+├── widgets/              # Standalone widget folders (self-contained)
+├── src-tauri/
+│   ├── src/
+│   │   ├── config/       # Domain: configuration (load/save, model, commands)
+│   │   ├── window/       # Domain: AppBar, transparency, monitor management
+│   │   ├── widgets/      # Domain: widget registry and manifest scanning
+│   │   ├── workspace/    # Domain: virtual desktops (winvd), foreground HWND tracking
+│   │   └── …             # Other domains: appearance, motion, menu, dialog, gpu
+│   └── capabilities/     # Per-window Tauri permissions
+```
+
+Each domain in the Rust backend follows hexagonal architecture: pure services with no Tauri
+types in signatures, thin command adapters, and cross-domain communication via events.
+
+---
+
+## Contributing
+
+Contributions are welcome! Here's how:
+
+1. **Report bugs** — open a [GitHub Issue](https://github.com/b7s/zenith/issues/new).
+2. **Submit changes** — fork the repo, create a feature branch, and open a pull request.
+3. **New widgets** — drop a folder in `widgets/` following the layout above; no Rust changes
+   needed unless you need custom IPC.
+
+**Before contributing**, read the full development contract in
+[`AGENTS.md`](AGENTS.md) — it covers the project's architecture rules, CSS component system,
+transparency contract, animation discipline, and code organization conventions.
+
+### Development setup
+
+```bash
+git clone https://github.com/b7s/zenith.git
+cd zenith
+npm install
+npm run tauri dev
+```
+
+### Code quality
+
+```bash
+npm run typecheck   # TypeScript type checking
+cargo check         # Rust type checking (run from src-tauri/)
+```
 
 ---
 
@@ -224,24 +305,27 @@ Custom CSS. It is hot-reloaded — save the file and the bar restyles live.
 
 Zenith is licensed under the [MIT License](./LICENSE).
 
-    MIT License
+```
+MIT License
 
-    Copyright (c) 2026 b7s
+Copyright (c) 2026 b7s
 
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+> Last reviewed: 2026-07-25

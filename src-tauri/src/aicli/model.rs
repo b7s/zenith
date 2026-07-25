@@ -43,19 +43,14 @@ impl CliId {
 }
 
 /// Per-session status. Mirrored as `CliStatus` in `shared/types.ts`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CliStatus {
+    #[default]
     Idle,
     Running,
     Waiting,
     Failed,
-}
-
-impl Default for CliStatus {
-    fn default() -> Self {
-        CliStatus::Idle
-    }
 }
 
 /// One agent session snapshot. Mirrored as `CliSession` in `shared/types.ts`.

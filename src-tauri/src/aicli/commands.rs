@@ -22,7 +22,7 @@ pub fn get_aicli_state() -> AicliState {
 /// current month. Single command for all CLIs; the frontend filters client-side.
 #[tauri::command]
 pub fn get_monthly_usage(month: Option<String>) -> MonthlyUsage {
-    let m = month.unwrap_or_else(|| super::usage::current_month());
+    let m = month.unwrap_or_else(super::usage::current_month);
     super::usage::monthly_usage(&m)
 }
 

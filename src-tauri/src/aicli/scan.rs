@@ -14,7 +14,7 @@ use super::model::{CliId, CliSession, CliStatus};
 
 /// A transcript line is considered "active" (→ running) if modified within
 /// this window. Generous enough to survive a brief agent think-pause.
-const RECENCY_MS: i64 = 60_000;
+pub const RECENCY_MS: i64 = 60_000;
 
 /// Truncate a candidate title to a bar-friendly length.
 fn truncate(s: &str, max: usize) -> String {
@@ -33,14 +33,14 @@ fn truncate(s: &str, max: usize) -> String {
     out
 }
 
-fn now_ms() -> i64 {
+pub fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
 }
 
-fn mtime_ms(path: &Path) -> i64 {
+pub fn mtime_ms(path: &Path) -> i64 {
     path.metadata()
         .and_then(|m| m.modified())
         .ok()
@@ -55,7 +55,7 @@ fn user_profile() -> Option<PathBuf> {
 
 /// The most-recently-modified file matching `pattern` anywhere under `root`
 /// (recursive), within no age constraint — recency is judged by the caller.
-fn most_recent_match(root: &Path, glob: &str) -> Option<PathBuf> {
+pub fn most_recent_match(root: &Path, glob: &str) -> Option<PathBuf> {
     let mut best: Option<(PathBuf, i64)> = None;
     walk_files(root, &mut |p| {
         let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -70,7 +70,7 @@ fn most_recent_match(root: &Path, glob: &str) -> Option<PathBuf> {
     best.map(|(p, _)| p)
 }
 
-fn match_glob(name: &str, glob: &str) -> bool {
+pub fn match_glob(name: &str, glob: &str) -> bool {
     if let Some(prefix) = glob.strip_suffix(".*") {
         name.starts_with(prefix) && name.ends_with(".jsonl")
     } else {
@@ -96,14 +96,14 @@ fn walk_files(root: &Path, f: &mut dyn FnMut(&Path)) {
 
 /// Read the last non-empty line of a (potentially large) JSONL transcript.
 /// Reads the whole file — transcripts for one session are bounded (KB–low MB).
-fn read_last_line(path: &Path) -> Option<String> {
+pub fn read_last_line(path: &Path) -> Option<String> {
     let raw = std::fs::read_to_string(path).ok()?;
-    raw.lines().filter(|l| !l.trim().is_empty()).last().map(|s| s.to_string())
+    raw.lines().rfind(|l| !l.trim().is_empty()).map(|s| s.to_string())
 }
 
 /// Read the first user-message text from a Claude Code transcript JSONL.
 /// Claude lines look like `{"type":"user","message":{"role":"user","content":[{"type":"text","text":"…"}]}}`.
-fn claude_title(path: &Path) -> String {
+pub fn claude_title(path: &Path) -> String {
     let Ok(raw) = std::fs::read_to_string(path) else {
         return String::new();
     };
@@ -164,7 +164,7 @@ fn strip_meta(s: &str) -> String {
 }
 
 /// Map a Claude Code transcript's last line to a status.
-fn claude_status_from_last(line: &str) -> CliStatus {
+pub fn claude_status_from_last(line: &str) -> CliStatus {
     let Ok(v) = serde_json::from_str::<Value>(line) else {
         return CliStatus::Idle;
     };
@@ -237,7 +237,7 @@ fn codex_session(installed: bool) -> CliSession {
     s
 }
 
-fn codex_title(path: &Path) -> String {
+pub fn codex_title(path: &Path) -> String {
     let Ok(raw) = std::fs::read_to_string(path) else {
         return String::new();
     };
@@ -268,7 +268,7 @@ fn codex_title(path: &Path) -> String {
 }
 
 /// `rollout-<timestamp>-<random>-<cwd-slug>.jsonl` — best-effort cwd from stem.
-fn codex_cwd(path: &Path) -> String {
+pub fn codex_cwd(path: &Path) -> String {
     let stem = file_stem_name(path);
     // strip a leading "rollout-" and the timestamp/random segments
     let parts: Vec<&str> = stem.splitn(5, '-').collect();
@@ -278,7 +278,7 @@ fn codex_cwd(path: &Path) -> String {
     String::new()
 }
 
-fn codex_status_from_last(line: &str) -> CliStatus {
+pub fn codex_status_from_last(line: &str) -> CliStatus {
     let Ok(v) = serde_json::from_str::<Value>(line) else {
         return CliStatus::Idle;
     };
@@ -363,8 +363,16 @@ const OPENCODE_MAX_SESSIONS: usize = 4;
 /// Returns `None` if the db is missing or unreadable (so the caller falls
 /// back to HTTP).
 fn opencode_sessions_from_db() -> Option<Vec<CliSession>> {
-    use rusqlite::Connection;
     let db = opencode_db_path()?;
+    opencode_sessions_from_db_path(&db)
+}
+
+/// OpenCode SQLite reader parametrized by an explicit db path. Owned by
+/// `scan.rs` (single home, AGENTS §3) — WSL side delegates here by passing
+/// the `\\wsl.localhost\<distro>\home\<user>\...opencode.db` path. Returns
+/// `None` when the db is missing or unreadable, so the caller can fall back.
+pub fn opencode_sessions_from_db_path(db: &Path) -> Option<Vec<CliSession>> {
+    use rusqlite::Connection;
     if !db.exists() {
         return None;
     }
@@ -372,8 +380,8 @@ fn opencode_sessions_from_db() -> Option<Vec<CliSession>> {
     let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
         | rusqlite::OpenFlags::SQLITE_OPEN_URI
         | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let conn = Connection::open_with_flags(&db, flags)
-        .or_else(|_| Connection::open(&db))
+    let conn = Connection::open_with_flags(db, flags)
+        .or_else(|_| Connection::open(db))
         .ok()?;
 
     // Short busy-wait — if the TUI has a write lock for a moment, retry
@@ -482,9 +490,8 @@ fn opencode_session_from_http() -> Option<CliSession> {
         .ok()
         .and_then(|r| r.into_json::<Value>().ok())?;
     let list: Vec<Value> = sessions_value
-        .as_array()
-        .map(|a| a.clone())
-        .or_else(|| sessions_value.get("data").and_then(|d| d.as_array()).map(|a| a.clone()))?;
+        .as_array().cloned()
+        .or_else(|| sessions_value.get("data").and_then(|d| d.as_array()).cloned())?;
 
     let pick = list
         .iter()
@@ -579,12 +586,19 @@ fn find_opencode_server(agent: &ureq::Agent) -> Option<String> {
 /// concurrently-active sessions (e.g. OpenCode SQLite yields up to N most
 /// recent). `installed` is the PATH-lookup result from `detect`. Hook-
 /// supplied overrides are merged later in `listen.rs`.
+///
+/// Sessions from WSL distros (when `wsl.exe` is present) are appended to the
+/// Windows-side result and tagged with `· WSL:<distro>` in `title` so the
+/// Agents window can distinguish a host-side session from a co-existing
+/// Linux-side one of the same CLI (see `wsl.rs`).
 pub fn sessions_for(id: CliId, installed: bool) -> Vec<CliSession> {
-    match id {
+    let mut out: Vec<CliSession> = match id {
         CliId::Claude => vec![claude_session(installed)],
         CliId::Codex => vec![codex_session(installed)],
         CliId::Opencode => opencode_sessions(installed),
-    }
+    };
+    out.extend(super::wsl::scan_sessions().into_iter().filter(|s| s.id == id.as_str()));
+    out
 }
 
 #[cfg(test)]
@@ -674,8 +688,8 @@ mod tests {
         assert_eq!(list.unwrap().len(), 1);
 
         let s2 = serde_json::json!({ "data": [{ "id": "b", "title": "t2" }] });
-        let list = s2.as_array().map(|a| a.clone()).or_else(|| {
-            s2.get("data").and_then(|d| d.as_array()).map(|a| a.clone())
+        let list = s2.as_array().cloned().or_else(|| {
+            s2.get("data").and_then(|d| d.as_array()).cloned()
         });
         assert_eq!(list.unwrap().len(), 1);
     }

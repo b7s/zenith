@@ -37,11 +37,11 @@ void (async () => {
   const updateBtn = document.createElement("button");
   updateBtn.type = "button";
   updateBtn.className = "zen-icon-button zen-window__update is-hidden";
-  updateBtn.dataset.icon = "arrow-clockwise";
+  updateBtn.dataset.icon = "arrows-clockwise";
   updateBtn.dataset.size = "14";
   updateBtn.title = "Update";
   updateBtn.setAttribute("aria-label", "Update");
-  setIcon(updateBtn, "arrow-clockwise", { size: 14 });
+  setIcon(updateBtn, "arrows-clockwise", { size: 14 });
 
   const closeBtn = root.querySelector<HTMLElement>(".zen-window__close");
   if (closeBtn) {

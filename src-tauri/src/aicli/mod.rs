@@ -18,3 +18,4 @@ pub mod scan;
 pub mod server;
 pub mod usage;
 pub mod usage_model;
+pub mod wsl;

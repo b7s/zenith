@@ -47,10 +47,23 @@ pub fn resolve_bin(bin: &str) -> Option<PathBuf> {
 
 /// True when the CLI is on PATH (or shipped as a direct exe / npm shim).
 pub fn is_installed(id: CliId) -> bool {
-    resolve_bin(id.bin()).is_some()
+    resolve_bin(id.bin()).is_some() || super::wsl::installed_ids().contains(&id)
 }
 
-/// Every installed CLI from the supported set.
+/// Every installed CLI from the supported set. Combines the Windows-side PATH
+/// lookup with WSL-side `.claude` / `.codex` / `.local/share/opencode` dirs so
+/// a CLI installed only inside a WSL distro still counts as installed for
+/// first-run monitoring-seeding (the seeding is best-effort and safe per §5).
 pub fn installed_ids() -> Vec<CliId> {
-    CliId::ALL.iter().copied().filter(|id| is_installed(*id)).collect()
+    let mut out: Vec<CliId> = CliId::ALL
+        .iter()
+        .copied()
+        .filter(|id| is_installed(*id))
+        .collect();
+    for id in super::wsl::installed_ids() {
+        if !out.contains(&id) {
+            out.push(id);
+        }
+    }
+    out
 }

@@ -45,16 +45,15 @@ fn codex_config_path() -> Option<PathBuf> {
 
 /// Current managed-hook status for every hook-capable CLI.
 pub fn status() -> Vec<AicliHookStatus> {
-    let mut out = Vec::new();
-    out.push(claude_status());
-    out.push(codex_status());
-    // OpenCode needs no hooks.
-    out.push(AicliHookStatus {
-        id: CliId::Opencode.as_str().into(),
-        installed: true,
-        detail: "auto-detected".into(),
-    });
-    out
+    vec![
+        claude_status(),
+        codex_status(),
+        AicliHookStatus {
+            id: CliId::Opencode.as_str().into(),
+            installed: true,
+            detail: "auto-detected".into(),
+        },
+    ]
 }
 
 fn claude_status() -> AicliHookStatus {

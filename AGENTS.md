@@ -854,6 +854,8 @@ component must use `.zen-*` CSS classes exclusively.
 | `config.ts` | `loadConfig()`, `saveConfig(cfg)`, `getConfigValue()` | Typed config client |
 | `log.ts` | `initLog()`, `logInfo/Warn/Error()`, `logMemory()`, `time()` | Per-window file logging |
 | `widgets.ts` | `loadWidgets()`, `renderWidget(manifest, zone)`, `layoutBar(config)` | Widget loading |
+| `chart.ts` | See §6.1b SVG chart pattern | Shared SVG chart helpers (axis, tooltip, hit targets) |
+| `date.ts` | `formatShortDay(day)` | Format `YYYY-MM-DD` → locale short date |
 
 Pattern — tabs.ts (reference):
 ```ts
@@ -983,6 +985,98 @@ and never append your own overflow logic in a window's `main.ts`.
 **Reference consumer:** `src/windows/calendar/main.ts::renderEventsView` — the
 shared module is mounted once outside the render loop, `switchTo` is called on
 every re-render to keep the active class in sync without rebuilding the DOM.
+
+### 6.3 SVG chart pattern — shared module, compositor-friendly
+
+SVG charts are preferred over `<canvas>` because the DOM-based hit targets
+(tooltip markers) integrate naturally with the shared tooltip system. Every
+chart in the app uses `src/shared/chart.ts` — never build a chart from scratch
+in a widget/window `main.ts`.
+
+#### When to use SVG charts
+- Time-series data (usage, temperature, cost) where each point needs a tooltip.
+- Bar charts with per-bar hover detail.
+- Small-to-medium datasets (≤ 200 points).
+
+#### Shared exports (`src/shared/chart.ts`)
+
+| Export | Purpose |
+|---|---|
+| `niceMax(v)` | Round `v` up to a "nice" axis max with fine-grained steps |
+| `axisMax(peak)` | `niceMax(peak × 1.1)` — headroom so the peak bar doesn't touch the ceiling |
+| `drawYAxis(svgEl, yMax, fmt, L, T, W, H)` | Value labels + dashed gridlines (4 steps) |
+| `drawXAxis(svgEl, days[], fmt, L, T, W, H)` | Day labels at first/middle/last (+ extra if room) |
+| `drawPeakLine(svgEl, val, yScale, label, L, W)` | Dashed horizontal line at the actual peak with a label |
+| `makeTooltip(wrap)` | Create the HTML overlay `<div>` inside the chart wrap; returns it |
+| `attachTooltip(el, tooltip, html)` | Wire `mouseenter`/`mousemove`/`mouseleave` on an SVG element to show `html` in the tooltip |
+| `makeHitDot(cx, cy, r?)` | A transparent SVG circle (`r=12` default) for easy hover triggering |
+
+#### Mandatory CSS classes
+
+All chart styling is in `src/styles/components.css` under the `zen-chart__*`
+namespace. **Do not duplicate these in window-specific CSS.**
+
+| Class | Purpose |
+|---|---|
+| `.zen-chart__chart-svg` | `display: block; width: 100%; height: auto` |
+| `.zen-chart__axis-text` | Axis label text style (`8.5px`, muted) |
+| `.zen-chart__grid` | Dashed horizontal gridline |
+| `.zen-chart__peak` | Dashed peak line |
+| `.zen-chart__peak-label` | Peak label text |
+| `.zen-chart__hit` | `fill: transparent; cursor: pointer` for hit targets |
+| `.zen-chart__tooltip` | Floating HTML overlay with backdrop blur, positioned absolutely |
+
+#### Tooltip contract (always this pattern)
+
+```ts
+const tooltip = makeTooltip(wrap);   // creates the HTML overlay
+
+// Per data point — a transparent hit target triggers the tooltip:
+const hit = makeHitDot(cx, cy);
+attachTooltip(hit, tooltip,
+  `<strong>${day}</strong><br>Value: ${val}`);
+svg.append(hit);
+
+// The visible marker sits on top (pointer-events: none):
+const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+dot.setAttribute("cx", String(cx));
+dot.setAttribute("cy", String(cy));
+dot.classList.add("my-chart__dot");
+dot.style.pointerEvents = "none";   // ← critical, so only the hit target fires
+svg.append(dot);
+```
+
+Rules:
+1. **Hit target is always transparent** and larger than the visible marker — the
+   tooltip should be easy to trigger. Shared `makeHitDot` defaults to `r=12`.
+2. **Visible marker has `pointer-events: none`** so hover goes to the hit target,
+   not the marker (markers are often too small to hover reliably).
+3. **`makeTooltip` is called once** per chart per render. The same tooltip div
+   is shared by all points.
+4. **SVG `<title>` is never used** for tooltips — it cannot be styled and shows
+   a browser-native popup, not the app's styled tooltip.
+
+#### Axis contract
+
+- Always call `drawYAxis` and `drawXAxis` **before** drawing data elements so
+  the grid lines are behind the data.
+- `drawYAxis` draws 4 equally-spaced horizontal gridlines + value labels. The
+  formatter function `yFmt` should produce short strings (e.g. `"10K"`, `"$5"`).
+- `drawXAxis` draws the first, middle, last (and a couple extra if space) day
+  labels. The formatter `dayFmt` takes a raw day string and returns the label.
+- For bar charts, use `drawPeakLine` to show the actual max value with a dashed
+  line — the `axisMax` already adds headroom so the peak line sits below the
+  axis ceiling.
+- Axis text and grid lines use `.zen-chart__axis-text` / `.zen-chart__grid`
+  CSS classes — override font-size or color with a more specific selector if
+  needed (avoid duplicating the full rule).
+
+#### Consumers
+
+| File | Chart type |
+|---|---|
+| `widgets/ai_cli/window/main.ts` | Tokens bar chart, cost line chart |
+| `widgets/weather/window/main.ts` | 7-day temperature line chart |
 
 ## 7. Transparency contract (Windows Acrylic/Mica)
 

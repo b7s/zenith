@@ -7,7 +7,18 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { CMD } from "../../../src/shared/ipc";
 import { EVENT } from "../../../src/shared/events";
-import type { AicliState, CliSession, CliStatus } from "../../../src/shared/types";
+import { mountTabs, type TabMount } from "../../../src/shared/tabs";
+import { mountFilterPills, type FilterPillsMount } from "../../../src/shared/filter-pills";
+import { formatShortDay } from "../../../src/shared/date";
+import { axisMax, niceMax, drawYAxis, drawXAxis, drawPeakLine, makeTooltip, attachTooltip, makeHitDot } from "../../../src/shared/chart";
+import type {
+  AicliState,
+  CliSession,
+  CliStatus,
+  CliId,
+  MonthlyUsage,
+  DailyUsage,
+} from "../../../src/shared/types";
 
 void (async () => {
   await initLog();
@@ -15,9 +26,37 @@ void (async () => {
 
   const { content } = await mountWindow({ title: "AI Agents" });
 
+  const tabs: TabMount = mountTabs(
+    content,
+    [
+      { id: "cli", label: "CLI" },
+      { id: "usage", label: "Usage" },
+    ],
+    "cli",
+  );
+  content.prepend(tabs.container);
+
+  const configLink = document.createElement("button");
+  configLink.type = "button";
+  configLink.className = "zen-tab zen-tab--action";
+  configLink.title = "Configure AI CLI";
+  configLink.setAttribute("aria-label", "Configure AI CLI");
+  const configIcon = document.createElement("span");
+  configIcon.className = "zen-icon";
+  setIcon(configIcon, "config", { size: 14 });
+  configLink.append(configIcon);
+  configLink.addEventListener("click", () =>
+    void invoke(CMD.openWidgetConfig, { widgetId: "ai_cli" }),
+  );
+  tabs.container.append(configLink);
+
   const list = document.createElement("div");
   list.className = "ai-list";
-  content.append(list);
+  tabs.panes["cli"].append(list);
+
+  const usageRoot = document.createElement("div");
+  usageRoot.className = "ai-usage";
+  tabs.panes["usage"].append(usageRoot);
 
   const ICONS: Record<string, string> = {
     claude: "terminal-window",
@@ -377,4 +416,506 @@ void (async () => {
     if (timer !== null) clearInterval(timer);
     if (unlisten) unlisten();
   });
+
+  // ── Usage tab ──────────────────────────────────────────────────────
+  let usageData: MonthlyUsage | null = null;
+  let usageFilter = "all";
+  let usageLoaded = false;
+  let usageMonth = currentMonth();
+
+  function currentMonth(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function lastMonths(count: number): string[] {
+    const [y, m] = usageMonth.split("-").map(Number);
+    const out: string[] = [];
+    for (let i = 0; i < count; i++) {
+      let month = m - i;
+      let year = y;
+      while (month < 1) { month += 12; year--; }
+      out.push(`${year}-${String(month).padStart(2, "0")}`);
+    }
+    return out;
+  }
+
+  tabs.container.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-tab-id]");
+    if (btn && btn.dataset.tabId === "usage" && !usageLoaded) {
+      usageLoaded = true;
+      void loadUsage();
+    }
+  });
+
+  async function loadUsage(): Promise<void> {
+    try {
+      usageData = await invoke<MonthlyUsage>(CMD.getMonthlyUsage, { month: usageMonth });
+      renderUsage();
+    } catch {
+      usageRoot.textContent = "Failed to load usage data.";
+    }
+  }
+
+  function formatTokens(n: number): string {
+    if (n >= 1e15) return (n / 1e15).toFixed(2) + "Q";
+    if (n >= 1e12) return (n / 1e12).toFixed(2) + "T";
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(0) + "K";
+    return String(n);
+  }
+
+  function formatCost(n: number): string {
+    return "$" + n.toFixed(2);
+  }
+
+  // ── Chart helpers imported from src/shared/chart.ts ──
+  // niceMax, axisMax, drawYAxis, drawXAxis, drawPeakLine, makeTooltip, attachTooltip, makeHitDot
+
+  function metricCard(label: string, value: string, cls: string): HTMLElement {
+    const card = document.createElement("div");
+    card.className = "zen-card ai-usage__metric " + cls;
+    const val = document.createElement("span");
+    val.className = "ai-usage__metric-value";
+    val.textContent = value;
+    const lab = document.createElement("span");
+    lab.className = "ai-usage__metric-label";
+    lab.textContent = label;
+    card.append(val, lab);
+    return card;
+  }
+
+  function renderUsage(): void {
+    usageRoot.innerHTML = "";
+
+    const scroll = document.createElement("div");
+    scroll.className = "ai-usage__scroll";
+    usageRoot.append(scroll);
+
+    const pillsW = document.createElement("div");
+    pillsW.className = "ai-usage__pills";
+    const pillsWrap = document.createElement("div");
+    pillsWrap.className = "ai-usage__pills-left";
+    const pills = mountFilterPills(pillsWrap, [
+      { id: "all", label: "All" },
+      { id: "claude", label: "Claude Code" },
+      { id: "codex", label: "Codex" },
+      { id: "opencode", label: "OpenCode" },
+    ], "all");
+    pillsW.append(pillsWrap);
+
+    const monthSel = document.createElement("select");
+    monthSel.className = "ai-usage__month-select";
+    const months = lastMonths(3);
+    for (const m of months) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === usageMonth) opt.selected = true;
+      monthSel.append(opt);
+    }
+    monthSel.addEventListener("change", async () => {
+      usageMonth = monthSel.value;
+      usageData = await invoke<MonthlyUsage>(CMD.getMonthlyUsage, { month: usageMonth });
+      renderUsageContent();
+    });
+    pillsW.append(monthSel);
+
+    const updateBtn = document.createElement("button");
+    updateBtn.className = "ai-usage__update-btn";
+    updateBtn.title = "Refresh usage data";
+    setIcon(updateBtn, "arrows-clockwise", { size: 16 });
+    updateBtn.addEventListener("click", async () => {
+      updateBtn.classList.add("is-loading");
+      try {
+        usageData = await invoke<MonthlyUsage>(CMD.getMonthlyUsage, { month: usageMonth });
+        renderUsageContent();
+      } catch {
+        // ignore
+      } finally {
+        updateBtn.classList.remove("is-loading");
+      }
+    });
+    pillsW.append(updateBtn);
+    scroll.append(pillsW);
+
+    pills.container.addEventListener("click", (e: PointerEvent) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-pill-id]");
+      if (!btn) return;
+      const next = btn.dataset.pillId;
+      if (!next || next === usageFilter) return;
+      usageFilter = next;
+      renderUsageContent();
+    });
+
+    function aggregateByDay(data: DailyUsage[]): DailyUsage[] {
+      const map = new Map<string, DailyUsage>();
+      for (const d of data) {
+        const key = d.day;
+        const existing = map.get(key);
+        if (existing) {
+          existing.sessions += d.sessions;
+          existing.tokens_input += d.tokens_input;
+          existing.tokens_output += d.tokens_output;
+          existing.tokens_cache_read += d.tokens_cache_read;
+          existing.tokens_cache_write += d.tokens_cache_write;
+          existing.cost_usd += d.cost_usd;
+        } else {
+          map.set(key, { ...d });
+        }
+      }
+      return Array.from(map.values()).sort((a, b) => a.day.localeCompare(b.day));
+    }
+
+    function renderUsageContent(): void {
+      const existing = scroll.querySelector(".ai-usage__content");
+      if (existing) existing.remove();
+
+      const ct = document.createElement("div");
+      ct.className = "ai-usage__content";
+      scroll.append(ct);
+      if (!usageData) return;
+      const du = usageData;
+
+      const filtered = usageFilter === "all"
+        ? du.daily : du.daily.filter((d) => d.cli_id === usageFilter);
+
+      const totalTokens = filtered.reduce((s, d) => s + d.tokens_input + d.tokens_output + d.tokens_cache_read, 0);
+      const dayCount = new Set(filtered.map((d) => d.day)).size;
+      const avgDay = dayCount > 0 ? Math.round(totalTokens / dayCount) : 0;
+      const totalCost = filtered.reduce((s, d) => s + d.cost_usd, 0);
+
+      // Metric cards
+      const mRow = document.createElement("div");
+      mRow.className = "ai-usage__metrics";
+      mRow.append(
+        metricCard("Total Tokens", formatTokens(totalTokens), "ai-usage__metric--tokens"),
+        metricCard("Avg / Day", formatTokens(avgDay), "ai-usage__metric--avg"),
+        metricCard("Cost", formatCost(totalCost), "ai-usage__metric--cost"),
+      );
+      ct.append(mRow);
+
+      if (filtered.length === 0) {
+        const em = document.createElement("div");
+        em.className = "ai-usage__empty";
+        em.textContent = "No usage data for this period.";
+        ct.append(em);
+        return;
+      }
+
+      // Aggregate by day for charts (same day can have multiple model entries)
+      const chartData = aggregateByDay(filtered);
+
+      // Tokens bar chart
+      ct.append(buildTokensChart(chartData, usageFilter));
+      // Cost chart
+      ct.append(buildCostChart(chartData, usageFilter));
+
+      // Model usage table (uses per-model data, not aggregated)
+      ct.append(buildModelTable(filtered));
+    }
+
+    function buildModelTable(daily: DailyUsage[]): HTMLElement {
+      const CLI_COLOR: Record<string, string> = { claude: "var(--primary)", codex: "#10b981", opencode: "#8b5cf6" };
+      type SortKey = "provider" | "model" | "tokens" | "cost";
+      // Parse "[provider] model" format and store separately
+      const acc = new Map<string, { provider: string; model: string; cli_id: string; tokens: number; cost: number }>();
+      for (const d of daily) {
+        const a = acc.get(d.model_name) ?? (() => {
+          const m = d.model_name.match(/^\[(.+?)\]\s+(.*)$/);
+          const provider = m?.[1];
+          return {
+            provider: provider ?? d.cli_id,
+            model: m?.[2] ?? d.model_name,
+            cli_id: d.cli_id,
+            tokens: 0, cost: 0,
+          };
+        })();
+        a.tokens += d.tokens_input + d.tokens_output + d.tokens_cache_read;
+        a.cost += d.cost_usd;
+        acc.set(d.model_name, a);
+      }
+      const entries = Array.from(acc.entries());
+      let sortKey: SortKey = "cost";
+      let sortAsc = false;
+
+      const wrap = document.createElement("div");
+      wrap.className = "zen-card ai-usage__model-table";
+      const ttl = document.createElement("div");
+      ttl.className = "ai-usage__chart-title";
+      ttl.textContent = "Top Models";
+      wrap.append(ttl);
+
+      const table = document.createElement("table");
+      table.className = "ai-usage__table";
+      const thead = document.createElement("thead");
+      const tbody = document.createElement("tbody");
+      table.append(thead, tbody);
+
+      const cols: { label: string; key: SortKey; num: boolean }[] = [
+        { label: "Provider", key: "provider", num: false },
+        { label: "Model", key: "model", num: false },
+        { label: "Tokens", key: "tokens", num: true },
+        { label: "Value", key: "cost", num: true },
+      ];
+
+      function render() {
+        tbody.innerHTML = "";
+        const cmp = sortAsc ? 1 : -1;
+        const sorted = [...entries]
+          .sort((a, b) => {
+            const va = a[1], vb = b[1];
+            if (sortKey === "provider") return va.provider.localeCompare(vb.provider) * cmp;
+            if (sortKey === "model") return va.model.localeCompare(vb.model) * cmp;
+            if (sortKey === "tokens") return (va.tokens - vb.tokens) * cmp;
+            return (va.cost - vb.cost) * cmp;
+          })
+          .slice(0, 5);
+
+        for (const [, v] of sorted) {
+          const row = document.createElement("tr");
+          const dot = document.createElement("span");
+          dot.className = "ai-usage__table-dot";
+          dot.style.background = CLI_COLOR[v.cli_id] ?? "var(--muted)";
+
+          const provCell = document.createElement("td");
+          const lbl = document.createElement("span");
+          lbl.className = "ai-usage__model-provider";
+          lbl.textContent = v.provider;
+          provCell.append(dot, lbl);
+
+          const modelCell = document.createElement("td");
+          modelCell.textContent = v.model;
+
+          const tokCell = document.createElement("td");
+          tokCell.className = "is-num";
+          tokCell.textContent = formatTokens(v.tokens);
+
+          const costCell = document.createElement("td");
+          costCell.className = "is-num";
+          costCell.textContent = formatCost(v.cost);
+
+          row.append(provCell, modelCell, tokCell, costCell);
+          tbody.append(row);
+        }
+      }
+
+      const tr = document.createElement("tr");
+      for (const c of cols) {
+        const th = document.createElement("th");
+        if (c.num) th.classList.add("is-num");
+        th.classList.add("is-sortable");
+        th.dataset.sortKey = c.key;
+        tr.append(th);
+      }
+      thead.append(tr);
+
+      thead.addEventListener("click", (e) => {
+        const th = (e.target as HTMLElement).closest("th.is-sortable");
+        if (!th) return;
+        const key = (th as HTMLElement).dataset.sortKey as SortKey;
+        if (sortKey === key) {
+          sortAsc = !sortAsc;
+        } else {
+          sortKey = key;
+          sortAsc = key === "model" || key === "provider";
+        }
+        for (const c of cols) {
+          const el = thead.querySelector<HTMLElement>(`[data-sort-key="${c.key}"]`);
+          if (!el) continue;
+          el.textContent = c.label + (sortKey === c.key ? " " + (sortAsc ? "▲" : "▼") : "");
+        }
+        render();
+      });
+
+      // Trigger initial render of header arrows
+      for (const c of cols) {
+        const el = thead.querySelector<HTMLElement>(`[data-sort-key="${c.key}"]`);
+        if (!el) continue;
+        el.textContent = c.label + (sortKey === c.key ? " " + (sortAsc ? "▲" : "▼") : "");
+      }
+      render();
+      wrap.append(table);
+      return wrap;
+    }
+
+    renderUsageContent();
+  }
+
+  function buildTokensChart(daily: DailyUsage[], _filter: string): HTMLElement {
+    const W = 360, H = 192, PAD_L = 48, PAD_R = 8, PAD_T = 12, PAD_B = 36;
+    const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+    const rawMax = Math.max(...daily.map((d) => d.tokens_input + d.tokens_output + d.tokens_cache_read), 1);
+    const yMax = axisMax(rawMax);
+    const yScale = (v: number): number => PAD_T + plotH - (v / yMax) * plotH;
+    const barGap = 2;
+    const barCount = daily.length;
+    const barW = Math.max(3, (plotW - barGap * (barCount - 1)) / barCount);
+
+    const wrap = document.createElement("div");
+    wrap.className = "zen-card ai-usage__chart";
+    const ttl = document.createElement("div");
+    ttl.className = "ai-usage__chart-title";
+    ttl.textContent = "Tokens by Day";
+    wrap.append(ttl);
+
+    const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svgEl.classList.add("zen-chart__chart-svg");
+    svgEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svgEl.setAttribute("role", "img");
+    svgEl.setAttribute("aria-label", "Tokens by day bar chart");
+
+    const tooltip = makeTooltip(wrap);
+
+    // Axes (drawn first so bars sit on top)
+    drawYAxis(svgEl, yMax, formatTokens, PAD_L, PAD_T, plotW, plotH);
+    drawXAxis(svgEl, daily.map(d => d.day), formatShortDay, PAD_L, PAD_T, plotW, plotH);
+
+    // Peak dashed line
+    drawPeakLine(svgEl, rawMax, yScale, `peak ${formatTokens(rawMax)}`, PAD_L, plotW);
+
+    const xStep = barCount > 1 ? plotW / barCount : 0;
+    const xStart = barCount > 1 ? 0 : plotW / 2 - barW / 2;
+    for (let i = 0; i < barCount; i++) {
+      const d = daily[i];
+      const total = d.tokens_input + d.tokens_output + d.tokens_cache_read;
+      const barH = (total / yMax) * plotH;
+      const x = PAD_L + xStart + i * xStep;
+      const y = PAD_T + plotH - barH;
+
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", String(x));
+      rect.setAttribute("y", String(y));
+      rect.setAttribute("width", String(barW));
+      rect.setAttribute("height", String(Math.max(1, barH)));
+      rect.classList.add("ai-usage__bar");
+      svgEl.append(rect);
+
+      const hitCol = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      hitCol.setAttribute("x", String(x - barGap / 2));
+      hitCol.setAttribute("y", String(PAD_T));
+      hitCol.setAttribute("width", String(barW + barGap));
+      hitCol.setAttribute("height", String(plotH));
+      hitCol.classList.add("zen-chart__hit");
+      attachTooltip(hitCol, tooltip,
+        `<strong>${formatShortDay(d.day)}</strong><br>` +
+        `Input: ${formatTokens(d.tokens_input)}<br>` +
+        `Output: ${formatTokens(d.tokens_output)}<br>` +
+        `Cache: ${formatTokens(d.tokens_cache_read)}<br>` +
+        `Total: ${formatTokens(total)}`);
+      svgEl.append(hitCol);
+    }
+
+    wrap.append(svgEl);
+    return wrap;
+  }
+
+  function buildCostChart(daily: DailyUsage[], _filter: string): HTMLElement {
+    const W = 360, H = 192, PAD_L = 48, PAD_R = 8, PAD_T = 12, PAD_B = 36;
+    const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+
+    const wrap = document.createElement("div");
+    wrap.className = "zen-card ai-usage__chart";
+    const ttl = document.createElement("div");
+    ttl.className = "ai-usage__chart-title";
+    ttl.textContent = "Daily Cost (USD)";
+    wrap.append(ttl);
+
+    const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svgEl.classList.add("zen-chart__chart-svg");
+    svgEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svgEl.setAttribute("role", "img");
+    svgEl.setAttribute("aria-label", "Daily cost line chart");
+
+    if (daily.length === 0) {
+      wrap.append(svgEl);
+      return wrap;
+    }
+
+    const rawMax = Math.max(...daily.map((d) => d.cost_usd), 0.01);
+    const yMax = niceMax(rawMax);
+
+    const tooltip = makeTooltip(wrap);
+
+    // Axes
+    drawYAxis(svgEl, yMax, formatCost, PAD_L, PAD_T, plotW, plotH);
+    drawXAxis(svgEl, daily.map(d => d.day), formatShortDay, PAD_L, PAD_T, plotW, plotH);
+
+    if (daily.length < 2) {
+      // Single point: draw a dot at center
+      const cx = PAD_L + plotW / 2;
+      const cy = PAD_T + plotH - (daily[0].cost_usd / yMax) * plotH;
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", String(cx));
+      c.setAttribute("cy", String(cy));
+      c.setAttribute("r", "4");
+      c.classList.add("ai-usage__cost-pt");
+      svgEl.append(c);
+      const hit = makeHitDot(cx, cy);
+      attachTooltip(hit, tooltip, `<strong>${formatShortDay(daily[0].day)}</strong><br>${formatCost(daily[0].cost_usd)}`);
+      svgEl.append(hit);
+      wrap.append(svgEl);
+      return wrap;
+    }
+
+    const xStep = plotW / (daily.length - 1);
+    const yScale = (v: number) => PAD_T + plotH - (v / yMax) * plotH;
+
+    // Gradient fill def
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const grad = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+    grad.id = "ai-cost-grad-" + Math.random().toString(36).slice(2, 6);
+    grad.setAttribute("x1", "0"); grad.setAttribute("y1", "0");
+    grad.setAttribute("x2", "0"); grad.setAttribute("y2", "1");
+    const st1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+    st1.setAttribute("offset", "0%");
+    st1.setAttribute("stop-color", "var(--primary)");
+    st1.setAttribute("stop-opacity", "0.25");
+    const st2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+    st2.setAttribute("offset", "100%");
+    st2.setAttribute("stop-color", "var(--primary)");
+    st2.setAttribute("stop-opacity", "0");
+    grad.append(st1, st2);
+    defs.append(grad);
+    svgEl.append(defs);
+
+    const pts: string[] = [];
+    for (let i = 0; i < daily.length; i++) {
+      pts.push(`${(PAD_L + i * xStep).toFixed(1)} ${yScale(daily[i].cost_usd).toFixed(1)}`);
+    }
+
+    // Area fill
+    const areaD = "M " + pts.join(" L ") + " L " + (PAD_L + (daily.length - 1) * xStep).toFixed(1) + " " + yScale(0).toFixed(1) + " L " + PAD_L.toFixed(1) + " " + yScale(0).toFixed(1) + " Z";
+    const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    area.setAttribute("d", areaD);
+    area.setAttribute("fill", `url(#${grad.id})`);
+    svgEl.append(area);
+
+    // Line
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    line.setAttribute("d", "M " + pts.join(" L "));
+    line.classList.add("ai-usage__cost-line");
+    svgEl.append(line);
+
+    // Point markers (every point; each has a large hit circle for tooltip)
+    for (let i = 0; i < daily.length; i++) {
+      const cx = PAD_L + i * xStep;
+      const cy = yScale(daily[i].cost_usd);
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", String(cx));
+      c.setAttribute("cy", String(cy));
+      c.setAttribute("r", "4");
+      c.classList.add("ai-usage__cost-pt");
+      svgEl.append(c);
+      const hit = makeHitDot(cx, cy);
+      attachTooltip(hit, tooltip, `<strong>${formatShortDay(daily[i].day)}</strong><br>${formatCost(daily[i].cost_usd)}`);
+      svgEl.append(hit);
+    }
+
+    wrap.append(svgEl);
+    return wrap;
+  }
 })();

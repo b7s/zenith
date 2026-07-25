@@ -6,9 +6,10 @@
   var applyIcons = window.__zenith_applyIcons;
   if (!invoke) return;
 
-  if (applyIcons) applyIcons(el);
+  var iconEl = el.querySelector(".sd-icon");
+  if (iconEl && applyIcons) applyIcons(iconEl);
 
-  el.addEventListener("click", function () {
+  iconEl.addEventListener("click", function (e) {
     if (document.body.classList.contains("is-arranging")) return;
     var rect = el.getBoundingClientRect();
     var dpr = window.devicePixelRatio || 1;

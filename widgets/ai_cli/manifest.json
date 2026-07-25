@@ -6,7 +6,7 @@
   "default_zone": "right",
   "icon": "terminal-window",
   "min_width": 28,
-  "preview": "<span class=\"ai-icon\"><i class=\"ai-glyph\" data-icon=\"terminal-window\" data-size=\"18\"></i><span class=\"zen-status-dots\"><span class=\"zen-status-dot zen-status-dot--run\"></span></span></span>",
+  "preview": "<span class=\"zen-bar-icon ai-icon\"><i class=\"ai-glyph\" data-icon=\"terminal-window\" data-size=\"18\"></i><span class=\"zen-status-dots\"><span class=\"zen-status-dot zen-status-dot--run\"></span></span></span>",
   "config": {
     "monitor_claude": {
       "type": "bool",

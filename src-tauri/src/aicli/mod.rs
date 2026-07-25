@@ -13,5 +13,8 @@ pub mod detect;
 pub mod hooks;
 pub mod listen;
 pub mod model;
+pub mod pricing;
 pub mod scan;
 pub mod server;
+pub mod usage;
+pub mod usage_model;

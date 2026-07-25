@@ -135,6 +135,7 @@ pub fn run() {
             color_picker::commands::get_cursor_position,
             color_picker::commands::read_live_pixel,
             aicli::commands::get_aicli_state,
+            aicli::commands::get_monthly_usage,
             aicli::commands::open_aicli_window,
             aicli::commands::aicli_install_hooks,
             aicli::commands::aicli_uninstall_hooks,

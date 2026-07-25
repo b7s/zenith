@@ -6,6 +6,7 @@ import { setIcon, applyIcons, weatherIcon } from "../../../src/shared/icon";
 import { mountWindow } from "../../../src/shared/window";
 import { applyTheme } from "../../../src/shared/window";
 import { initLog, logInfo } from "../../../src/shared/log";
+import { makeTooltip, makeHitDot, attachTooltip } from "../../../src/shared/chart";
 
 interface WeatherSnapshot {
   ok: boolean;
@@ -279,7 +280,7 @@ function buildChart(daily: any[]): HTMLElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "weather-chart__svg");
   svg.setAttribute("viewBox", "0 0 360 200");
-  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", "7-day temperature chart");
 
@@ -288,21 +289,37 @@ function buildChart(daily: any[]): HTMLElement {
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
 
-  const maxs = daily.map((d) => d.temp?.max ?? null);
-  const mins = daily.map((d) => d.temp?.min ?? null);
-  const vals = [...maxs, ...mins].filter((v): v is number => v !== null);
-  const minT = Math.min(...vals) - 2;
-  const maxT = Math.max(...vals) + 2;
+  const maxs: (number | null)[] = [];
+  const mins: (number | null)[] = [];
+  const vals: number[] = [];
+  let prevMax: number | null = null;
+  let prevMin: number | null = null;
+  for (const d of daily) {
+    let mx = d.temp?.max ?? null;
+    let mn = d.temp?.min ?? null;
+    // When min === max (same value) or both null, fall back to previous day
+    // to prevent pinched/zero-area segments in the chart.
+    if (mx !== null && mn !== null && mx === mn) {
+      if (prevMax !== null) mx = prevMax;
+      if (prevMin !== null) mn = prevMin;
+    } else if (mx === null && mn === null) {
+      mx = prevMax;
+      mn = prevMin;
+    }
+    maxs.push(mx);
+    mins.push(mn);
+    if (mx !== null) { vals.push(mx); prevMax = mx; }
+    if (mn !== null) { vals.push(mn); prevMin = mn; }
+  }
+  const minT = vals.length > 0 ? Math.min(...vals) - 2 : 15;
+  const maxT = vals.length > 0 ? Math.max(...vals) + 2 : 25;
   const range = maxT - minT || 1;
   const xStep = daily.length > 1 ? plotW / (daily.length - 1) : 0;
 
   const y = (val: number) => padT + plotH - ((val - minT) / range) * plotH;
   const x = (i: number) => padL + i * xStep;
 
-  // Tooltip div
-  const tooltip = document.createElement("div");
-  tooltip.style.cssText = "position:absolute;pointer-events:none;background:var(--card);border:1px solid color-mix(in oklch,var(--border) 50%,transparent);border-radius:4px;padding:0.35rem 0.5rem;font-size:0.7rem;color:var(--foreground);opacity:0;transition:opacity 120ms;z-index:10;";
-  wrap.append(tooltip);
+  const tooltip = makeTooltip(wrap);
 
   // Gradient
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
@@ -390,6 +407,7 @@ function buildChart(daily: any[]): HTMLElement {
     const dayName = new Date(daily[i].dt * 1000).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
     const tmax = maxs[i];
     const tmin = mins[i];
+    const tipHtml = `<strong>${dayName}</strong><br>Max: ${tmax !== null ? Math.round(tmax) + '°' : '—'}<br>Min: ${tmin !== null ? Math.round(tmin) + '°' : '—'}`;
 
     if (tmax !== null) {
       const hit = makeHitDot(x(i), y(tmax));
@@ -399,7 +417,7 @@ function buildChart(daily: any[]): HTMLElement {
       dot.setAttribute("cy", String(y(tmax)));
       dot.setAttribute("r", "6");
       dot.style.cssText = "fill:var(--primary);pointer-events:none;";
-      attachTooltip(hit, tooltip, dayName, tmax, tmin);
+      attachTooltip(hit, tooltip, tipHtml);
       svg.append(hit, dot);
     }
     if (tmin !== null) {
@@ -410,49 +428,13 @@ function buildChart(daily: any[]): HTMLElement {
       dot.setAttribute("cy", String(y(tmin)));
       dot.setAttribute("r", "6");
       dot.style.cssText = "fill:var(--muted-foreground);opacity:0.7;pointer-events:none;";
-      attachTooltip(hit, tooltip, dayName, tmax, tmin);
+      attachTooltip(hit, tooltip, tipHtml);
       svg.append(hit, dot);
     }
   }
 
-  function makeHitDot(cx: number, cy: number): SVGCircleElement {
-    const hit = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    hit.setAttribute("class", "weather-chart__hit");
-    hit.setAttribute("cx", String(cx));
-    hit.setAttribute("cy", String(cy));
-    hit.setAttribute("r", "12");
-    hit.style.cssText = "fill:transparent;cursor:pointer;";
-    return hit;
-  }
-
-  function attachTooltip(el: SVGCircleElement, tooltip: HTMLElement, day: string, tmax: number | null, tmin: number | null): void {
-    el.addEventListener("mouseenter", (e) => showTooltip(e, tooltip, day, tmax, tmin));
-    el.addEventListener("mousemove", (e) => moveTooltip(e, tooltip));
-    el.addEventListener("mouseleave", () => hideTooltip(tooltip));
-  }
-
   wrap.append(svg);
   return wrap;
-}
-
-function showTooltip(e: MouseEvent, tooltip: HTMLElement, day: string, tmax: number | null, tmin: number | null): void {
-  const unit = "\u00B0";
-  let html = `<strong>${day}</strong><br/>`;
-  if (tmax !== null) html += `Max: ${Math.round(tmax)}${unit}<br/>`;
-  if (tmin !== null) html += `Min: ${Math.round(tmin)}${unit}`;
-  tooltip.innerHTML = html;
-  tooltip.style.opacity = "1";
-  moveTooltip(e, tooltip);
-}
-
-function moveTooltip(e: MouseEvent, tooltip: HTMLElement): void {
-  const rect = tooltip.parentElement!.getBoundingClientRect();
-  tooltip.style.left = (e.clientX - rect.left + 10) + "px";
-  tooltip.style.top = (e.clientY - rect.top - 10) + "px";
-}
-
-function hideTooltip(tooltip: HTMLElement): void {
-  tooltip.style.opacity = "0";
 }
 
 function buildMetricsGrid(

@@ -78,6 +78,7 @@ export const CMD = {
   getCursorPosition: "get_cursor_position",
   readLivePixel: "read_live_pixel",
   getAicliState: "get_aicli_state",
+  getMonthlyUsage: "get_monthly_usage",
   openAicliWindow: "open_aicli_window",
   aicliInstallHooks: "aicli_install_hooks",
   aicliUninstallHooks: "aicli_uninstall_hooks",

@@ -664,31 +664,27 @@ function buildAicliHooksControl(
   _key: string,
   _field: WidgetConfigField,
 ): void {
-  const list = document.createElement("div");
-  list.className = "zen-section";
-  list.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;margin-top:0.15rem;";
+  const grid = document.createElement("div");
+  grid.className = "wc-hooks-grid";
 
   async function render(): Promise<void> {
     const statuses = await invoke<AicliHookStatus[]>(CMD.aicliHookStatus).catch(() => []);
-    list.replaceChildren();
+    grid.replaceChildren();
     for (const st of statuses) {
-      const row = document.createElement("div");
-      row.className = "zen-field";
-      row.style.cssText = "display:flex;align-items:center;gap:0.5rem;";
+      const card = document.createElement("div");
+      card.className = "zen-card wc-hooks-card";
 
-      const label = document.createElement("span");
-      label.className = "zen-label";
-      label.textContent = st.id === "opencode" ? "OpenCode" : st.id === "claude" ? "Claude Code" : "Codex (GPT)";
-      label.style.flex = "1";
+      const title = document.createElement("div");
+      title.className = "zen-card__title";
+      title.textContent = st.id === "opencode" ? "OpenCode" : st.id === "claude" ? "Claude Code" : "Codex (GPT)";
 
       const statusText = document.createElement("span");
-      statusText.className = "zen-hint";
-      statusText.textContent = st.installed ? "hooks installed" : st.detail;
+      statusText.className = st.installed ? "wc-hooks-status wc-hooks-status--ok" : "wc-hooks-status wc-hooks-status--missing";
+      statusText.textContent = st.installed ? "hooks installed" : (st.detail || "not available");
 
       const btn = document.createElement("button");
       btn.type = "button";
       if (st.id === "opencode") {
-        // Auto-detected — no action.
         btn.className = "zen-button is-sm is-ghost";
         btn.textContent = "Auto";
         btn.disabled = true;
@@ -708,12 +704,12 @@ function buildAicliHooksControl(
         });
       }
 
-      row.append(label, statusText, btn);
-      list.append(row);
+      card.append(title, statusText, btn);
+      grid.append(card);
     }
   }
 
-  wrapper.append(list);
+  wrapper.append(grid);
   void render();
 }
 

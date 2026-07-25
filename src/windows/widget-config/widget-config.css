@@ -36,3 +36,40 @@
   color: var(--muted-foreground);
   margin-left: 0.35rem;
 }
+
+/* ── AI CLI hooks: agent cards side by side ──────────────────────── */
+.wc-hooks-grid {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+.wc-hooks-card {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem;
+}
+.wc-hooks-card .zen-card__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.wc-hooks-status {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  align-self: flex-start;
+}
+.wc-hooks-status--ok {
+  background: color-mix(in oklch, var(--success) 20%, transparent);
+  color: var(--success);
+}
+.wc-hooks-status--missing {
+  background: color-mix(in oklch, var(--muted) 30%, transparent);
+  color: var(--muted-foreground);
+}
+.wc-hooks-card .zen-button {
+  align-self: flex-start;
+  margin-top: auto;
+}

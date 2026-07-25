@@ -1,9 +1,6 @@
-.sd-icon {
+.sd-glyph {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  color: var(--foreground);
-  cursor: pointer;
+  line-height: 0;
 }

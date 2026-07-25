@@ -89,6 +89,7 @@ import xRegularSvg from "@phosphor-icons/core/assets/regular/x.svg?raw";
 import plusRegularSvg from "@phosphor-icons/core/assets/regular/plus.svg?raw";
 import downloadSvg from "@phosphor-icons/core/assets/duotone/download-duotone.svg?raw";
 import terminalWindowSvg from "@phosphor-icons/core/assets/duotone/terminal-window-duotone.svg?raw";
+import arrowsClockwiseSvg from "@phosphor-icons/core/assets/duotone/arrows-clockwise-duotone.svg?raw";
 
 const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><rect x="72" y="72" width="112" height="112" rx="16" opacity="0.25"/></svg>`;
 
@@ -200,6 +201,7 @@ const ICON_REGISTRY: Record<string, string> = {
   "terminal-window": terminalWindowSvg,
   "ai-cli": terminalWindowSvg,
   terminal: terminalWindowSvg,
+  "arrows-clockwise": arrowsClockwiseSvg,
 };
 
 const ALIASES: Record<string, string> = {

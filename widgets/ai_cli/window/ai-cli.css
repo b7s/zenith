@@ -307,3 +307,237 @@
   text-align: center;
   font-style: italic;
 }
+
+/* ── Usage tab layout ─────────────────────────────────────────────────── */
+.ai-usage {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.ai-usage__scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.ai-usage__pills {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ai-usage__pills-left {
+  display: flex;
+}
+.ai-usage__month-select {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
+  border-radius: 0.3rem;
+  background: color-mix(in oklch, var(--card) 40%, transparent);
+  color: var(--foreground);
+  cursor: pointer;
+  margin: 0 0.5rem;
+  outline: none;
+}
+.ai-usage__month-select:hover {
+  border-color: color-mix(in oklch, var(--border) 80%, transparent);
+}
+.ai-usage__update-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    color 180ms ease;
+}
+.ai-usage__update-btn:hover {
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
+  color: var(--foreground);
+}
+.ai-usage__update-btn:active {
+  transform: scale(0.92);
+}
+.ai-usage__update-btn.is-loading {
+  pointer-events: none;
+  color: var(--primary);
+}
+.ai-usage__update-btn.is-loading .zen-icon {
+  animation: ai-update-spin 0.8s linear infinite;
+}
+@keyframes ai-update-spin {
+  to { transform: rotate(360deg); }
+}
+.ai-usage__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.ai-usage__empty {
+  text-align: center;
+  color: var(--muted-foreground);
+  font-style: italic;
+  padding: 1.5rem 0;
+  font-size: 0.8rem;
+}
+
+/* ── Metric cards ─────────────────────────────────────────────────────── */
+.ai-usage__metrics {
+  display: flex;
+  gap: 0.5rem;
+}
+.ai-usage__metric {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.6rem 0.3rem;
+  text-align: center;
+  background: color-mix(in oklch, var(--card) 55%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  border-radius: 0.5rem;
+}
+.ai-usage__metric-value {
+  font-size: 1.1rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+.ai-usage__metric-label {
+  font-size: 0.65rem;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.ai-usage__metric--tokens .ai-usage__metric-value { color: var(--primary); }
+.ai-usage__metric--avg .ai-usage__metric-value { color: var(--info); }
+.ai-usage__metric--cost .ai-usage__metric-value { color: var(--warning); }
+
+/* ── SVG chart cards ──────────────────────────────────────────────────── */
+.ai-usage__chart {
+  position: relative;
+  background: color-mix(in oklch, var(--card) 50%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.ai-usage__chart-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  padding: 0 0.15rem;
+}
+/* SVG bar fill — color-mix for translucent primary bars */
+.ai-usage__bar {
+  fill: color-mix(in oklch, var(--primary) 55%, transparent);
+  transition: fill 150ms ease;
+}
+.ai-usage__bar:hover {
+  fill: color-mix(in oklch, var(--primary) 80%, transparent);
+}
+/* SVG area + line for the cost chart */
+.ai-usage__cost-line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.ai-usage__cost-pt {
+  fill: var(--primary);
+  stroke: color-mix(in oklch, var(--card) 70%, transparent);
+  stroke-width: 1;
+  cursor: pointer;
+  transition: r 120ms ease;
+}
+.ai-usage__cost-pt:hover {
+  r: 6;
+}
+
+/* ── Per-model usage table ─────────────────────────────────────── */
+.ai-usage__model-table {
+  gap: 0.5rem;
+}
+.ai-usage__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.ai-usage__table th {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
+}
+.ai-usage__table th.is-num,
+.ai-usage__table td.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ai-usage__table td {
+  padding: 0.5rem;
+  color: var(--foreground);
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 25%, transparent);
+  vertical-align: middle;
+}
+.ai-usage__table tbody tr {
+  transition: background 120ms ease;
+}
+.ai-usage__table tbody tr:hover {
+  background: color-mix(in oklch, var(--accent) 20%, transparent);
+}
+.ai-usage__table tbody tr:last-child td {
+  border-bottom: none;
+}
+.ai-usage__table-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  margin-right: 0.45rem;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.ai-usage__table td:first-child {
+  white-space: nowrap;
+}
+.ai-usage__table th.is-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.ai-usage__table th.is-sortable:hover {
+  color: var(--foreground);
+}
+.ai-usage__model-provider {
+  display: inline-block;
+  padding: 0 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 0.25rem;
+  background: color-mix(in oklch, var(--primary) 20%, transparent);
+  color: var(--primary);
+  vertical-align: middle;
+  margin-right: 0.25rem;
+}

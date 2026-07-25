@@ -115,7 +115,7 @@
 }
 .weather-chart__svg {
   width: 100%;
-  height: 120px;
+  height: auto;
   display: block;
 }
 

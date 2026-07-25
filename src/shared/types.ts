@@ -414,3 +414,41 @@ export interface AicliState {
   monitored: CliId[];
 }
 
+// ---- Usage analytics (mirror of src-tauri/src/aicli/usage_model.rs) ----------
+
+/** One day's aggregated usage for one (CLI, model) pair. Mirrors `DailyUsage`. */
+export interface DailyUsage {
+  /** `"2026-07-24"` — local calendar day. */
+  day: string;
+  /** `"claude"` | `"codex"` | `"opencode"`. */
+  cli_id: CliId;
+  /** `"[providerID] modelID"`, e.g. `"[nvidia] z-ai/glm-5.2"`, `"[opencode] deepseek-v4-flash-free"`. */
+  model_name: string;
+  sessions: number;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_cache_read: number;
+  tokens_cache_write: number;
+  /** Dollar cost (USD). */
+  cost_usd: number;
+}
+
+/** Per-CLI summary for the month. Mirrors `CliUsageSummary`. */
+export interface CliUsageSummary {
+  cli_id: CliId;
+  sessions: number;
+  total_tokens_input: number;
+  total_tokens_output: number;
+  total_tokens_cache_read: number;
+  total_cost_usd: number;
+}
+
+/** Full month aggregation. Mirrors `MonthlyUsage`. */
+export interface MonthlyUsage {
+  /** `"2026-07"`. */
+  month: string;
+  by_cli: CliUsageSummary[];
+  /** Sorted ascending by `day`. */
+  daily: DailyUsage[];
+}
+

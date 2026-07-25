@@ -6,12 +6,11 @@
   var applyIcons = window.__zenith_applyIcons;
   if (!invoke) return;
 
-  var iconEl = el.querySelector(".vol-icon");
+  var iconWrap = el.querySelector(".vol-icon");
+  var iconEl = iconWrap && iconWrap.querySelector(".vol-glyph");
   if (!iconEl) return;
 
-  // applyIcons already ran on startup before widget HTML existed,
-  // so render the icon now
-  if (applyIcons) applyIcons(el);
+  if (applyIcons) applyIcons(iconWrap);
 
   var currentVolume = 0.5;
   var currentMuted = false;
@@ -25,7 +24,7 @@
 
   function updateIcon() {
     iconEl.dataset.icon = iconName(currentVolume, currentMuted);
-    if (applyIcons) applyIcons(el);
+    if (applyIcons) applyIcons(iconWrap);
   }
 
   function refresh() {

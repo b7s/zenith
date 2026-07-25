@@ -10,11 +10,20 @@ use tauri::{AppHandle, Manager};
 
 use super::detect::resolve_bin;
 use super::model::{AicliHookStatus, AicliState};
+use super::usage_model::MonthlyUsage;
 
 /// Current cached aggregate state. Read by the bar widget + window on open.
 #[tauri::command]
 pub fn get_aicli_state() -> AicliState {
     super::listen::snapshot()
+}
+
+/// Monthly token/cost usage aggregate. `month` is `"YYYY-MM"`, defaults to
+/// current month. Single command for all CLIs; the frontend filters client-side.
+#[tauri::command]
+pub fn get_monthly_usage(month: Option<String>) -> MonthlyUsage {
+    let m = month.unwrap_or_else(|| super::usage::current_month());
+    super::usage::monthly_usage(&m)
 }
 
 /// Open the 340×440 agents window anchored/centered. Reuses the git-manager
@@ -111,8 +120,8 @@ pub fn create_aicli_window(app: &AppHandle, x: f64, y: f64) -> Result<(), String
     )
     .title("AI Agents")
     .inner_size(ww as f64, wh as f64)
-    .min_inner_size(300.0, 360.0)
-    .max_inner_size(600.0, 700.0)
+    .min_inner_size(500.0, 360.0)
+    .max_inner_size(600.0, 860.0)
     .resizable(true)
     .decorations(false)
     .transparent(true)

@@ -22,6 +22,16 @@ mod workspace;
 mod webapp;
 mod aicli;
 
+/// Public surface for the live SMTC diagnostic
+/// (`cargo run --example smtc_probe`). Production code MUST NOT use this —
+/// it exists only so the example binary can exercise the same
+/// `resolve_current` + `capture_session` path that `media::listen` runs on
+/// the bar, instead of re-implementing the SMTC calls and drifting.
+pub mod test_util {
+    pub use crate::media::commands::{capture_session, resolve_current};
+    pub use crate::media::MediaInfo;
+}
+
 use tauri::{Emitter, Listener, Manager};
 
 pub fn run() {

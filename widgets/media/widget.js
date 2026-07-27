@@ -25,8 +25,12 @@
 
   var root = el.querySelector(".md-root");
   var bgEl = root && root.querySelector(".md-bg");
-  var chip = root && root.querySelector(".md-chip");
-  var chipIc = root && root.querySelector(".md-chip-ic");
+  var playChip = root && root.querySelector(".md-play");
+  var playIc = root && root.querySelector(".md-play-ic");
+  var prevChip = root && root.querySelector(".md-prev");
+  var prevIc = root && root.querySelector(".md-prev-ic");
+  var nextChip = root && root.querySelector(".md-next");
+  var nextIc = root && root.querySelector(".md-next-ic");
   var thumbEl = root && root.querySelector(".md-thumb");
   var info = root && root.querySelector(".md-info");
   var titleWrap = info && info.querySelector(".md-title-wrap");
@@ -49,9 +53,10 @@
     return "play";
   }
 
-  function chipClass(status) {
-    if (status === "playing") return "md-chip is-playing";
-    return "md-chip";
+  function playChipClass(status) {
+    var base = "md-play md-chip";
+    if (status === "playing") return base + " is-playing";
+    return base;
   }
 
   function rootClass(info) {
@@ -122,10 +127,10 @@
     var title = info && info.title ? info.title : (info ? "" : "No media");
     var artist = info ? info.artist : "";
 
-    if (chip) {
-      chip.className = chipClass(status);
-      if (chipIc && setIcon) {
-        setIcon(chipIc, chipIcon(status), { size: 12 });
+    if (playChip) {
+      playChip.className = playChipClass(status);
+      if (playIc && setIcon) {
+        setIcon(playIc, chipIcon(status), { size: 12 });
       }
     }
     if (root) root.className = rootClass(info);
@@ -195,9 +200,9 @@
     if (current) {
       var next = (current.status === "playing") ? "paused" : "playing";
       current.status = next;
-      if (chip) {
-        chip.className = chipClass(next);
-        if (chipIc && setIcon) setIcon(chipIc, chipIcon(next), { size: 12 });
+      if (playChip) {
+        playChip.className = playChipClass(next);
+        if (playIc && setIcon) setIcon(playIc, chipIcon(next), { size: 12 });
       }
       if (root) root.className = rootClass(current);
     }
@@ -218,16 +223,46 @@
     });
   }
 
-  if (chipIc && setIcon) {
-    setIcon(chipIc, "play", { size: 12 });
+  if (playIc && setIcon) {
+    setIcon(playIc, "play", { size: 12 });
+  }
+  if (prevIc && setIcon) {
+    setIcon(prevIc, "skip-back", { size: 12 });
+  }
+  if (nextIc && setIcon) {
+    setIcon(nextIc, "skip-forward", { size: 12 });
   }
 
-  if (chip) {
-    chip.addEventListener("click", function (e) {
-      if (document.body.classList.contains("is-arranging")) return;
+  function inArrangeMode() {
+    return document.body.classList.contains("is-arranging");
+  }
+
+  if (prevChip) {
+    prevChip.addEventListener("click", function (e) {
+      if (inArrangeMode()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      invoke("media_previous").catch(function (err) {
+        dwarn("media_previous failed:", String(err));
+      });
+    });
+  }
+  if (playChip) {
+    playChip.addEventListener("click", function (e) {
+      if (inArrangeMode()) return;
       e.preventDefault();
       e.stopPropagation();
       togglePlay();
+    });
+  }
+  if (nextChip) {
+    nextChip.addEventListener("click", function (e) {
+      if (inArrangeMode()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      invoke("media_next").catch(function (err) {
+        dwarn("media_next failed:", String(err));
+      });
     });
   }
 

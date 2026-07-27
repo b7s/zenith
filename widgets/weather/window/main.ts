@@ -242,9 +242,12 @@ function render(content: HTMLElement, snap: WeatherSnapshot): void {
   const feels = cur.feels_like !== undefined ? "Feels " + Math.round(cur.feels_like) + unit : "";
   const hum = cur.humidity !== undefined ? "Humidity " + cur.humidity + "%" : "";
   const wind = cur.wind_speed !== undefined ? "Wind " + Math.round(cur.wind_speed) + (isImperial ? " mph" : " m/s") : "";
-  const desc = cur.weather?.[0]?.description || "";
+  let desc = cur.weather?.[0]?.description || "";
+
+  desc = desc.charAt(0).toUpperCase() + desc.slice(1);
+
   const line1 = document.createElement("div");
-  line1.textContent = [desc, feels].filter(Boolean).join(" \u00B7 ");
+  line1.textContent = [feels, desc].filter(Boolean).join(" \u00B7 ");
   const line2 = document.createElement("div");
   line2.textContent = [hum, wind].filter(Boolean).join(" \u00B7 ");
   metaEl.append(line1);

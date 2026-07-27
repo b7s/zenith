@@ -132,6 +132,73 @@ unsafe extern "system" fn media_pump_proc(
     DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
+/// Rank a session by how "active" it is for now-playing purposes.
+///
+/// Used by `resolve_current` (live SMTC scan) and mirrors the pure
+/// `pick_best_session` tie-break contract. Higher = better.
+///
+/// | status      | rank |
+/// |-------------|------|
+/// | Playing     | 4    |
+/// | Paused      | 3    | (a loaded track is still "now playing")
+/// | Stopped     | 2    | (only counts — see note below)
+/// | Opened      | 1    | (browser just loaded media; not invisible)
+/// | Changing    | 1    |
+/// | Closed      | 0    |
+/// | Unknown     | 0    |
+///
+/// `Stopped` previously returned 0, which made the scanner skip browsers
+/// that had just loaded a page (reporting `Opened`/`Changing`) AND any
+/// session that had *finished* a track but still held the SMTC slot. The
+/// fallback at the end of `resolve_current` then returned that very
+/// stopped session, but `capture_session` reads an empty title and the
+/// widget renders "No media" — the "sometimes not recognize" symptom.
+///
+/// Note: we do NOT have the title here (rank is status-only; reading
+/// `MediaProperties` is a slow async and would defeat the cache). The
+/// tie-break in `pick_best_session` covers the "stopped session with
+/// nothing loaded" case by preferring a live current session of equal
+/// rank.
+fn rank_from(status: PlaybackStatus) -> u8 {
+    match status {
+        PlaybackStatus::Playing => 4,
+        PlaybackStatus::Paused => 3,
+        PlaybackStatus::Stopped => 2,
+        PlaybackStatus::Opened => 1,
+        PlaybackStatus::Changing => 1,
+        PlaybackStatus::Closed => 0,
+        _ => 0,
+    }
+}
+
+/// Pure selection: given one (rank, is_current) per candidate session,
+/// return the index of the best one. Tie-breaks:
+///   1. higher rank wins;
+///   2. on equal rank, the OS "current" session wins (it is the one the
+///      user most recently interacted with);
+///   3. otherwise the lowest index (stable, deterministic).
+///
+/// This is the single decision procedure for "which session is now
+/// playing" — extracted from `resolve_current` specifically so it can be
+/// unit tested without a live SMTC. See `media::commands::tests`.
+fn pick_best_session(candidates: &[(u8, bool)]) -> Option<usize> {
+    let mut best: Option<(usize, u8, bool)> = None;
+    for (i, &(rank, is_current)) in candidates.iter().enumerate() {
+        if rank == 0 {
+            continue;
+        }
+        match best {
+            None => best = Some((i, rank, is_current)),
+            Some((_, br, bc)) => {
+                if rank > br || (rank == br && is_current && !bc) {
+                    best = Some((i, rank, is_current));
+                }
+            }
+        }
+    }
+    best.map(|(i, _, _)| i)
+}
+
 fn status_string(status: PlaybackStatus) -> &'static str {
     if status == PlaybackStatus::Playing { "playing" }
     else if status == PlaybackStatus::Paused { "paused" }
@@ -272,7 +339,7 @@ fn wait_async_inner<T: windows::core::RuntimeType + 'static>(
 
 /// Synchronously capture a session snapshot. Runs on a worker thread,
 /// NEVER the Tauri main thread (see §13.1).
-pub(crate) fn capture_session(session: &Session) -> Option<MediaInfo> {
+pub fn capture_session(session: &Session) -> Option<MediaInfo> {
     let source = session
         .SourceAppUserModelId()
         .map(|h: HSTRING| h.to_string())
@@ -447,17 +514,16 @@ fn base64_encode(input: &[u8]) -> String {
 }
 
 /// Rank a session by how "active" it is for now-playing purposes.
-/// 2 = playing, 1 = paused (still has a track loaded), 0 = nothing useful.
+/// 4 = playing, 3 = paused, 2 = stopped (still has a slot), 1 = opened/
+/// changing (browser just loaded media), 0 = closed/unknown. See
+/// `rank_from` for the rationale — `Stopped` is no longer 0, which is
+/// what fixes the "sometimes not recognize" bug for browsers.
 fn session_active_rank(s: &Session) -> u8 {
-    match s
-        .GetPlaybackInfo()
+    s.GetPlaybackInfo()
         .ok()
         .and_then(|pb| pb.PlaybackStatus().ok())
-    {
-        Some(st) if st == PlaybackStatus::Playing => 2,
-        Some(st) if st == PlaybackStatus::Paused => 1,
-        _ => 0,
-    }
+        .map(rank_from)
+        .unwrap_or(0)
 }
 
 fn session_is_active(s: &Session) -> bool {
@@ -471,46 +537,77 @@ fn session_is_active(s: &Session) -> bool {
 /// session as the OS "current" one — `GetCurrentSession()` can return
 /// `None` or a stale/closed session while a track is clearly playing. So we
 /// first trust `GetCurrentSession()` *only* if it is actually active, then
-/// fall back to scanning **all** sessions and pick the most active one. This
-/// is what makes browser playback actually show up.
+/// fall back to scanning **all** sessions and pick the most active one via
+/// the pure, tested `pick_best_session` (which prefers the OS "current"
+/// session on ties so the user's last-used player wins).
 ///
 /// Returns `None` when nothing has registered with SMTC. **Slow** — must
 /// run on a worker thread, never the Tauri main thread.
-pub(crate) fn resolve_current() -> Option<Session> {
+pub fn resolve_current() -> Option<Session> {
     ensure_com();
-    let mgr: SessionManager = wait_async(SessionManager::RequestAsync().ok()?).ok()?;
+    // `RequestAsync` normally completes in well under 500 ms. When the
+    // SMTC broker (RuntimeBroker.exe / UIServer) is wedged, it NEVER
+    // completes — confirmed live on the user's machine where the bar
+    // wiget only works after a reboot. Capping this single call at 2 s
+    // means a wedged poll wastes 2 s (not 15 s) per cycle, and the
+    // diagnostic log tells the user the real cause instead of just
+    // looking "No media" forever.
+    let mgr: SessionManager = match wait_async_inner(
+        SessionManager::RequestAsync().ok()?,
+        std::time::Duration::from_secs(2),
+    ) {
+        Ok(m) => m,
+        Err(e) => {
+            mlog!("RequestAsync FAILED (2s cap): {e} — SMTC broker is wedged; reboot Windows to restore");
+            return None;
+        }
+    };
 
-    // Prefer the OS "current" session, but only if it is genuinely active.
-    if let Ok(s) = mgr.GetCurrentSession() {
-        if session_is_active(&s) {
-            return Some(s);
+    let os_current = mgr.GetCurrentSession().ok();
+
+    // Fast path: the OS current session is genuinely active — use it.
+    if let Some(ref s) = os_current {
+        if session_is_active(s) {
+            return Some(s.clone());
         }
     }
 
-    // Scan every registered session and keep the most active one.
+    // Scan every registered session and keep the best via the tested
+    // `pick_best_session`. The OS "current" session is marked so it wins
+    // ties (deterministic across boots even when several players are
+    // paused/stopped with the same rank).
     if let Ok(sessions) = mgr.GetSessions() {
         let count = sessions.Size().unwrap_or(0);
-        let mut best: Option<(u8, Session)> = None;
+        if count == 0 {
+            // Single-session fast path: GetSessions() returned nothing but
+            // GetCurrentSession might still hold one.
+            return os_current;
+        }
+        let mut candidates: Vec<(u8, bool)> = Vec::with_capacity(count as usize);
         for i in 0..count {
-            if let Ok(s) = sessions.GetAt(i) {
-                let rank = session_active_rank(&s);
-                if rank == 0 {
+            let s = match sessions.GetAt(i) {
+                Ok(s) => s,
+                Err(_) => {
+                    candidates.push((0, false));
                     continue;
                 }
-                match &best {
-                    Some((r, _)) if *r >= rank => {}
-                    _ => best = Some((rank, s)),
-                }
-            }
+            };
+            let rank = session_active_rank(&s);
+            let is_current = match &os_current {
+                Some(c) => c == &s,
+                None => false,
+            };
+            candidates.push((rank, is_current));
         }
-        if let Some((_, s)) = best {
-            mlog!("resolve_current: picked active session from GetSessions()");
-            return Some(s);
+        if let Some(idx) = pick_best_session(&candidates) {
+            if let Ok(s) = sessions.GetAt(idx as u32) {
+                return Some(s);
+            }
         }
     }
 
     // Last resort: whatever the OS reports as current (even if not active).
-    mgr.GetCurrentSession().ok()
+    os_current
 }
 
 /// Run a transport command (`TryPlayAsync` etc.) on a worker thread. `f`
@@ -593,5 +690,112 @@ pub async fn media_seek(position_ms: i64) -> Result<bool, String> {
     run_transport("seek", move |s| s.TryChangePlaybackPositionAsync(ticks)).await
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::Media::Control::{
+        GlobalSystemMediaTransportControlsSessionPlaybackStatus as PlaybackStatus,
+    };
 
+    /// Reproduces the "sometimes not recognize what is playing" bug.
+    ///
+    /// Symptom: a browser (Chrome/Edge) that finished a track still holds
+    /// an SMTC session reporting `Stopped`. The *previous* ranker gave
+    /// `Stopped` a rank of 0, so the scanner skipped it; the scanner then
+    /// also skipped every other rank-0 session, fell through to the
+    /// `GetCurrentSession().ok()` fallback, picked that same stopped
+    /// session, `capture_session` read an empty title, and the widget
+    /// rendered "No media" — even though the player was right there.
+    ///
+    /// After the fix, `Stopped` carries rank 2, so it is selectable and
+    /// `capture_session` can read its `MediaProperties` to surface any
+    /// title that's still loaded.
+    #[test]
+    fn stopped_session_is_selectable_after_fix() {
+        assert_eq!(rank_from(PlaybackStatus::Stopped), 2);
+        // Pure selection picks the stopped session, not None.
+        assert_eq!(pick_best_session(&[(2, true)]), Some(0));
+    }
 
+    #[test]
+    fn playing_beats_paused_beats_stopped_beats_opened() {
+        let cands = vec![
+            (rank_from(PlaybackStatus::Opened), false),   // idx 0
+            (rank_from(PlaybackStatus::Stopped), false), // idx 1
+            (rank_from(PlaybackStatus::Paused), false),  // idx 2
+            (rank_from(PlaybackStatus::Playing), false),  // idx 3
+        ];
+        assert_eq!(pick_best_session(&cands), Some(3));
+    }
+
+    /// Tie-break: on equal rank, the OS "current" session wins.
+    /// This is what makes the result deterministic across boots when
+    /// multiple players are paused at the same time.
+    #[test]
+    fn tie_break_prefers_current_session() {
+        // Two paused sessions; idx 1 is the OS current.
+        let cands = vec![
+            (rank_from(PlaybackStatus::Paused), false), // idx 0
+            (rank_from(PlaybackStatus::Paused), true),  // idx 1 (current)
+        ];
+        assert_eq!(pick_best_session(&cands), Some(1));
+
+        // Reverse the order — current still wins regardless of position.
+        let cands = vec![
+            (rank_from(PlaybackStatus::Paused), true),  // idx 0 (current)
+            (rank_from(PlaybackStatus::Paused), false), // idx 1
+        ];
+        assert_eq!(pick_best_session(&cands), Some(0));
+    }
+
+    /// A higher rank always wins, even over a "current" lower-rank session.
+    /// (User paused Browser A and started Player B → B is now playing.)
+    #[test]
+    fn higher_rank_beats_current() {
+        let cands = vec![
+            (rank_from(PlaybackStatus::Paused), true),  // idx 0 — current, paused
+            (rank_from(PlaybackStatus::Playing), false), // idx 1 — not current, playing
+        ];
+        assert_eq!(pick_best_session(&cands), Some(1));
+    }
+
+    /// All rank-0 (e.g. every session `Closed`) → None (no media).
+    #[test]
+    fn all_zero_returns_none() {
+        let cands = vec![
+            (rank_from(PlaybackStatus::Closed), false),
+            (rank_from(PlaybackStatus::Closed), true),
+            (0, false),
+        ];
+        assert_eq!(pick_best_session(&cands), None);
+    }
+
+    /// `Opened`/`Changing` (rank 1) is selectable — the browser just
+    /// loaded a page; we should not show "No media" while it spins up.
+    #[test]
+    fn opened_and_changing_are_selectable() {
+        assert_eq!(rank_from(PlaybackStatus::Opened), 1);
+        assert_eq!(rank_from(PlaybackStatus::Changing), 1);
+        assert_eq!(
+            pick_best_session(&[(rank_from(PlaybackStatus::Opened), false)]),
+            Some(0)
+        );
+    }
+
+    /// Empty candidate list → None (defensive).
+    #[test]
+    fn empty_candidates_returns_none() {
+        assert_eq!(pick_best_session(&[]), None);
+    }
+
+    /// Stability: lowest-index wins when rank and is_current both tie.
+    #[test]
+    fn lowest_index_on_full_tie() {
+        let cands = vec![
+            (rank_from(PlaybackStatus::Playing), false),
+            (rank_from(PlaybackStatus::Playing), false),
+            (rank_from(PlaybackStatus::Playing), false),
+        ];
+        assert_eq!(pick_best_session(&cands), Some(0));
+    }
+}

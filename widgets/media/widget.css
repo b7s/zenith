@@ -79,7 +79,9 @@
   opacity: 1;
 }
 
-.md-chip-ic {
+.md-play-ic,
+.md-prev-ic,
+.md-next-ic {
   display: inline-flex;
   align-items: center;
   justify-content: center;

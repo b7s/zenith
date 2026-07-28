@@ -3,12 +3,14 @@ import "./git-manager.css";
 import { mountWindow } from "../../../src/shared/window";
 import { mountTabs } from "../../../src/shared/tabs";
 import { mountFilterPills } from "../../../src/shared/filter-pills";
-import { setIcon } from "../../../src/shared/icon";
+import { registerIcons, setIcon } from "../../../src/shared/icon";
+import { LUCIDE_ICONS } from "../../../src/shared/lucide-icons";
 import { initLog, logInfo, logMemory } from "../../../src/shared/log";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { CMD } from "../../../src/shared/ipc";
 import { EVENT } from "../../../src/shared/events";
+import { openAicliFromWidget } from "../../../src/shared/widget-popup";
 import type {
   AcctInventory,
   Config,
@@ -18,6 +20,12 @@ import type {
   OpenPull,
   RepoSummary,
 } from "../../../src/shared/types";
+
+// Mirror the bar's startup: merge lucide glyphs into the icon registry so
+// `setIcon(ic, "link", ...)` / "more-vertical" etc. resolve from the
+// lucide-static package. This window is independent of the bar's
+// registry, so the merge has to happen here too.
+registerIcons(LUCIDE_ICONS);
 
 interface GitManagerGlobals {
   __ZENITH_GIT_ACCOUNT_ID: string | null;
@@ -595,7 +603,7 @@ void (async () => {
     prov.textContent = providerLabel(r.provider);
     sub.append(prov);
     main.append(sub);
-    head.append(main, attachAiButton(card, () => failPrompt(r), () => runCopyContent(r)));
+    head.append(main, attachAiButton(card, () => r.web_url, () => failPrompt(r), () => runCopyContent(r)));
     card.append(head);
 
     if (r.branch || r.short_sha || r.ago || r.account_label) {
@@ -663,7 +671,7 @@ void (async () => {
     prov.textContent = providerLabel(p.provider);
     sub.append(prov);
     main.append(sub);
-    head.append(main, attachAiButton(card, () => prPrompt(p), () => prCopyContent(p)));
+    head.append(main, attachAiButton(card, () => p.web_url, () => prPrompt(p), () => prCopyContent(p)));
     card.append(head);
 
     const body = document.createElement("div");
@@ -683,17 +691,18 @@ void (async () => {
 
   function attachAiButton(
     _card: HTMLElement,
+    getUrl: () => string,
     getPrompt: () => string,
     getCopyContent: () => Promise<string>,
   ): HTMLButtonElement {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "gm-ai-btn";
-    btn.title = "Send to AI assistant";
-    btn.setAttribute("aria-label", "Send to AI assistant");
+    btn.title = "Card actions";
+    btn.setAttribute("aria-label", "Card actions");
     const ic = document.createElement("span");
     ic.className = "zen-icon";
-    setIcon(ic, "sparkles", { size: 14 });
+    setIcon(ic, "more-vertical", { size: 14 });
     btn.append(ic);
 
     let menu: HTMLElement | null = null;
@@ -709,13 +718,53 @@ void (async () => {
       if (menu && !menu.contains(ev.target as Node) && ev.target !== btn) closeMenu();
     }
 
+    /// Build a single menu item (icon + label) and append it.
+    function buildItem(
+      iconName: string,
+      label: string,
+      cls: string,
+      onClick: (ev: MouseEvent) => void | Promise<void>,
+    ): HTMLButtonElement {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "gm-ai-item " + cls;
+      const ic = document.createElement("span");
+      ic.className = "zen-icon";
+      setIcon(ic, iconName, { size: 14 });
+      const txt = document.createElement("span");
+      txt.textContent = label;
+      item.append(ic, txt);
+      item.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        void onClick(ev);
+      });
+      return item;
+    }
+
+    /// Tiny copy-to-clipboard helper that swaps the label to a confirmation
+    /// tick and closes the menu after 750ms. Shared by Copy URL / Copy
+    /// content so they present the same affordance.
+    async function withCopyAffordance(
+      labelEl: HTMLSpanElement,
+      originalLabel: string,
+      fetcher: () => Promise<string>,
+    ) {
+      labelEl.textContent = "Copying…";
+      try {
+        const text = await fetcher();
+        await navigator.clipboard.writeText(text);
+        labelEl.textContent = "Copied ✓";
+      } catch {
+        labelEl.textContent = "Copy failed";
+      }
+      setTimeout(() => {
+        closeMenu();
+        labelEl.textContent = originalLabel;
+      }, 750);
+    }
+
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (aiClis.length === 0) {
-        // Nothing configured yet — send them to the widget settings.
-        void invoke(CMD.openWidgetConfig, { widgetId: "git" });
-        return;
-      }
       if (menu) {
         closeMenu();
         return;
@@ -723,65 +772,73 @@ void (async () => {
       menu = document.createElement("div");
       menu.className = "gm-ai-menu";
 
-      // First option: copy the real failure/PR content (fetched lazily so we
-      // never preload heavy logs/diffs for every card). A spinner stands in
-      // for the icon while the fetch is in flight.
-      const copyItem = document.createElement("button");
-      copyItem.type = "button";
-      copyItem.className = "gm-ai-item gm-ai-copy";
-      const copyIc = document.createElement("span");
-      copyIc.className = "zen-icon";
-      setIcon(copyIc, "copy", { size: 14 });
-      const copyLabel = document.createElement("span");
-      copyLabel.textContent = "Copy content";
-      copyItem.append(copyIc, copyLabel);
-      let copying = false;
-      copyItem.addEventListener("click", async (ev) => {
+      // 1) Open — reuses the same window-opening path the ai_cli widget
+      // uses from its bar icon (shared/popup/anchor + CMD.openAicliWindow).
+      // Single source of truth: no duplication.
+      const openItem = buildItem("terminal-window", "Open", "gm-ai-open", async (ev) => {
         ev.stopPropagation();
-        if (copying) return;
-        copying = true;
-        setIcon(copyIc, "loader", { size: 14 });
-        copyIc.classList.add("gm-spin");
         try {
-          const text = await getCopyContent();
-          await navigator.clipboard.writeText(text);
-          copyLabel.textContent = "Copied ✓";
-        } catch {
-          copyLabel.textContent = "Copy failed";
+          await openAicliFromWidget(btn);
+        } finally {
+          closeMenu();
         }
-        copying = false;
-        setTimeout(() => closeMenu(), 750);
+      });
+      menu.append(openItem);
+
+      // 2) Copy URL — synchronous, the URL lives on the in-memory model.
+      const copyUrlItem = buildItem("link", "Copy URL", "gm-ai-copy-url", (ev) => {
+        ev.stopPropagation();
+        const labelEl = copyUrlItem.querySelector("span:nth-of-type(2)") as HTMLSpanElement;
+        void withCopyAffordance(labelEl, "Copy URL", async () => getUrl());
+      });
+      menu.append(copyUrlItem);
+
+      menu.append(sep());
+
+      // 3) Copy content — lazy fetch of the real failure text / PR diff via
+      // fetch_git_content. Spinner while in flight.
+      const copyItem = buildItem("copy", "Copy content", "gm-ai-copy", (ev) => {
+        ev.stopPropagation();
+        const labelEl = copyItem.querySelector("span:nth-of-type(2)") as HTMLSpanElement;
+        const ic = copyItem.querySelector(".zen-icon") as HTMLElement;
+        setIcon(ic, "loader", { size: 14 });
+        ic.classList.add("gm-spin");
+        void withCopyAffordance(labelEl, "Copy content", () => getCopyContent()).finally(() => {
+          ic.classList.remove("gm-spin");
+          setIcon(ic, "copy", { size: 14 });
+        });
       });
       menu.append(copyItem);
 
-      const sep = document.createElement("div");
-      sep.className = "gm-ai-sep";
-      menu.append(sep);
-
-      for (const cli of aiClis) {
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className = "gm-ai-item";
-        item.textContent = cli;
-        item.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          const prompt = getPrompt();
-          void invoke(CMD.sendToAi, { cli, prompt })
-            .catch((err) => {
-              const msg = `[git-manager] sendToAi failed for ${cli}: ${err}`;
-              console.error(msg);
-              void invoke("log_write", { window: "git-manager", level: "ERROR", message: msg });
-              // Surface a clean dialog instead of a silent log — the backend
-              // returns a friendly error when the CLI is missing (no flashing
-              // console), so show that to the user.
-              void invoke(CMD.showDialog, {
-                spec: { kind: "message", data: { title: "AI assistant", body: String(err) } },
+      // 4) Per-CLI send — only when the user has configured at least one AI
+      // assistant. These still spawn an external terminal via CMD.sendToAi
+      // (NOT the same as the ai_cli window — they launch a fresh agent
+      // session with the failure/PR context pre-filled).
+      if (aiClis.length > 0) {
+        menu.append(sep());
+        for (const cli of aiClis) {
+          const item = buildItem("sparkles", `Send to ${cli}`, "gm-ai-send", (ev) => {
+            ev.stopPropagation();
+            const prompt = getPrompt();
+            void invoke(CMD.sendToAi, { cli, prompt })
+              .catch((err) => {
+                const msg = `[git-manager] sendToAi failed for ${cli}: ${err}`;
+                console.error(msg);
+                void invoke("log_write", {
+                  window: "git-manager",
+                  level: "ERROR",
+                  message: msg,
+                });
+                void invoke(CMD.showDialog, {
+                  spec: { kind: "message", data: { title: "AI assistant", body: String(err) } },
+                });
               });
-            });
-          closeMenu();
-        });
-        menu.append(item);
+            closeMenu();
+          });
+          menu.append(item);
+        }
       }
+
       // Fixed-positioned on <body> so the pane's overflow:auto can't clip it.
       const rect = btn.getBoundingClientRect();
       menu.style.position = "fixed";
@@ -796,6 +853,12 @@ void (async () => {
     });
 
     return btn;
+  }
+
+  function sep(): HTMLElement {
+    const s = document.createElement("div");
+    s.className = "gm-ai-sep";
+    return s;
   }
 
   function failPrompt(r: FailRun): string {

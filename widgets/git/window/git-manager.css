@@ -534,11 +534,13 @@ body[data-window="git-manager"] .zen-window__title-wrap {
   align-items: center;
   gap: 0.4rem;
 }
-.gm-ai-copy {
+.gm-ai-copy,
+.gm-ai-copy-url {
   color: var(--primary, #6e40c9);
   font-weight: 600;
 }
-.gm-ai-copy:hover {
+.gm-ai-copy:hover,
+.gm-ai-copy-url:hover {
   background: color-mix(in oklch, var(--primary) 16%, transparent);
   color: var(--primary, #6e40c9);
 }

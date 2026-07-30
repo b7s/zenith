@@ -1892,3 +1892,38 @@ If any budget is exceeded, investigate before merging. The log files are the pri
 4. Look for: last `logMemory` value (did heap grow?), large gaps between timestamps (did an
    operation block?), or repeated entries (a loop?).
 5. Cross-reference with `settings.log` / `widgets.log` to see if IPC was stuck.
+
+---
+
+## 15. Mandatory validation before commit / push / release
+
+**Every push — and especially any version bump (`chore(release)`) — MUST pass the full
+validation gate below with ZERO errors AND ZERO warnings. This is enforced on CI (the
+GitHub Actions `Build Installer` workflow runs `npm run build` as its `beforeBuildCommand`
+via `tauri build`, which fails the whole release on any TS/TS error). A push that skips
+validation only fails later, on the build machine, after the commit is public — wasting a
+full 10+ minute CI run and leaving a broken tag.**
+
+Run these locally and fix everything they report before committing:
+
+1. **Frontend typecheck + build** — `npm run build` (runs `tsc && vite build`).
+   - `tsc` is configured with `noUnusedLocals` / `noUnusedParameters` / `noFallthroughCasesInSwitch`,
+     so **unused imports, unused variables, and dead `switch` cases are hard errors**. Remove them;
+     do not `@ts-ignore` or comment them out.
+   - Treat any emitted warning as a build failure. `vite build` warnings (e.g. circular imports,
+     unresolved dynamic imports) must be resolved, not ignored.
+2. **Rust build** — `cargo build` in `src-tauri/`. Must finish clean (no `warning:` lines).
+3. **Rust lint** — `cargo clippy --lib --tests` in `src-tauri/`. Must finish with **no clippy
+   warnings**. Do not add `#[allow(...)]` to silence a lint — fix the root cause. The only
+   accepted `#[allow]` is a documented, reviewed `dead_code` on a deliberate single-source
+   module.
+
+If any step prints an error or warning, **stop and fix it**. Do not push "to see if CI
+catches it" — CI catching it is the failure case, not the check.
+
+**Why this matters (real incident):** a push of v0.1.23–v0.1.25 did not trigger CI because the
+workflow watched the `main` branch while the repo's default branch is `master`. When the
+workflow was finally fixed to watch `master`, the build failed immediately on three pre-existing
+TS errors in `widgets/ai_cli/window/main.ts` (`FilterPillsMount` + `CliId` unused imports, and an
+unused `agg` parameter) — errors that a pre-push `npm run build` would have caught in seconds.
+Hence this rule.

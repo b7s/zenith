@@ -8,14 +8,13 @@ import { listen } from "@tauri-apps/api/event";
 import { CMD } from "../../../src/shared/ipc";
 import { EVENT } from "../../../src/shared/events";
 import { mountTabs, type TabMount } from "../../../src/shared/tabs";
-import { mountFilterPills, type FilterPillsMount } from "../../../src/shared/filter-pills";
+import { mountFilterPills } from "../../../src/shared/filter-pills";
 import { formatShortDay } from "../../../src/shared/date";
 import { axisMax, niceMax, drawYAxis, drawXAxis, drawPeakLine, makeTooltip, attachTooltip, makeHitDot } from "../../../src/shared/chart";
 import type {
   AicliState,
   CliSession,
   CliStatus,
-  CliId,
   MonthlyUsage,
   DailyUsage,
 } from "../../../src/shared/types";
@@ -253,7 +252,7 @@ void (async () => {
     name.textContent = cliLabel(cliId);
     const sub = document.createElement("span");
     sub.className = "ai-panel__sub";
-    sub.textContent = subText(rows, agg, installed);
+    sub.textContent = subText(rows, installed);
     label.append(name, sub);
 
     // Plus button — opens a new terminal with the CLI running inside it.
@@ -297,7 +296,7 @@ void (async () => {
     return summary;
   }
 
-  function subText(rows: CliSession[], agg: CliStatus | null, installed: boolean): string {
+  function subText(rows: CliSession[], installed: boolean): string {
     if (!installed) return "Not installed";
     if (rows.length === 0) return "—";
     const running = rows.filter((s) => s.installed && s.status === "running").length;

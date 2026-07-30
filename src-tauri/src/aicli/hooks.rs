@@ -7,15 +7,18 @@
 //!
 //! - **Claude Code**: `%USERPROFILE%\.claude\settings.json` — `type:"http"`
 //!   hooks POST to the embedded listener. Idempotent via a URL marker.
-//! - **Codex**: `%USERPROFILE%\.codex\config.toml` — command hook invoking
-//!   `curl.exe` (ships with Windows 10+) which POSTs the payload. Managed
-//!   entries carry a marker command path.
+//! - **Codex**: `%USERPROFILE%\.codex\config.toml` — command hook that
+//!   POSTs the payload via `powershell.exe -WindowStyle Hidden` +
+//!   `System.Net.Http.HttpClient`. We deliberately avoid `curl.exe`: it is a
+//!   console-subsystem binary, so a terminal window would flash on every
+//!   lifecycle event (~60s during active work). Managed entries carry a
+//!   `# zenith-aicli` marker comment so they can be found/removed.
 //! - **OpenCode**: no hooks — auto-detected via its HTTP server. `status()`
 //!   reports "auto-detected".
 //!
 //! Fail-open: if Zenith is not running, agent hook POSTs fail silently and
-//! never block the agent (Claude's HTTP hooks are non-blocking; `curl` exit
-//! codes are ignored by default).
+//! never block the agent (Claude's HTTP hooks are non-blocking; the
+//! PowerShell POST error is ignored by default).
 
 use std::path::PathBuf;
 
@@ -191,8 +194,18 @@ fn install_codex() -> Result<(), String> {
         .ok_or("hooks not a table")?;
 
     let url = hook_url("codex");
+    // IMPORTANT: do NOT use `curl.exe` here. curl is a console-subsystem
+    // binary — even with `>nul 2>&1`, Windows still allocates a fresh
+    // console window for it before redirection applies, so a terminal would
+    // flash on *every* Codex lifecycle event (~every 60s during active
+    // work). `powershell.exe -WindowStyle Hidden` runs as a GUI process,
+    // so no console appears. It reads the event JSON from stdin ($input)
+    // and POSTs it via System.Net.Http.HttpClient. Fail-open: if the
+    // listener is down the POST just throws and is ignored.
+    // The trailing `# zenith-aicli` is a marker so `is_managed_codex` can
+    // idempotently find/remove this managed entry.
     let curl_cmd = format!(
-        r#"curl.exe -s -X POST "{url}" -H "content-type: application/json" --data-binary @- >nul 2>&1"#
+        "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"$body=($input|Out-String); $c=New-Object System.Net.Http.HttpClient; [void]$c.PostAsync('{url}',(New-Object System.Net.Http.StringContent($body,'UTF8','application/json')))\" # {MARKER}"
     );
 
     // Managed codex hook entry carries the marker in its command string.

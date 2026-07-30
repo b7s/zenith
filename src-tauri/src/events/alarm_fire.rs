@@ -331,18 +331,25 @@ fn open_alarm_popup(app: &AppHandle, ev: &CalendarEvent, fire_at: i64) {
     let end_js = escape_js_string(ev.end_time.as_deref().unwrap_or(""));
     let h = app.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = tauri::WebviewWindowBuilder::new(
+        let win_label = label.clone();
+        let win_w = 360.0_f64;
+        let win_h = 200.0_f64;
+        let (cx, cy) = crate::window::monitor::center_on_primary_monitor(win_w as i32, win_h as i32);
+        let win = match tauri::WebviewWindowBuilder::new(
             &h,
             label,
             tauri::WebviewUrl::App("widgets/alarms/window/alarm-popup.html".into()),
         )
         .title(title.clone())
-        .inner_size(360.0, 200.0)
+        .inner_size(win_w, win_h)
+        .position(cx as f64, cy as f64)
         .resizable(false)
         .decorations(false)
         .transparent(true)
-        .always_on_top(true)
         .skip_taskbar(true)
+        .visible(false)
+        .focused(true)
+        .always_on_top(true)
         .additional_browser_args("--default-background-color=00000000")
           .initialization_script(format!(
             "window.__ZENITH_ALARM_TITLE = '{}';\nwindow.__ZENITH_ALARM_TIME = '{}';\nwindow.__ZENITH_ALARM_END = '{}';",
@@ -350,8 +357,33 @@ fn open_alarm_popup(app: &AppHandle, ev: &CalendarEvent, fire_at: i64) {
         ))
         .build()
         {
-            eprintln!("[zenith:events] alarm popup build failed: {e:?}");
-        }
+            Ok(w) => w,
+            Err(e) => {
+                eprintln!("[zenith:events] alarm popup build failed: {e:?}");
+                return;
+            }
+        };
+
+        let _ = crate::window::apply_fixed_acrylic(&h, &win_label);
+        let _ = crate::window::set_rounded_corners(&win);
+        let _ = crate::window::set_disable_transitions(&win);
+
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
+        };
+        let hwnd = match win.hwnd() {
+            Ok(h) => h,
+            Err(_) => return,
+        };
+        let _ = unsafe {
+            SetWindowPos(
+                hwnd,
+                None,
+                0, 0, 0, 0,
+                SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE,
+            )
+        };
+        let _ = win.set_focus();
     });
 }
 

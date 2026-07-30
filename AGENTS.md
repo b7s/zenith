@@ -2,6 +2,7 @@
 
 > Operating contract for every contributor and AI agent working on **Zenith**.
 > Follow these rules exactly. When in doubt, match the existing pattern, not your own preference.
+> Always run tests and quality gates before push. Fix any warning or error.
 
 ---
 

@@ -187,7 +187,7 @@ fn main() {
         if count == 0
             || (0..count)
                 .map(|i| sessions_vec.GetAt(i).ok())
-                .all(|maybe_s| maybe_s.map_or(true, |s| !eq_sessions(sc, &s)))
+                .all(|maybe_s| maybe_s.is_none_or(|s| !eq_sessions(sc, &s)))
         {
             let src = sc
                 .SourceAppUserModelId()

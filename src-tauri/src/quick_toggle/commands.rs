@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::sync::{Mutex, OnceLock};
+use std::os::windows::process::CommandExt;
 use std::process::Command;
 use windows::Win32::Foundation::WPARAM;
 use windows::Win32::System::Registry::{
@@ -22,6 +23,7 @@ pub struct ToggleStatus {
 }
 
 const QT_TOGGLE_UPDATED: &str = "zenith:quick-toggle-updated";
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 struct ToggleCache {
     states: std::collections::HashMap<String, bool>,
@@ -111,6 +113,7 @@ fn broadcast_setting_change() {
 fn ps_bool(script: &str) -> Option<bool> {
     let out = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .ok()?;
     if !out.status.success() {
@@ -127,6 +130,7 @@ fn ps_bool(script: &str) -> Option<bool> {
 fn ps_run(script: &str) -> bool {
     Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .creation_flags(CREATE_NO_WINDOW)
         .status()
         .map(|s| s.success())
         .unwrap_or(false)

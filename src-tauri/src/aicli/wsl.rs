@@ -17,10 +17,13 @@
 //! function here returns an empty result — never an error — so the poll loop
 //! and unit tests are unaffected on machines without WSL.
 
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 use super::model::{CliId, CliSession, CliStatus};
 use super::scan;
@@ -105,6 +108,7 @@ fn resolve_wsl_exe() -> Option<PathBuf> {
 fn enumerate_distros(exe: &Path) -> Option<Vec<String>> {
     let out = Command::new(exe)
         .args(["--list", "--quiet"])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .ok()?;
     if !out.status.success() {

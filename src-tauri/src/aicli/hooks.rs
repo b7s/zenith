@@ -11,8 +11,10 @@
 //!   POSTs the payload via `powershell.exe -WindowStyle Hidden` +
 //!   `System.Net.Http.HttpClient`. We deliberately avoid `curl.exe`: it is a
 //!   console-subsystem binary, so a terminal window would flash on every
-//!   lifecycle event (~60s during active work). Managed entries carry a
-//!   `# zenith-aicli` marker comment so they can be found/removed.
+//!   lifecycle event (~60s during active work). `powershell.exe
+//!   -WindowStyle Hidden` still flashes briefly (it is also a console binary)
+//!   but far less than `curl.exe`'s persistent console. Managed entries carry
+//!   a `# zenith-aicli` marker comment so they can be found/removed.
 //! - **OpenCode**: no hooks — auto-detected via its HTTP server. `status()`
 //!   reports "auto-detected".
 //!
@@ -198,10 +200,13 @@ fn install_codex() -> Result<(), String> {
     // binary — even with `>nul 2>&1`, Windows still allocates a fresh
     // console window for it before redirection applies, so a terminal would
     // flash on *every* Codex lifecycle event (~every 60s during active
-    // work). `powershell.exe -WindowStyle Hidden` runs as a GUI process,
-    // so no console appears. It reads the event JSON from stdin ($input)
-    // and POSTs it via System.Net.Http.HttpClient. Fail-open: if the
-    // listener is down the POST just throws and is ignored.
+    // work). `powershell.exe -WindowStyle Hidden` is also a console binary
+    // but the window is hidden early enough that the flash is negligible
+    // compared to curl. It reads the event JSON from stdin ($input) and
+    // POSTs it via System.Net.Http.HttpClient. Fail-open: if the listener
+    // is down the POST just throws and is ignored.
+    // NOTE: Zenith cannot set `CREATE_NO_WINDOW` here because Codex is the
+    // process that spawns this command, not Zenith.
     // The trailing `# zenith-aicli` is a marker so `is_managed_codex` can
     // idempotently find/remove this managed entry.
     let curl_cmd = format!(

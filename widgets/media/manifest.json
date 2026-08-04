@@ -5,7 +5,7 @@
   "description": "Now-playing info with play/pause, next/previous, and seek",
   "default_zone": "right",
   "icon": "music",
-  "min_width": 120,
+  "min_width": 162,
   "preview": "<span class=\"md-root\"><span class=\"md-thumb\" style=\"display:none\"></span><span class=\"md-prev md-chip\"><span class=\"md-prev-ic\" data-icon=\"skip-back\" data-size=\"12\"></span></span><span class=\"md-play md-chip\"><span class=\"md-play-ic\" data-icon=\"play\" data-size=\"12\"></span></span><span class=\"md-next md-chip\"><span class=\"md-next-ic\" data-icon=\"skip-forward\" data-size=\"12\"></span></span><div class=\"md-info\"><div class=\"md-title-wrap\"><span class=\"md-title-text\">Some Track</span></div><div class=\"md-artist-wrap\"><span class=\"md-artist-text\">Artist</span></div></div></span>",
   "config": {
     "thumb_style": {

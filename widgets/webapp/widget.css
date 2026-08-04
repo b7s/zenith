@@ -6,13 +6,16 @@
   user-select: none;
 }
 
+/* Each link button uses .zen-bar-icon from the shared system for the base
+   (1.6rem round, hover fill, active scale). We keep .lk-ic as a subclass
+   for the inner layout (glyph + img). */
 .lk-ic {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 1.6rem;
   width: 1.6rem;
+  height: 1.6rem;
   padding: 0;
   border: none;
   border-radius: 9999px;
@@ -46,22 +49,23 @@
   display: block;
 }
 
-/* Red notification dot, bottom-center, git-dot style. */
+/* Status dot: uses the shared .zen-status-dot--run color (var(--info) blue).
+   The shared .zen-status-dots container handles positioning (bottom-center).
+   Only one dot per link, toggled via display when the window is open. */
 .lk-dot {
   position: absolute;
-  bottom: -1px;
+  bottom: -3px;
   left: 50%;
-  transform: translateX(-50%) scale(0.6);
-  width: 0.45rem;
-  height: 0.45rem;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
   border-radius: 9999px;
-  border: 1px solid color-mix(in oklch, var(--foreground) 70%, transparent);
-  background: var(--danger);
-  opacity: 0;
+  border: 1px solid color-mix(in oklch, var(--foreground) 65%, transparent);
+  background: var(--info, #3b82f6);
+  display: none;
   pointer-events: none;
   z-index: 1;
 }
 .lk-dot.is-active {
-  opacity: 1;
-  transform: translateX(-50%) scale(1);
+  display: block;
 }

@@ -1,11 +1,15 @@
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
 use crate::webapp::model;
+use crate::webapp::webview;
 
+use crate::shared::EVENT_LINK_NOTIFICATION;
 use crate::window;
 
 const LINK_PREFIX: &str = "link-";
@@ -14,6 +18,12 @@ pub const LK_CLOSE: &str = "lk-close-";
 pub const LK_RELOAD: &str = "lk-reload-";
 
 const DEBOUNCE_MS: u128 = 600;
+
+/// Per-link stop signals for lifecycle watcher threads. Keyed by window label.
+fn watchers() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    static WATCHERS: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+    WATCHERS.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 fn window_label(id: &str) -> String {
     format!("{}{}", LINK_PREFIX, id)
@@ -229,6 +239,15 @@ fn create_link_window(
         SetWindowPos(hwnd, None, cx, cy, w as i32, h as i32, SWP_SHOWWINDOW | SWP_NOZORDER)
     };
     let _ = win.set_focus();
+
+    // Start the lifecycle watcher (emits has:true immediately, polls for
+    // window existence every 2s, emits has:false when the window is gone).
+    let stop = Arc::new(AtomicBool::new(false));
+    if let Ok(mut map) = watchers().lock() {
+        map.insert(lbl.clone(), stop.clone());
+    }
+    webview::watch_lifecycle(app.clone(), lbl, id.to_string(), stop);
+
     eprintln!("[webapp] create_link_window done");
     Ok(())
 }
@@ -289,6 +308,19 @@ fn save_link_window_state(app: &tauri::AppHandle, id: &str) {
 /// `CloseRequested` event for non-persistent links) so the cleanup contract
 /// lives in exactly one place. See §3 DRY.
 fn teardown_link_window(app: &tauri::AppHandle, label: &str) {
+    // Signal the lifecycle watcher to stop and emit has:false immediately.
+    // This makes the bar dot disappear without waiting for the 2s poll.
+    stop_watcher(label);
+    // Emit closed state immediately so the dot goes away even before the
+    // watcher thread processes the signal.
+    let link_id = label.strip_prefix(LINK_PREFIX).unwrap_or("");
+    if !link_id.is_empty() {
+        let _ = app.emit(
+            EVENT_LINK_NOTIFICATION,
+            serde_json::json!({ "id": link_id, "has": false }),
+        );
+    }
+
     if let Some(win) = app.get_webview_window(label) {
         let _ = win.hide();
         let _ = win.eval("window.location.replace('about:blank');");
@@ -357,6 +389,17 @@ pub fn handle_link_menu_event(app: &tauri::AppHandle, id: &str) {
         let _ = reload_link(app.clone(), wid.to_string());
     } else if let Some(wid) = id.strip_prefix(LK_CLOSE) {
         let _ = close_link(app.clone(), wid.to_string());
+    }
+}
+
+/// Signal the lifecycle watcher for the given window label to stop, and
+/// remove it from the map. The watcher thread will emit `has: false` and
+/// exit on its next poll cycle.
+fn stop_watcher(label: &str) {
+    if let Ok(mut map) = watchers().lock() {
+        if let Some(stop) = map.remove(label) {
+            stop.store(true, Ordering::Relaxed);
+        }
     }
 }
 

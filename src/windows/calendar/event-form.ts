@@ -104,10 +104,46 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
       { value: "alarm", label: "Alarm" },
     ],
     existing?.kind ?? "event",
-    (v) => { typeVal = v; },
+    (v) => {
+      typeVal = v;
+      notifyWrap.style.display = v === "alarm" ? "" : "none";
+    },
   );
   let typeVal: CalendarEvent["kind"] = existing?.kind ?? "event";
   root.append(typeGroup);
+
+  // Notification window toggle — only shown when type is "Alarm".
+  // Events always notify on start (see `read()`). For alarms, the user
+  // can opt out of the popup while keeping the entry on the schedule.
+  // Default ON for new alarms; existing alarms preserve their saved value.
+  const notifyWrap = document.createElement("label");
+  notifyWrap.className = "zen-checkbox";
+  notifyWrap.style.display = typeVal === "alarm" ? "" : "none";
+  const notifyText = document.createElement("div");
+  notifyText.className = "zen-checkbox__text";
+  const notifyLabel = document.createElement("span");
+  notifyLabel.className = "zen-checkbox__label";
+  notifyLabel.textContent = "Show notification window";
+  notifyText.append(notifyLabel);
+  const notifySwitch = document.createElement("span");
+  notifySwitch.className = "zen-checkbox__switch";
+  let notifyVal = existing?.notify_on_start ?? true;
+  if (notifyVal) notifySwitch.classList.add("is-on");
+  const notifyInput = document.createElement("input");
+  notifyInput.type = "checkbox";
+  notifyInput.checked = notifyVal;
+  const notifyTrack = document.createElement("span");
+  notifyTrack.className = "zen-checkbox__track";
+  const notifyThumb = document.createElement("span");
+  notifyThumb.className = "zen-checkbox__thumb";
+  notifyTrack.append(notifyThumb);
+  notifySwitch.append(notifyInput, notifyTrack);
+  notifyInput.addEventListener("change", () => {
+    notifyVal = notifyInput.checked;
+    notifySwitch.classList.toggle("is-on", notifyVal);
+  });
+  notifyWrap.append(notifyText, notifySwitch);
+  root.append(notifyWrap);
 
   let recurrenceVal: CalendarEvent["recurrence"] = existing?.recurrence ?? "none";
   const recGroup = radioGroup<CalendarEvent["recurrence"]>(
@@ -158,7 +194,7 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
       source: "" as CalendarSource,
       source_account_id: "",
       external_id: "",
-      notify_on_start: typeVal === "event",
+      notify_on_start: typeVal === "event" ? true : notifyVal,
       last_notified_at: 0,
     };
   };

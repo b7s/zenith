@@ -104,21 +104,15 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
       { value: "alarm", label: "Alarm" },
     ],
     existing?.kind ?? "event",
-    (v) => {
-      typeVal = v;
-      notifyWrap.style.display = v === "alarm" ? "" : "none";
-    },
+    (v) => { typeVal = v; },
   );
   let typeVal: CalendarEvent["kind"] = existing?.kind ?? "event";
   root.append(typeGroup);
 
-  // Notification window toggle — only shown when type is "Alarm".
-  // Events always notify on start (see `read()`). For alarms, the user
-  // can opt out of the popup while keeping the entry on the schedule.
-  // Default ON for new alarms; existing alarms preserve their saved value.
+  // Notification window toggle — shown for both Event and Alarm types.
+  // Default ON for new entries; existing entries preserve their saved value.
   const notifyWrap = document.createElement("label");
   notifyWrap.className = "zen-checkbox";
-  notifyWrap.style.display = typeVal === "alarm" ? "" : "none";
   const notifyText = document.createElement("div");
   notifyText.className = "zen-checkbox__text";
   const notifyLabel = document.createElement("span");
@@ -194,7 +188,7 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
       source: "" as CalendarSource,
       source_account_id: "",
       external_id: "",
-      notify_on_start: typeVal === "event" ? true : notifyVal,
+      notify_on_start: notifyVal,
       last_notified_at: 0,
     };
   };

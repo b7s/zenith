@@ -80,6 +80,9 @@ fn run_tick(app: &AppHandle) -> Result<(), String> {
 
         // ---- One-shot Alarm rows (unchanged from the legacy path) ----
         if ev.kind == EventKind::Alarm && ev.time.is_some() {
+            if !ev.notify_on_start {
+                continue;
+            }
             let Some(fire_at) = next_fire_secs(ev, now) else {
                 continue;
             };

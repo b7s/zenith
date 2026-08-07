@@ -163,6 +163,7 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
                 error: ci.error.clone(),
                 account_id: acct.id.clone(),
                 account_label: acct.label.clone(),
+                status: ci.state.clone(),
             });
         }
     }

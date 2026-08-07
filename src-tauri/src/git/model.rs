@@ -53,6 +53,7 @@ pub struct GitWidgetConfig {
 
 fn default_global_poll() -> u64 { 5 }
 fn default_window_days() -> u64 { 14 }
+fn default_run_status() -> String { "failed".into() }
 
 impl Default for GitWidgetConfig {
     fn default() -> Self {
@@ -135,6 +136,12 @@ pub struct FailRun {
     /// Unix millis when the run finished, 0 if unknown.
     #[serde(default)]
     pub finished_ms: i64,
+    /// CI status of this run, mirrored from `RepoSummary::last_state`:
+    /// `"failed"` | `"cancelled"` | `"success"` | `"running"` | `"unknown"`.
+    /// Defaults to `"failed"` for entries written before the field existed.
+    /// Drives the stacked-by-day chart breakdown on the Git Manager dashboard.
+    #[serde(default = "default_run_status")]
+    pub status: String,
     /// Web URL to the failed run page.
     #[serde(default)]
     pub web_url: String,

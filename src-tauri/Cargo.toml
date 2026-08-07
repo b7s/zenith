@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "0.1.29"
+version = "0.1.30"
 edition = "2021"
 description = "A customizable top bar for Windows 11"
 

@@ -104,6 +104,7 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
                 error: String::new(),
                 account_id: acct.id.clone(),
                 account_label: acct.label.clone(),
+                status: pipe_state.clone(),
             });
         }
         let _ = uuid; // uuid currently unused — placeholder for v2 self-hosted bitbucket support

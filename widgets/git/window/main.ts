@@ -45,6 +45,28 @@ void (async () => {
   let acctFilter: AcctFilter =
     ((window as unknown as Partial<GitManagerGlobals>).__ZENITH_GIT_ACCOUNT_ID as string | null) ??
     "all";
+
+  // Per-day bucket cache for the by-day chart. Keyed by `${acctFilter}|${dayTs}`;
+  // each value is a per-status count map.
+  //  - Today: computed fresh every render (polls arrive and resolve runs).
+  //  - d-1 and older: computed ONCE per calendar day. The day is finalized the
+  //    first time it leaves "today" — i.e. the first render after midnight. We
+  //    track finalized days in `byDayFrozen` so a d-1 that was rendered while
+  //    still "yesterday" and gets a second d-1 render after midnight does one
+  //    recomputation to fold in last-day resolves, then stays frozen until the
+  //    window evicts it.
+  //  - Entries outside the current window / different filter are evicted lazily.
+  type StatusCounts = Record<string, number>;
+  const byDayCache = new Map<string, StatusCounts>();
+  const byDayFrozen = new Set<string>();
+  const byDayOrder: string[] = ["success", "failed", "running", "cancelled", "unknown"];
+  const statusLabel: Record<string, string> = {
+    success: "Success",
+    failed: "Failed",
+    running: "Running",
+    cancelled: "Cancelled",
+    unknown: "Others",
+  };
   if (acctFilter === "") acctFilter = "all";
 
   // ---- chrome ---------------------------------------------------------------
@@ -318,7 +340,14 @@ void (async () => {
     ci.append(legend);
     dash.append(ci);
 
-    // --- Failures by day (bar chart) ---------------------------------------
+    // --- CI runs by day (stacked bar chart) ----------------------------------
+    // Each day's bar is a vertical stack of CI statuses (success / failed /
+    // running / cancelled / unknown), mirroring the "CI status" section's
+    // categories. Counts come from `runs` (failed_runs from providers, each
+    // carrying its `status`). Old days (<= d-1) are computed once, cached,
+    // and reused; only today's bucket is recomputed on each render. Stale
+    // cache entries outside the current window or no-longer-matching account
+    // filter are evicted lazily so the cache never grows unbounded.
     const fd = document.createElement("section");
     fd.className = "gm-section";
     const winDays = cfg.failures_window_days ?? 14;
@@ -336,40 +365,151 @@ void (async () => {
       const span = runs.length > 0 ? Math.ceil((today.getTime() - earliest) / DAY_MS) + 1 : 7;
       DAYS = Math.max(7, Math.min(span, 90));
     }
-    fd.append(sectionTitle(`Failed runs by day (${winDays > 0 ? winDays + "d" : "90d"})`));
-    const buckets: { label: string; count: number; ts: number }[] = [];
+    fd.append(sectionTitle(`CI runs by day (${winDays > 0 ? winDays + "d" : "90d"})`));
+    const buckets: { label: string; ts: number; counts: StatusCounts }[] = [];
     for (let i = DAYS - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      buckets.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, count: 0, ts: d.getTime() });
+      buckets.push({
+        label: `${d.getMonth() + 1}/${d.getDate()}`,
+        ts: d.getTime(),
+        counts: { success: 0, failed: 0, running: 0, cancelled: 0, unknown: 0 },
+      });
     }
     const startTs = buckets[0].ts;
     const endTs = today.getTime() + DAY_MS;
+    const todayTs = today.getTime();
+    const filterKey = acctFilter;
+
+    // Evict cache / frozen-set entries that fall outside the current window
+    // (older than the first bucket) or belong to a different account filter.
+    // `byDayCache` + `byDayFrozen` are process-lifetime structures shared
+    // across renders; without eviction a shrunk `failures_window_days` or
+    // switched `acctFilter` would leave dead entries behind forever.
+    for (const key of Array.from(byDayCache.keys())) {
+      const bar = key.indexOf("|");
+      const dayTs = bar >= 0 ? Number(key.slice(bar + 1)) : NaN;
+      if (key.startsWith(filterKey + "|") && dayTs >= startTs && dayTs < endTs) continue;
+      byDayCache.delete(key);
+      byDayFrozen.delete(key);
+    }
+    for (const key of Array.from(byDayFrozen.keys())) {
+      const bar = key.indexOf("|");
+      const dayTs = bar >= 0 ? Number(key.slice(bar + 1)) : NaN;
+      if (key.startsWith(filterKey + "|") && dayTs >= startTs && dayTs < endTs) continue;
+      byDayFrozen.delete(key);
+    }
+
+    // Step 1 — group every in-window run by day index and tabulate per-status
+    // counts. This produces "fresh" counts for ALL days (today included). Older
+    // days will be discarded if a frozen cache entry exists for them; today is
+    // always taken fresh.
+    const fresh: StatusCounts[] = buckets.map(() => ({
+      success: 0,
+      failed: 0,
+      running: 0,
+      cancelled: 0,
+      unknown: 0,
+    }));
     for (const r of runs) {
-      if (r.finished_ms >= startTs && r.finished_ms <= endTs) {
-        const d = new Date(r.finished_ms);
-        d.setHours(0, 0, 0, 0);
-        const idx = Math.round((d.getTime() - startTs) / DAY_MS);
-        if (idx >= 0 && idx < DAYS) buckets[idx].count++;
+      if (r.finished_ms < startTs || r.finished_ms > endTs) continue;
+      const d = new Date(r.finished_ms);
+      d.setHours(0, 0, 0, 0);
+      const idx = Math.round((d.getTime() - startTs) / DAY_MS);
+      if (idx < 0 || idx >= DAYS) continue;
+      let raw = r.status;
+      if (!byDayOrder.includes(raw)) raw = "unknown";
+      fresh[idx][raw] = (fresh[idx][raw] ?? 0) + 1;
+    }
+
+    // Step 2 — fold the fresh counts into the buckets using the freeze rule:
+    //  - Today: ALWAYS use fresh (live polls keep resolving runs).
+    //  - d-1..oldest: use the cached+frozen counts if present. Otherwise this
+    //    is the first render of the day for that calendar day — adopt the fresh
+    //    counts, write them to the cache, and flip the frozen flag so subsequent
+    //    renders same-day don't refine it (CI runs that ended today but finished
+    //    yesterday are already closed data; tomorrow's finalize picks up any late
+    //    landed one).
+    for (let i = 0; i < buckets.length; i++) {
+      const b = buckets[i];
+      if (b.ts === todayTs) {
+        b.counts = { ...fresh[i] };
+        continue;
+      }
+      const key = `${filterKey}|${b.ts}`;
+      if (byDayFrozen.has(key)) {
+        const cached = byDayCache.get(key);
+        b.counts = cached ? { ...cached } : { ...fresh[i] };
+      } else {
+        const counts = { ...fresh[i] };
+        byDayCache.set(key, counts);
+        byDayFrozen.add(key);
+        b.counts = { ...counts };
       }
     }
-    const maxCount = Math.max(1, ...buckets.map((b) => b.count));
+
+    const totalByDay = buckets.map((b) =>
+      byDayOrder.reduce((acc, k) => acc + (b.counts[k] ?? 0), 0),
+    );
+    const maxCount = Math.max(1, ...totalByDay);
+
     const chart = document.createElement("div");
     chart.className = "gm-barchart";
     for (const b of buckets) {
+      const total = byDayOrder.reduce((acc, k) => acc + (b.counts[k] ?? 0), 0);
       const col = document.createElement("div");
       col.className = "gm-bar-col";
-      const bar = document.createElement("span");
-      bar.className = "gm-bar";
-      bar.style.height = `${(b.count / maxCount) * 100}%`;
-      bar.title = `${b.label}: ${b.count}`;
+      if (total === 0) {
+        const empty = document.createElement("span");
+        empty.className = "gm-bar is-empty";
+        empty.style.height = "2px";
+        empty.title = `${b.label}: 0`;
+        col.append(empty);
+      } else {
+        const wrap = document.createElement("span");
+        wrap.className = "gm-bar-stack";
+        wrap.style.height = `${(total / maxCount) * 100}%`;
+        const tipParts: string[] = [b.label];
+        for (const k of byDayOrder) {
+          const c = b.counts[k] ?? 0;
+          if (c > 0) tipParts.push(`${statusLabel[k]}: ${c}`);
+        }
+        wrap.title = tipParts.join(" · ");
+        for (const k of byDayOrder) {
+          const c = b.counts[k] ?? 0;
+          if (c === 0) continue;
+          const seg = document.createElement("span");
+          seg.className = `gm-bar-seg is-${k}`;
+          seg.style.height = `${(c / total) * 100}%`;
+          wrap.append(seg);
+        }
+        col.append(wrap);
+      }
       const lbl = document.createElement("span");
       lbl.className = "gm-bar-label";
       lbl.textContent = b.label;
-      col.append(bar, lbl);
+      col.append(lbl);
       chart.append(col);
     }
     fd.append(chart);
+
+    // Legend — same colour mapping as the "CI status" stacked bar above, so
+    // the two charts read as a coherent pair.
+    const fdLegend = document.createElement("div");
+    fdLegend.className = "gm-legend";
+    let anyNonZero = false;
+    for (const k of byDayOrder) {
+      const sum = buckets.reduce((acc, b) => acc + (b.counts[k] ?? 0), 0);
+      if (sum > 0) anyNonZero = true;
+      const item = document.createElement("span");
+      item.className = "gm-legend-item";
+      const dot = document.createElement("span");
+      dot.className = `gm-legend-dot is-${k}`;
+      item.append(dot, document.createTextNode(`${statusLabel[k]} ${sum}`));
+      fdLegend.append(item);
+    }
+    if (anyNonZero) fd.append(fdLegend);
+
     dash.append(fd);
 
     // --- Needs attention ----------------------------------------------------

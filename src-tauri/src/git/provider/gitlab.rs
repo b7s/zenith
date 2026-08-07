@@ -98,6 +98,7 @@ pub fn inventory(acct: &GitAccount, token: &str) -> Result<AcctInventory, String
                 error: String::new(),
                 account_id: acct.id.clone(),
                 account_label: acct.label.clone(),
+                status: last_state.clone(),
             });
         }
         inv.repos.push(RepoSummary {

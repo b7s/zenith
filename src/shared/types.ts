@@ -336,6 +336,11 @@ export interface FailRun {
   short_sha: string;
   ago: string;
   finished_ms: number;
+  /** CI status of this run — `"failed"` | `"cancelled"` | `"success"` |
+   *  `"running"` | `"unknown"`. Mirrors `RepoSummary.last_state`. Defaults to
+   *  `"failed"` for entries written before the field existed. Drives the
+   *  stacked-by-day chart breakdown on the Git Manager dashboard. */
+  status: string;
   web_url: string;
   /** Short failure summary from the CI provider (e.g. a failed check-run's
    *  output), or empty when not available. Surfaced to AI assistants. */

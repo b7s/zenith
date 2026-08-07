@@ -460,6 +460,31 @@ body[data-window="git-manager"] .zen-window__title-wrap {
   transform-origin: bottom;
   animation: gm-bar-grow 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
+.gm-bar.is-empty {
+  background: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
+  animation: none;
+}
+.gm-bar-stack {
+  display: flex;
+  flex-direction: column-reverse;
+  width: 70%;
+  max-width: 1.25rem;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+  transform-origin: bottom;
+  animation: gm-bar-grow 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.gm-bar-seg {
+  display: block;
+  flex: 0 0 auto;
+  min-height: 1px;
+}
+.gm-bar-seg.is-success   { background: var(--success, #22c55e); }
+.gm-bar-seg.is-failed    { background: var(--danger, #ef4444); }
+.gm-bar-seg.is-running   { background: var(--warning, #eab308); }
+.gm-bar-seg.is-cancelled { background: color-mix(in oklch, var(--muted-foreground) 70%, transparent); }
+.gm-bar-seg.is-unknown   { background: color-mix(in oklch, var(--muted-foreground) 40%, transparent); }
 @keyframes gm-bar-grow {
   from { transform: scaleY(0); opacity: 0; }
   to   { transform: scaleY(1); opacity: 1; }

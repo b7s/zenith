@@ -1,6 +1,6 @@
 [package]
 name = "zenith"
-version = "0.1.28"
+version = "0.1.29"
 edition = "2021"
 description = "A customizable top bar for Windows 11"
 
@@ -50,6 +50,8 @@ windows = { version = "0.61", features = [
     "Media",
     "Media_Control",
     "Storage_Streams",
+    "UI_Notifications",
+    "Data_Xml_Dom",
 ] }
 windows_058 = { package = "windows", version = "0.58", features = ["Win32_Foundation"] }
 windows-future = "0.2"

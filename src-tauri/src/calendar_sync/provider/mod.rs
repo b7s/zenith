@@ -124,6 +124,7 @@ pub fn build_event(
         source_account_id: account_id.to_string(),
         external_id: external_id.to_string(),
         notify_on_start: true,
+        notify_advance_secs: 0,
         last_notified_at: 0,
     }
 }

@@ -68,6 +68,13 @@ pub struct CalendarEvent {
     /// occurrence. Local one-shot alarms are unaffected.
     #[serde(default = "default_true")]
     pub notify_on_start: bool,
+    /// How many seconds before the event's scheduled time the alarm
+    /// toast should fire. `0` means "at the scheduled time" (no
+    /// advance). Mirrored in `src/shared/types.ts::notify_advance_secs`.
+    /// The alarm-fire thread subtracts this value from each row's
+    /// fire_at when scanning the tick window.
+    #[serde(default)]
+    pub notify_advance_secs: i64,
     /// Epoch-seconds of the last time the start notification fired for
     /// this row. Lets the alarm-fire thread skip rows that already
     /// fired this occurrence. Empty after one-shot completion.

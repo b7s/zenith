@@ -188,9 +188,13 @@ export interface CalendarEvent {
    *  Empty for user-created entries. */
   external_id: string;
   /** When true (default for synced events), the alarm-fire thread raises
-   *  the popup notification when this event's `date`+`time` arrives.
-   *  Local one-shot alarms are unaffected. */
+   *  the toast notification when this event's `date`+`time` arrives.
+   *  Local one-shot alarms are unaffected. Mirrored in Rust. */
   notify_on_start: boolean;
+  /** How many seconds before the scheduled time the alarm toast fires.
+   *  `0` = at the scheduled time. Mirrored in
+   *  `src-tauri/src/events/model.rs::notify_advance_secs`. */
+  notify_advance_secs: number;
   /** Epoch seconds of the last time the start notification fired for this
    *  row. Used by the alarm-fire thread to skip rows that already fired. */
   last_notified_at: number;

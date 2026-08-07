@@ -14,6 +14,27 @@ const RECURRENCE_OPTIONS: { value: CalendarEvent["recurrence"]; label: string }[
   { value: "monthly", label: "Monthly" },
 ];
 
+/** "How long in advance" options for the notify-advance dropdown.
+ *  Values are epoch-seconds, matching the Rust side. `0` means "at the
+ *  scheduled time" (no advance). Mirrored by the alarm-fire thread which
+ *  subtracts this value from `fire_at` when scanning the tick window. */
+const ADVANCE_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: "At time of event" },
+  { value: 5 * 60, label: "5 min before" },
+  { value: 10 * 60, label: "10 min before" },
+  { value: 30 * 60, label: "30 min before" },
+  { value: 45 * 60, label: "45 min before" },
+  { value: 60 * 60, label: "1 hour before" },
+  { value: 90 * 60, label: "1.5 hours before" },
+  { value: 2 * 3600, label: "2 hours before" },
+  { value: 4 * 3600, label: "4 hours before" },
+  { value: 6 * 3600, label: "6 hours before" },
+  { value: 10 * 3600, label: "10 hours before" },
+  { value: 24 * 3600, label: "1 day before" },
+  { value: 2 * 86400, label: "2 days before" },
+  { value: 3 * 86400, label: "3 days before" },
+];
+
 /** Build the event editor form. Returns the wrapper + a read() getter that
  *  pulls fresh values on demand (so callers can grab the snapshot at click
  *  time). All controls use `.zen-*` primitives — see AGENTS.md §6. */
@@ -109,15 +130,16 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
   let typeVal: CalendarEvent["kind"] = existing?.kind ?? "event";
   root.append(typeGroup);
 
-  // Notification window toggle — shown for both Event and Alarm types.
-  // Default ON for new entries; existing entries preserve their saved value.
+  // "Notify me" — shown for both Event and Alarm types. Toggling this off
+  // also disables the advance-notice dropdown below. Default ON; existing
+  // entries preserve their saved value.
   const notifyWrap = document.createElement("label");
   notifyWrap.className = "zen-checkbox";
   const notifyText = document.createElement("div");
   notifyText.className = "zen-checkbox__text";
   const notifyLabel = document.createElement("span");
   notifyLabel.className = "zen-checkbox__label";
-  notifyLabel.textContent = "Show notification window";
+  notifyLabel.textContent = "Notify me";
   notifyText.append(notifyLabel);
   const notifySwitch = document.createElement("span");
   notifySwitch.className = "zen-checkbox__switch";
@@ -135,9 +157,48 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
   notifyInput.addEventListener("change", () => {
     notifyVal = notifyInput.checked;
     notifySwitch.classList.toggle("is-on", notifyVal);
+    advanceSelect.disabled = !notifyVal;
   });
   notifyWrap.append(notifyText, notifySwitch);
   root.append(notifyWrap);
+
+  // "How long in advance" — native `.zen-select` inside `.zen-select-wrapper`.
+  // Value is stored in seconds, matching Rust. Disabled when "Notify me" is
+  // off (the saved value is preserved but the choice is moot until the user
+  // re-enables notifications).
+  const advanceWrap = document.createElement("div");
+  advanceWrap.className = "zen-field";
+  const advanceLabel = document.createElement("label");
+  advanceLabel.className = "zen-label";
+  advanceLabel.textContent = "Notify in advance";
+  advanceWrap.append(advanceLabel);
+  const advanceSelectWrapper = document.createElement("div");
+  advanceSelectWrapper.className = "zen-select-wrapper";
+  const advanceSelect = document.createElement("select");
+  advanceSelect.className = "zen-select";
+  advanceSelect.disabled = !notifyVal;
+  let advanceVal = existing?.notify_advance_secs ?? 0;
+  let advanceHasExisting = false;
+  for (const opt of ADVANCE_OPTIONS) {
+    const o = document.createElement("option");
+    o.value = String(opt.value);
+    o.textContent = opt.label;
+    if (opt.value === advanceVal) {
+      o.selected = true;
+      advanceHasExisting = true;
+    }
+    advanceSelect.append(o);
+  }
+  if (!advanceHasExisting) {
+    advanceVal = 0;
+    advanceSelect.value = "0";
+  }
+  advanceSelect.addEventListener("change", () => {
+    advanceVal = parseInt(advanceSelect.value, 10) || 0;
+  });
+  advanceSelectWrapper.append(advanceSelect);
+  advanceWrap.append(advanceSelectWrapper);
+  root.append(advanceWrap);
 
   let recurrenceVal: CalendarEvent["recurrence"] = existing?.recurrence ?? "none";
   const recGroup = radioGroup<CalendarEvent["recurrence"]>(
@@ -189,6 +250,7 @@ export function buildEventForm(existing: CalendarEvent | null): BuiltEventForm {
       source_account_id: "",
       external_id: "",
       notify_on_start: notifyVal,
+      notify_advance_secs: advanceVal,
       last_notified_at: 0,
     };
   };

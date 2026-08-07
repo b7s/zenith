@@ -27,7 +27,6 @@ export default defineConfig({
         "color-picker": resolve(__dirname, "widgets/color_picker/window/color-picker.html"),
         "eyedropper": resolve(__dirname, "widgets/color_picker/window/eyedropper.html"),
         "shutdown-popup": resolve(__dirname, "widgets/shutdown/window/shutdown-popup.html"),
-        "alarm-popup": resolve(__dirname, "widgets/alarms/window/alarm-popup.html"),
         "git-manager": resolve(__dirname, "widgets/git/window/git-manager.html"),
         "webapp-window": resolve(__dirname, "widgets/webapp/window/webapp-window.html"),
         "weather": resolve(__dirname, "widgets/weather/window/weather.html"),

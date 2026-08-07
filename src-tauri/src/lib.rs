@@ -184,6 +184,11 @@ pub fn run() {
             // Events domain — startup sync picks newer of local vs OneDrive,
             // then spawn the alarm-firing thread (every 30s) and the cleanup
             // thread (every 24h).
+            //
+            // Register the AppUserModelID first so the alarm toast path can
+            // surface native Windows notifications in the alarm scenario
+            // (looping OS alarm sound, stays on screen until dismissed).
+            events::toast::register_aumid();
             events::repository::startup_sync();
             events::alarm_fire::spawn(handle.clone());
             events::cleanup::spawn(handle.clone());

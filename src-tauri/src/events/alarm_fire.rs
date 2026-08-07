@@ -1,19 +1,21 @@
 //! Alarm-firing background thread.
 //!
-//! Runs every 30 seconds, scans enabled events for any whose next
-//! occurrence falls within the current 30-second window. On a hit:
-//!   * plays a Windows system sound (configurable via `widgets.config.alarms.sound_enabled`)
-//!   * shows a small notification popup window
+//! Runs every 30 seconds, scans enabled events for any whose configured
+//! notify instant falls within the current window. The notify instant is
+//! `scheduled - notify_advance_secs` (advance=0 means "at the scheduled
+//! time"). On a hit:
+//!   * raises a native Windows alarm toast (looping alarm sound, stays on
+//!     screen until dismissed) — see `toast::fire_alarm_toast`
 //!   * for one-shot items (`Recurrence::None`), disables the row so it won't
 //!     fire again unless the user re-enables it
 //!
-//! Two kinds of rows fire this popup:
+//! Two kinds of rows fire this toast:
 //!   - `kind = Alarm` — the user's stand-alone timed reminders.
 //!   - `kind = Event` with `notify_on_start = true` — synced events from
 //!     Google Calendar / Outlook (or a local event the user has flagged
-//!     for notification). For these we record `last_notified_at` so the
+//!     for notification). For these we stamp `last_notified_at` so the
 //!     next 30 seconds don't refire the same row. Local all-day events
-//!     skip the popup (they have no `time`); the alarms widget still
+//!     skip the toast (they have no `time`); the alarms widget still
 //!     surfaces them on the bar.
 
 use std::collections::HashSet;
@@ -27,15 +29,11 @@ use super::model::{CalendarEvent, EventKind, Recurrence};
 use super::repository;
 
 const TICK: Duration = Duration::from_secs(30);
-/// Don't re-fire the same alarm within this window even if it stays due
-/// across tick boundaries (e.g. alarm popups stay open longer than the
-/// re-check interval).
+/// A pending toast fires when its `notify_at` instant is within this many
+/// seconds of `now`. Lower bounds the live window; upper bounds the
+/// "catch-up after a missed tick" window so a slept-through alarm still
+/// fires once when the bar is back on, but is not repeatedly alarmed.
 const DEDUP_WINDOW_SECS: i64 = 60;
-/// Event-start notifications are pushed onto a one-shot queue with
-/// `last_notified_at`. We treat 5+ minutes as "stale enough to re-notify"
-/// so a missed tick (e.g. the bar was off when an event fired) still
-/// alarms when the bar comes back up.
-const EVENT_NOTIFY_REFIRE_SECS: i64 = 5 * 60;
 
 /// In-memory dedup set — uses alarm IDs echoed with their most-recent
 /// fire-time (epoch secs). Spills to file when the process exits isn't
@@ -51,11 +49,12 @@ fn now_secs() -> i64 {
         .unwrap_or(0)
 }
 
-fn alarms_app_enabled(app: &AppHandle) -> bool {
-    crate::config::repository::get_or(
-        "/widgets/config/alarms/sound_enabled",
-        true,
-    ) && app.get_webview_window("bar").is_some()
+fn current_bar_present(app: &AppHandle) -> bool {
+    // The alarm-firing thread runs while Zenith is alive. The bar-window
+    // probe is a cheap liveness check — when the bar is closed the app is
+    // shutting down and toasts are unnecessary; the toast API itself would
+    // also fail on a torn-down process.
+    app.get_webview_window("bar").is_some()
 }
 
 /// Spawn the alarm-firing thread. Safe to call from `lib.rs::setup`.
@@ -78,57 +77,55 @@ fn run_tick(app: &AppHandle) -> Result<(), String> {
             continue;
         }
 
-        // ---- One-shot Alarm rows (unchanged from the legacy path) ----
-        if ev.kind == EventKind::Alarm && ev.time.is_some() {
-            if !ev.notify_on_start {
-                continue;
-            }
-            let Some(fire_at) = next_fire_secs(ev, now) else {
-                continue;
-            };
-            let delta = fire_at - now;
-            if !(0..=TICK.as_secs() as i64).contains(&delta) {
-                continue;
-            }
-            if already_fired(&ev.id, fire_at) {
-                continue;
-            }
-            record_fired(&ev.id, fire_at);
-            fire_alarm(app, ev, fire_at);
-            if matches!(ev.recurrence, Recurrence::None) {
-                to_disable.push(ev.id.clone());
-            }
+        // ---- Shared gate: both Alarm rows and Event-start notifications
+        // require `notify_on_start: true` and a concrete start `time`
+        // (all-day events never fire a toast). The `notify_advance_secs`
+        // field shifts the toast earlier — the toast fires at
+        // `scheduled - advance_secs`, NOT at the scheduled instant.
+        if !ev.notify_on_start || ev.time.is_none() {
             continue;
         }
 
-        // ---- Event-start notifications (kind = Event) — synced or local
-        // events with `notify_on_start: true` and a concrete start `time`.
-        // All-day events (no `time`) never fire a popup (we have no
-        // "0:00 sharp" trigger for them); the bar/alarms widget still
-        // shows them on the day. Recurring events fire once per occurrence.
-        if ev.kind != EventKind::Event || !ev.notify_on_start {
-            continue;
-        }
-        if ev.time.is_none() {
-            continue;
-        }
         let Some(fire_at) = next_fire_secs(ev, now) else {
             continue;
         };
-        // Skip if this row already fired within EVENT_NOTIFY_REFIRE_SECS
-        // of `fire_at`. This guards against double-notifying across
-        // multi-tick windows (a 1h meeting straddles two ticks).
-        if !should_fire_event_notify(ev, fire_at, now) {
+
+        // `notify_at` is the epoch-second when the toast should actually
+        // fire. If `notify_advance_secs` is `0`, this is `fire_at` itself
+        // (no advance) — the legacy behavior. We deduplicate by
+        // `(id, notify_at)` so an event with an advance fires exactly once
+        // at the advanced instant, not again at the scheduled instant.
+        let notify_at = fire_at - ev.notify_advance_secs.max(0);
+        if notify_at > now {
+            // Notify instant is still in the future. Skip — no toast yet.
+            continue;
+        }
+        let delta = now - notify_at;
+        // A pending toast is one whose notify_at is within the last tick
+        // window. We keep DEDUP_WINDOW_SECS as the upper bound so a missed
+        // tick (sleep, bar off) still fires the toast up to 60s later,
+        // after which we treat it as "missed" and move on.
+        if delta > DEDUP_WINDOW_SECS {
             continue;
         }
 
-        fire_alarm(app, ev, fire_at);
+        let is_alarm = ev.kind == EventKind::Alarm;
+
+        // Dedup with the *notify_at* instant (not fire_at) — the user
+        // configured the toast to appear at notify_at, and that's what
+        // we want to record as "fired this occurrence".
+        if already_fired(&ev.id, notify_at) {
+            continue;
+        }
+        record_fired(&ev.id, notify_at);
+        fire_alarm(app, ev, notify_at);
+
         if matches!(ev.recurrence, Recurrence::None) {
-            // One-shot event notifications: delete the row entirely (the
-            // event has already happened, so it isn't useful on the
-            // calendar). Recurring events keep firing each cycle.
             to_disable.push(ev.id.clone());
-        } else {
+        } else if !is_alarm {
+            // Recurring Event-kind rows stamp `last_notified_at` so the
+            // next tick won't refire the same occurrence. Alarm rows
+            // dedupe purely via the in-memory set above.
             event_notified.push((ev.id.clone(), now));
         }
     }
@@ -142,7 +139,7 @@ fn run_tick(app: &AppHandle) -> Result<(), String> {
     }
 
     // Recurring event rows that just fired: stamp `last_notified_at` so
-    // the next tick skips them within `EVENT_NOTIFY_REFIRE_SECS`.
+    // the next tick skips them until a new occurrence rolls around.
     let notified_count = event_notified.len();
     if notified_count > 0 {
         let mut by_id: std::collections::HashMap<String, i64> =
@@ -162,34 +159,6 @@ fn run_tick(app: &AppHandle) -> Result<(), String> {
         let _ = app.emit(crate::shared::EVENT_EVENTS_UPDATED, ());
     }
     Ok(())
-}
-
-/// Decide whether to notify this event row now.
-///
-/// Rules:
-///   * If `last_notified_at == 0`, never notified — fire.
-///   * If `last_notified_at` was within `EVENT_NOTIFY_REFIRE_SECS` of the
-///     current `now`, skip (the popup is still considered pending or was
-///     already shown for this occurrence).
-///   * Otherwise the row is stale (the user just powered the bar back on
-///     after a long sleep, or the tick missed) — fire once and stamp.
-///   * For recurring events: only fire when the NEXT occurrence lives
-///     inside the current 30s lookahead window.
-fn should_fire_event_notify(ev: &CalendarEvent, fire_at: i64, now: i64) -> bool {
-    let delta = fire_at - now;
-    if !(0..=TICK.as_secs() as i64).contains(&delta) {
-        return false;
-    }
-    if ev.last_notified_at == 0 {
-        return true;
-    }
-    let elapsed = now - ev.last_notified_at;
-    // If the event fired at `fire_at` and we recorded `last_notified_at`
-    // against `now`, then `fire_at - last_notified_at` is at most
-    // (TICK + jitter) and a value pretty close to 0 means we're still in
-    // the same occurrence window. We consider the same occurrence to be
-    // "elapsed < EVENT_NOTIFY_REFIRE_SECS".
-    elapsed >= EVENT_NOTIFY_REFIRE_SECS
 }
 
 fn already_fired(id: &str, fire_at: i64) -> bool {
@@ -306,99 +275,19 @@ fn weekday_of_epoch_day(d: i64) -> u32 {
     r as u32
 }
 
-/// Fire the alarm: play sound + open notification window.
+/// Fire the alarm: raise a native Windows alarm toast.
+///
+/// The toast itself owns the looping alarm sound (its XML declares
+/// `<scenario value="alarm">` + `Notification.Looping.Alarm`). On any toast
+/// failure `toast::fire_alarm_toast` falls back to a single `MessageBeep`
+/// so the user always hears at least one beep. We no longer gate on
+/// `alarms_app_enabled` here: that helper used to skip both the sound and
+/// the popup when the user muted alarms via config; now we always raise
+/// the toast so the user sees the reminder, and let the OS apply Focus
+/// Assist / system mute to the looping audio.
 fn fire_alarm(app: &AppHandle, ev: &CalendarEvent, fire_at: i64) {
-    if alarms_app_enabled(app) {
-        play_windows_alarm_sound();
+    if !current_bar_present(app) {
+        return;
     }
-    open_alarm_popup(app, ev, fire_at);
-}
-
-fn play_windows_alarm_sound() {
-    // Use winmm!MessageBeep for the system "alarm" beep. Simplest path that
-    // doesn't require feature additions or file shipping.
-    extern "system" {
-        fn MessageBeep(uType: u32) -> i32;
-    }
-    unsafe {
-        let _ = MessageBeep(0x00000040); // MB_ICONWARNING (system alarm tone)
-    }
-}
-
-fn open_alarm_popup(app: &AppHandle, ev: &CalendarEvent, fire_at: i64) {
-    let label = format!("alarm-popup-{}", ev.id);
-    let title = ev.title.clone();
-    let title_js = escape_js_string(&title);
-    let time = format_fire_clock(fire_at);
-    let time_js = escape_js_string(&time);
-    let end_js = escape_js_string(ev.end_time.as_deref().unwrap_or(""));
-    let h = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let win_label = label.clone();
-        let win_w = 360.0_f64;
-        let win_h = 200.0_f64;
-        let (cx, cy) = crate::window::monitor::center_on_primary_monitor(win_w as i32, win_h as i32);
-        let win = match tauri::WebviewWindowBuilder::new(
-            &h,
-            label,
-            tauri::WebviewUrl::App("widgets/alarms/window/alarm-popup.html".into()),
-        )
-        .title(title.clone())
-        .inner_size(win_w, win_h)
-        .position(cx as f64, cy as f64)
-        .resizable(false)
-        .decorations(false)
-        .transparent(true)
-        .skip_taskbar(true)
-        .visible(false)
-        .focused(true)
-        .always_on_top(true)
-        .additional_browser_args("--default-background-color=00000000")
-          .initialization_script(format!(
-            "window.__ZENITH_ALARM_TITLE = '{}';\nwindow.__ZENITH_ALARM_TIME = '{}';\nwindow.__ZENITH_ALARM_END = '{}';",
-            title_js, time_js, end_js
-        ))
-        .build()
-        {
-            Ok(w) => w,
-            Err(e) => {
-                eprintln!("[zenith:events] alarm popup build failed: {e:?}");
-                return;
-            }
-        };
-
-        let _ = crate::window::apply_fixed_acrylic(&h, &win_label);
-        let _ = crate::window::set_rounded_corners(&win);
-        let _ = crate::window::set_disable_transitions(&win);
-
-        use windows::Win32::UI::WindowsAndMessaging::{
-            SetWindowPos, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
-        };
-        let hwnd = match win.hwnd() {
-            Ok(h) => h,
-            Err(_) => return,
-        };
-        let _ = unsafe {
-            SetWindowPos(
-                hwnd,
-                None,
-                0, 0, 0, 0,
-                SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOSIZE | SWP_NOMOVE,
-            )
-        };
-        let _ = win.set_focus();
-    });
-}
-
-fn escape_js_string(s: &str) -> String {
-    s.replace('\\', r"\\").replace('\'', r"\'").replace('\n', r"\n")
-}
-
-fn format_fire_clock(secs: i64) -> String {
-    let day = secs / 86400;
-    let rem = secs % 86400;
-    let h = rem / 3600;
-    let m = (rem % 3600) / 60;
-    let (y, mo, d) = civil_from_days(day);
-    format!("{:02}:{:02} · {:04}-{:02}-{:02}", h, m, y, mo, d)
+    super::toast::fire_alarm_toast(ev, fire_at);
 }
